@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sportsaccesories/profile.dart';
 import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportsaccesories/new_match.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class Home extends StatelessWidget {
@@ -61,24 +62,33 @@ class Home extends StatelessWidget {
                       'Rankings',
                       Icons.leaderboard,
                       Colors.orange,
+                      () {},
                     ),
                     _buildActionButton(
                       context,
                       'Records',
                       Icons.emoji_events,
                       Colors.blue,
+                      () {},
                     ),
                     _buildActionButton(
                       context,
                       'New Match',
                       Icons.sports_tennis,
                       Colors.green,
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const NewMatch()),
+                        );
+                      },
                     ),
                     _buildActionButton(
                       context,
                       'New Tournament',
                       Icons.military_tech,
                       Colors.purple,
+                      () {},
                     ),
                   ],
                 ),
@@ -90,9 +100,9 @@ class Home extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(BuildContext context, String label, IconData icon, Color color) {
+  Widget _buildActionButton(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
