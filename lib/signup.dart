@@ -12,6 +12,7 @@ class SignUp extends StatefulWidget {
 class _SignUpState extends State<SignUp> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
@@ -21,6 +22,7 @@ class _SignUpState extends State<SignUp> {
   @override
   void dispose() {
     _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -42,9 +44,11 @@ class _SignUpState extends State<SignUp> {
         _passwordController.text.trim(),
       );
 
-      setState(() => _isLoading = false);
-
       if (user != null) {
+        // Set the username (displayName) immediately after sign up
+        await user.updateDisplayName(_usernameController.text.trim());
+        await user.reload();
+        
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -56,6 +60,8 @@ class _SignUpState extends State<SignUp> {
           const SnackBar(content: Text('Sign up failed. Check your connection or email format.')),
         );
       }
+      
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -81,6 +87,16 @@ class _SignUpState extends State<SignUp> {
                   ),
                 ),
                 const SizedBox(height: 32),
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value!.isEmpty ? 'Enter a username' : null,
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,

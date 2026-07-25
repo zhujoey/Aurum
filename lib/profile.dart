@@ -25,8 +25,8 @@ class Profile extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                Center(
-                  child: const CircleAvatar(
+                const Center(
+                  child: CircleAvatar(
                     radius: 50,
                     child: Icon(Icons.person, size: 50),
                   ),

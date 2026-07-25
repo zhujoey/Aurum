@@ -37,6 +37,8 @@ class _EditProfileState extends State<EditProfile> {
     try {
       // Update only the Firebase displayName
       await _authService.currentUser?.updateDisplayName(_usernameController.text.trim());
+      // Reload the user to force the stream to emit the new data
+      await _authService.currentUser?.reload();
       
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sportsaccesories/home.dart';
 import 'package:sportsaccesories/signup.dart';
 import 'package:sportsaccesories/auth_service.dart';
@@ -17,12 +18,38 @@ class _LoginState extends State<Login> {
   final _authService = AuthService();
 
   bool _isLoading = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedEmail();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _loadSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _emailController.text = prefs.getString('saved_email') ?? '';
+      _rememberMe = prefs.getBool('remember_me') ?? false;
+    });
+  }
+
+  void _saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('saved_email', _emailController.text.trim());
+      await prefs.setBool('remember_me', true);
+    } else {
+      await prefs.remove('saved_email');
+      await prefs.setBool('remember_me', false);
+    }
   }
 
   void _handleLogin() async {
@@ -34,9 +61,8 @@ class _LoginState extends State<Login> {
         _passwordController.text.trim(),
       );
 
-      setState(() => _isLoading = false);
-
       if (user != null) {
+        _saveCredentials();
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -44,8 +70,9 @@ class _LoginState extends State<Login> {
         );
       } else {
         if (!mounted) return;
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login failed. Check your email/password or Firebase setup.')),
+          const SnackBar(content: Text('Login failed. Check your email/password.')),
         );
       }
     }
@@ -63,19 +90,12 @@ class _LoginState extends State<Login> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.sports_tennis,
-                  size: 80,
-                  color: Colors.blue,
-                ),
+                const Icon(Icons.sports_tennis, size: 80, color: Colors.blue),
                 const SizedBox(height: 24),
                 const Text(
                   'Sports Tracker',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 48),
                 TextFormField(
@@ -86,12 +106,7 @@ class _LoginState extends State<Login> {
                     prefixIcon: Icon(Icons.email),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    return null;
-                  },
+                  validator: (value) => value!.isEmpty ? 'Please enter your email' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -102,14 +117,19 @@ class _LoginState extends State<Login> {
                     prefixIcon: Icon(Icons.lock),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    return null;
-                  },
+                  validator: (value) => value!.isEmpty ? 'Please enter your password' : null,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (value) => setState(() => _rememberMe = value ?? false),
+                    ),
+                    const Text('Remember Me'),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 _isLoading 
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
@@ -118,20 +138,11 @@ class _LoginState extends State<Login> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text(
-                        'Login',
-                        style: TextStyle(fontSize: 18),
-                      ),
+                      child: const Text('Login', style: TextStyle(fontSize: 18)),
                     ),
                 const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('Forgot Password?'),
-                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

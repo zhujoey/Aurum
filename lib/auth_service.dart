@@ -39,6 +39,6 @@ class AuthService {
   // Get current user
   User? get currentUser => _auth.currentUser;
 
-  // Stream of auth changes
-  Stream<User?> get userStream => _auth.authStateChanges();
+  // Stream of auth changes (including profile updates)
+  Stream<User?> get userStream => _auth.userChanges();
 }
