@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "965668657122",
+    "project_id": "sportsaccessories-c8431",
+    "storage_bucket": "sportsaccessories-c8431.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:965668657122:android:45aa84d679109fe24b0bbb",
+        "android_client_info": {
+          "package_name": "com.example.sportsaccesories"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjrxEgix9U_HFL_wqWlnD3SzWvkpB0HYo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
