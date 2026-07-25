@@ -61,4 +61,62 @@ class AuthService {
 
   // Stream of auth changes (including profile updates)
   Stream<User?> get userStream => _auth.userChanges();
+
+  // --- Match Request Logic ---
+
+  // Search for a user by exact username
+  Future<Map<String, dynamic>?> findUserByUsername(String username) async {
+    final result = await _db
+        .collection('users')
+        .where('username', isEqualTo: username)
+        .limit(1)
+        .get();
+    
+    if (result.docs.isNotEmpty) {
+      return result.docs.first.data();
+    }
+    return null;
+  }
+
+  // Send a match request
+  Future<String> sendMatchRequest({
+    required String targetUid,
+    required String sport,
+    int? setsToWin,
+  }) async {
+    final user = currentUser;
+    if (user == null) return '';
+
+    final docRef = await _db.collection('match_requests').add({
+      'fromUid': user.uid,
+      'fromUsername': user.displayName ?? 'Unknown',
+      'toUid': targetUid,
+      'sport': sport,
+      'setsToWin': setsToWin,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return docRef.id;
+  }
+
+  // Respond to a match request
+  Future<void> respondToRequest(String requestId, String status) async {
+    await _db.collection('match_requests').doc(requestId).update({
+      'status': status,
+    });
+  }
+
+  // Listen for requests sent TO the current user
+  Stream<QuerySnapshot> get incomingMatchRequests {
+    return _db
+        .collection('match_requests')
+        .where('toUid', isEqualTo: currentUser?.uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+  }
+
+  // Listen for the status of a request sent BY the current user
+  Stream<DocumentSnapshot> listenToRequest(String requestId) {
+    return _db.collection('match_requests').doc(requestId).snapshots();
+  }
 }

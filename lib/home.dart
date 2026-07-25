@@ -1,18 +1,94 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sportsaccesories/profile.dart';
 import 'package:sportsaccesories/auth_service.dart';
 import 'package:sportsaccesories/new_match.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class Home extends StatelessWidget {
+class Home extends StatefulWidget {
   const Home({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authService = AuthService();
+  State<Home> createState() => _HomeState();
+}
 
+class _HomeState extends State<Home> {
+  final AuthService _authService = AuthService();
+  StreamSubscription? _requestSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _startListeningForRequests();
+  }
+
+  @override
+  void dispose() {
+    _requestSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _startListeningForRequests() {
+    _requestSubscription = _authService.incomingMatchRequests.listen((snapshot) {
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          _showMatchPrompt(change.doc);
+        }
+      }
+    });
+  }
+
+  void _showMatchPrompt(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final String fromUser = data['fromUsername'];
+    final String sport = data['sport'];
+    final int setsToWin = data['setsToWin'] ?? 3;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Match Request'),
+        content: Text('$fromUser wants to play $sport (First to $setsToWin) with you!'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _authService.respondToRequest(doc.id, 'rejected');
+              Navigator.pop(context);
+            },
+            child: const Text('Decline', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _authService.respondToRequest(doc.id, 'accepted');
+              Navigator.pop(context);
+              
+              // Navigate to the match screen
+              if (sport == 'Table Tennis') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TableTennisMatch(
+                      p1Name: fromUser,
+                      p2Name: _authService.currentUser?.displayName ?? 'Me',
+                      setsToWin: setsToWin,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: authService.userStream,
+      stream: _authService.userStream,
       builder: (context, snapshot) {
         final user = snapshot.data;
         final String displayName = user?.displayName ?? 'Player';
