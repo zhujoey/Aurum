@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sportsaccesories/profile.dart';
 import 'package:sportsaccesories/auth_service.dart';
 import 'package:sportsaccesories/new_match.dart';
+import 'package:sportsaccesories/table_tennis/tt_scoreboard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -70,8 +71,11 @@ class _HomeState extends State<Home> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => TableTennisMatch(
-                      p1Name: fromUser,
-                      p2Name: _authService.currentUser?.displayName ?? 'Me',
+                      p1Name: _authService.currentUser?.displayName ?? 'Me',
+                      p2Name: '',
+                      p3Name: fromUser,
+                      p4Name: '',
+                      isDoubles: false,
                       setsToWin: setsToWin,
                     ),
                   ),
