@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportsaccesories/auth_service.dart';
 
 class NewMatch extends StatelessWidget {
@@ -75,11 +76,11 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   String player1Name = '';
   String player2Name = '';
   final AuthService _authService = AuthService();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   @override
   void initState() {
     super.initState();
-    // Default Player 1 to the current logged in user
     player1Name = _authService.currentUser?.displayName ?? 'Player 1';
     player2Name = 'Player 2';
   }
@@ -91,15 +92,10 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 20,
-          right: 20,
-          top: 20,
-        ),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(20),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Select Player $playerNum',
@@ -120,21 +116,52 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 Navigator.pop(context);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.group_add),
-              title: const Text('Other Account (Search)'),
-              subtitle: const Text('Feature coming soon with Firestore'),
-              onTap: () {
-                // Placeholder for searching other users
-                Navigator.pop(context);
-              },
+            const Divider(),
+            const Text('Friends', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _db
+                    .collection('users')
+                    .doc(_authService.currentUser?.uid)
+                    .collection('friends')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                  final friends = snapshot.data!.docs;
+
+                  if (friends.isEmpty) {
+                    return const Center(child: Text('No friends found. Add them in Profile > Friends.'));
+                  }
+
+                  return ListView.builder(
+                    itemCount: friends.length,
+                    itemBuilder: (context, index) {
+                      final friend = friends[index].data() as Map<String, dynamic>;
+                      return ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        title: Text(friend['username']),
+                        onTap: () {
+                          setState(() {
+                            if (playerNum == 1) {
+                              player1Name = friend['username'];
+                            } else {
+                              player2Name = friend['username'];
+                            }
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
             const Divider(),
             const Text('Play as Guest', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             TextField(
               decoration: const InputDecoration(
-                hintText: 'Enter guest name (leave empty for "Guest")',
+                hintText: 'Enter guest name',
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (value) {
@@ -149,7 +176,6 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 Navigator.pop(context);
               },
             ),
-            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -271,7 +297,6 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       p1Sets: player1Sets,
       p2Sets: player2Sets,
     ));
-    // Keep history reasonable
     if (_history.length > 50) _history.removeAt(0);
   }
 
@@ -341,13 +366,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           IconButton(
             onPressed: _history.isEmpty ? null : _undo,
             icon: const Icon(Icons.undo),
-            tooltip: 'Undo last action',
           ),
-          IconButton(
-            onPressed: _resetMatch, 
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Reset match',
-          ),
+          IconButton(onPressed: _resetMatch, icon: const Icon(Icons.refresh)),
         ],
       ),
       body: Column(
@@ -398,7 +418,6 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           ),
         ),
         const SizedBox(height: 15),
-        // Sets control
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -423,7 +442,6 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           ],
         ),
         const SizedBox(height: 25),
-        // Score control
         Column(
           children: [
             Container(
@@ -433,13 +451,6 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                 color: Colors.blue.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.blue.withValues(alpha: 0.5), width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
               ),
               child: Center(
                 child: Text(

@@ -36,7 +36,10 @@ class _EditProfileState extends State<EditProfile> {
     setState(() => _isLoading = true);
     try {
       // Update only the Firebase displayName
-      await _authService.currentUser?.updateDisplayName(_usernameController.text.trim());
+      final newUsername = _usernameController.text.trim();
+      await _authService.currentUser?.updateDisplayName(newUsername);
+      await _authService.syncUserData(_authService.currentUser, username: newUsername);
+
       // Reload the user to force the stream to emit the new data
       await _authService.currentUser?.reload();
       

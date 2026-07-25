@@ -46,7 +46,9 @@ class _SignUpState extends State<SignUp> {
 
       if (user != null) {
         // Set the username (displayName) immediately after sign up
-        await user.updateDisplayName(_usernameController.text.trim());
+        final username = _usernameController.text.trim();
+        await user.updateDisplayName(username);
+        await _authService.syncUserData(user, username: username);
         await user.reload();
         
         if (!mounted) return;

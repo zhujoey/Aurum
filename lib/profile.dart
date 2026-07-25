@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sportsaccesories/auth_service.dart';
 import 'package:sportsaccesories/login.dart';
 import 'package:sportsaccesories/edit_profile.dart';
+import 'package:sportsaccesories/friends.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class Profile extends StatelessWidget {
@@ -50,7 +51,18 @@ class Profile extends StatelessWidget {
                     );
                   },
                 ),
-                _buildListTile(context, Icons.settings, 'Settings'),
+                _buildListTile(
+              context,
+              Icons.people,
+              'Friends',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const FriendsPage()),
+                );
+              },
+            ),
+            _buildListTile(context, Icons.settings, 'Settings'),
                 _buildListTile(context, Icons.history, 'Match History'),
                 _buildListTile(context, Icons.help, 'Help & Support'),
                 const Divider(),

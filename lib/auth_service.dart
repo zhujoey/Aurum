@@ -1,7 +1,21 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // Sync user data to Firestore
+  Future<void> syncUserData(User? user, {String? username}) async {
+    if (user != null) {
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'email': user.email,
+        'username': username ?? user.displayName ?? '',
+        'lastActive': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+  }
 
   // Sign in with email and password
   Future<User?> signIn(String email, String password) async {
@@ -10,6 +24,7 @@ class AuthService {
         email: email, 
         password: password
       );
+      await syncUserData(result.user);
       return result.user;
     } catch (e) {
       print(e.toString());
@@ -31,14 +46,14 @@ class AuthService {
     }
   }
 
-  // Sign out
-  Future<void> signOut() async {
-    await _auth.signOut();
-  }
-
   // Send password reset email
   Future<void> sendPasswordReset(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
+  }
+
+  // Sign out
+  Future<void> signOut() async {
+    await _auth.signOut();
   }
 
   // Get current user
