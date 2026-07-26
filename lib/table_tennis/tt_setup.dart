@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sportsaccesories/auth_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tt_models.dart';
 import 'tt_scoreboard.dart';
+import 'widgets/tt_invitation_waiting.dart';
 
 class TableTennisSetup extends StatefulWidget {
   const TableTennisSetup({super.key});
@@ -21,6 +24,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   bool _isDoubles = false;
   int _setsToWin = 4;
   Map<String, dynamic>? _savedMatch;
+  StreamSubscription? _matchSubscription;
 
   // Track if players are guests or invited users
   // index 0: P2, index 1: P3, index 2: P4
@@ -33,11 +37,18 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     _p2Controller.text = 'Guest';
     _p3Controller.text = 'Guest';
     _p4Controller.text = 'Guest';
+    
+    // Global Firebase Cleanup
+    _authService.cleanupSentRequests();
+    _authService.cleanupOldHostedMatches();
+
     _checkSavedMatch();
+    _startListeningToMatchStatus();
   }
 
   @override
   void dispose() {
+    _matchSubscription?.cancel();
     _p1Controller.dispose();
     _p2Controller.dispose();
     _p3Controller.dispose();
@@ -45,18 +56,59 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     super.dispose();
   }
 
+  void _startListeningToMatchStatus() {
+    _matchSubscription = _authService.myActiveMatches.listen((snapshot) {
+      if (snapshot.docs.isEmpty) {
+        _checkSavedMatch(); // Verify if local save should also be cleared
+      }
+    });
+  }
+
   Future<void> _checkSavedMatch() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString('active_tt_match');
     if (data != null) {
+      final Map<String, dynamic> saved = jsonDecode(data);
+      final String? mId = saved['matchId'];
+      
+      // Sanity check: If this is a cloud match, verify it's still active
+      if (mId != null && mId.isNotEmpty) {
+        try {
+          final doc = await FirebaseFirestore.instance.collection('active_matches').doc(mId).get();
+          if (doc.exists) {
+            final String status = doc.get('status') ?? 'playing';
+            if (status != 'playing') {
+              // Match was forfeited or ended elsewhere
+              // If we are the host, delete the cloud doc too
+              if (doc.get('hostUid') == _authService.currentUser?.uid) {
+                await _authService.deleteActiveMatch(mId);
+              }
+              await prefs.remove('active_tt_match');
+              setState(() => _savedMatch = null);
+              return;
+            }
+          } else {
+            // Document was deleted
+            await prefs.remove('active_tt_match');
+            setState(() => _savedMatch = null);
+            return;
+          }
+        } catch (e) {
+          print("Setup: Error verifying saved match status: $e");
+        }
+      }
+
       setState(() {
-        _savedMatch = jsonDecode(data);
+        _savedMatch = saved;
       });
     }
   }
 
   Future<void> _clearSavedMatch() async {
     final prefs = await SharedPreferences.getInstance();
+    if (_savedMatch != null && _savedMatch!['matchId'] != null && _savedMatch!['matchId'].isNotEmpty) {
+      await _authService.deleteActiveMatch(_savedMatch!['matchId']);
+    }
     await prefs.remove('active_tt_match');
     setState(() {
       _savedMatch = null;
@@ -86,7 +138,9 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 .toList(),
             initialP1TimeoutUsed: _savedMatch!['p1TimeoutUsed'] ?? false,
             initialP2TimeoutUsed: _savedMatch!['p2TimeoutUsed'] ?? false,
-            initialFirstServer: _savedMatch!['firstServer'] ?? 1,
+            initialFirstServerOfMatch: _savedMatch!['firstServerOfMatch'] ?? 0,
+            initialFirstServerOfSet: _savedMatch!['firstServerOfSet'] ?? 0,
+            initialFirstReceiverOfSet: _savedMatch!['firstReceiverOfSet'] ?? 0,
             initialP1OnLeft: _savedMatch!['p1OnLeft'] ?? true,
             initialLogs: (_savedMatch!['logs'] as List? ?? [])
                 .map((p) => MatchLogEntry.fromMap(p))
@@ -95,6 +149,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
             initialGameTimeSeconds: _savedMatch!['gameTimeSeconds'] ?? 0,
             activeTimerSeconds: _savedMatch!['activeTimerSeconds'] ?? 0,
             activeTimerTitle: _savedMatch!['activeTimerTitle'] ?? '',
+            matchId: _savedMatch!['matchId'] ?? '',
           ),
         ),
       );
@@ -136,8 +191,9 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     String n3 = _p3Controller.text.trim(); if (n3.isEmpty) n3 = 'Opponent 1';
     String n4 = _p4Controller.text.trim(); if (n4.isEmpty) n4 = _isDoubles ? 'Opponent 2' : '';
 
-    // Invitation logic
+    List<Map<String, dynamic>> invitations = [];
     List<String> namesToInvite = [];
+    
     if (!_isDoubles) {
       if (_isInviteMode[1]) namesToInvite.add(n3);
     } else {
@@ -148,23 +204,111 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
 
     String currentUsername = _authService.currentUser?.displayName ?? '';
     
+    List<String> invalidNames = [];
+    List<String> inMatchNames = [];
+    
     for (String name in namesToInvite) {
-      if (name != currentUsername && name.isNotEmpty) {
-        final user = await _authService.findUserByUsername(name);
-        if (user != null) {
-          await _authService.sendMatchRequest(
-            targetUid: user['uid'],
-            sport: 'Table Tennis',
-            setsToWin: _setsToWin,
-          );
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invitation sent to $name')));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('User $name not found! Playing as Guest.')));
+      if (name.isEmpty) continue;
+      
+      if (name == currentUsername) {
+        invalidNames.add("$name (You cannot invite yourself)");
+        continue;
+      }
+
+      final user = await _authService.findUserByUsername(name);
+      if (user != null) {
+        // Check if this user is already in an active match
+        final inMatch = await _authService.isUserInMatch(user['uid']);
+        if (inMatch) {
+          inMatchNames.add(name);
+          continue;
         }
+
+        String requestId = await _authService.sendMatchRequest(
+          targetUid: user['uid'],
+          sport: 'Table Tennis',
+          isDoubles: _isDoubles,
+          p1Name: n1,
+          p2Name: n2,
+          p3Name: n3,
+          p4Name: n4,
+          setsToWin: _setsToWin,
+        );
+        invitations.add({'name': name, 'id': requestId, 'uid': user['uid']});
+      } else {
+        invalidNames.add(name);
+      }
+    }
+
+    if (invalidNames.isNotEmpty || inMatchNames.isNotEmpty) {
+      if (!mounted) return;
+      String errorMsg = "";
+      if (invalidNames.isNotEmpty) {
+        errorMsg += "Not found: ${invalidNames.join(", ")}. ";
+      }
+      if (inMatchNames.isNotEmpty) {
+        errorMsg += "Already in a match: ${inMatchNames.join(", ")}.";
+      }
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Cannot Invite Players'),
+          content: Text(errorMsg.trim()),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+      return;
+    }
+
+    if (invitations.isNotEmpty) {
+      bool? proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => InvitationWaitingDialog(
+          invitations: invitations,
+          authService: _authService,
+        ),
+      );
+      
+      if (proceed != true) {
+        // Clean up requests if cancelled
+        for (var invite in invitations) {
+          _authService.deleteMatchRequest(invite['id']);
+        }
+        return; 
       }
     }
 
     if (!mounted) return;
+
+    // End any old matches hosted by this user before starting a new one
+    final oldMatches = await FirebaseFirestore.instance
+        .collection('active_matches')
+        .where('hostUid', isEqualTo: _authService.currentUser!.uid)
+        .get();
+    for (var doc in oldMatches.docs) {
+      await _authService.deleteActiveMatch(doc.id);
+    }
+
+    // Always create a cloud record for the match to mark the host and participants as "busy"
+    List<String> uids = [_authService.currentUser!.uid];
+    uids.addAll(invitations.map((i) => i['uid'] as String));
+    
+    String matchId = await _authService.createActiveMatch(
+      sport: 'Table Tennis',
+      participantUids: uids,
+      hostUid: _authService.currentUser!.uid,
+      initialData: {
+        'p1Name': n1, 'p2Name': n2, 'p3Name': n3, 'p4Name': n4,
+        'isDoubles': _isDoubles, 'setsToWin': _setsToWin,
+      },
+    );
+    
+    // Clean up requests now that match is created
+    for (var invite in invitations) {
+      _authService.deleteMatchRequest(invite['id']);
+    }
 
     await Navigator.push(
       context,
@@ -172,6 +316,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         builder: (context) => TableTennisMatch(
           p1Name: n1, p2Name: n2, p3Name: n3, p4Name: n4,
           isDoubles: _isDoubles, setsToWin: _setsToWin,
+          matchId: matchId, // Pass the match ID
         ),
       ),
     );
@@ -180,65 +325,198 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Table Tennis Setup')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_savedMatch != null) ...[
-                _buildActiveMatchCard(),
-                const SizedBox(height: 20),
-                const Divider(),
-              ],
-              const Text('Game Type', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return StreamBuilder<QuerySnapshot>(
+      stream: _authService.myActiveMatches,
+      builder: (context, snapshot) {
+        DocumentSnapshot? activeMatchDoc;
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          activeMatchDoc = snapshot.data!.docs.first;
+        }
+        
+        return Scaffold(
+          appBar: AppBar(title: const Text('Table Tennis Setup')),
+          body: SafeArea(
+            child: _buildSetupForm(activeMatchDoc),
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildSetupForm(DocumentSnapshot? activeMatchDoc) {
+    bool inMatch = activeMatchDoc != null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (inMatch) 
+            _buildActiveCloudMatchBanner(activeMatchDoc)
+          else if (_savedMatch != null && (_savedMatch!['matchId'] ?? '').isEmpty) ...[
+            _buildActiveMatchCard(),
+            const SizedBox(height: 20),
+            const Divider(),
+          ],
+          
+          // Form content
+          AbsorbPointer(
+            absorbing: inMatch,
+            child: Opacity(
+              opacity: inMatch ? 0.5 : 1.0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _typeButton('Singles', false),
-                  const SizedBox(width: 12),
-                  _typeButton('Doubles', true),
+                  const Text('Game Type', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _typeButton('Singles', false),
+                      const SizedBox(width: 12),
+                      _typeButton('Doubles', true),
+                    ],
+                  ),
+                  const Divider(height: 40),
+                  const Text('Match Format', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    _formatButton('First to 4 sets', 4), const SizedBox(width: 8),
+                    _formatButton('First to 3 sets', 3), const SizedBox(width: 8),
+                    _customFormatButton(),
+                  ])),
+                  const Divider(height: 40),
+                  const Text('Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  const SizedBox(height: 20),
+                  if (!_isDoubles) ...[
+                    _buildPlayerField(_p1Controller, 'Player 1 Name', Icons.person),
+                    const SizedBox(height: 20),
+                    _buildDynamicPlayerSection(1, _p3Controller, 'Player 2', Icons.person_outline),
+                  ] else ...[
+                    const Text('TEAM 1', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    _buildPlayerField(_p1Controller, 'Player 1 Name', Icons.person),
+                    const SizedBox(height: 20),
+                    _buildDynamicPlayerSection(0, _p2Controller, 'Player 2', Icons.person),
+                    const Divider(height: 40),
+                    const Text('TEAM 2', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    _buildDynamicPlayerSection(1, _p3Controller, 'Player 3', Icons.person_outline),
+                    const SizedBox(height: 20),
+                    _buildDynamicPlayerSection(2, _p4Controller, 'Player 4', Icons.person_outline),
+                  ],
                 ],
               ),
-              const Divider(height: 40),
-              const Text('Match Format', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                _formatButton('First to 4 sets', 4), const SizedBox(width: 8),
-                _formatButton('First to 3 sets', 3), const SizedBox(width: 8),
-                _customFormatButton(),
-              ])),
-              const Divider(height: 40),
-              const Text('Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              if (!_isDoubles) ...[
-                _buildPlayerField(_p1Controller, 'Player 1 Name', Icons.person),
-                const SizedBox(height: 20),
-                _buildDynamicPlayerSection(1, _p3Controller, 'Player 2', Icons.person_outline),
-              ] else ...[
-                const Text('TEAM 1', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(height: 8),
-                _buildPlayerField(_p1Controller, 'Player 1 Name', Icons.person),
-                const SizedBox(height: 20),
-                _buildDynamicPlayerSection(0, _p2Controller, 'Player 2', Icons.person),
-                const Divider(height: 40),
-                const Text('TEAM 2', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(height: 8),
-                _buildDynamicPlayerSection(1, _p3Controller, 'Player 3', Icons.person_outline),
-                const SizedBox(height: 20),
-                _buildDynamicPlayerSection(2, _p4Controller, 'Player 4', Icons.person_outline),
-              ],
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _handleStartMatch,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                child: const Text('Start Match', style: TextStyle(fontSize: 18)),
-              ),
-            ],
+            ),
           ),
+          
+          const SizedBox(height: 32),
+          ElevatedButton(
+            onPressed: inMatch ? null : _handleStartMatch,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16), 
+              backgroundColor: Colors.blue, 
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: Colors.grey[800],
+            ),
+            child: Text(inMatch ? 'Match Already in Progress' : 'Start Match', style: const TextStyle(fontSize: 18)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveCloudMatchBanner(DocumentSnapshot matchDoc) {
+    final data = matchDoc.data() as Map<String, dynamic>;
+    bool isHost = data['hostUid'] == _authService.currentUser?.uid;
+    
+    // Attempt to get scores from cloud data if available, or fall back to local
+    int p1Sets = data['matchData']?['p1Sets'] ?? _savedMatch?['p1Sets'] ?? 0;
+    int p2Sets = data['matchData']?['p2Sets'] ?? _savedMatch?['p2Sets'] ?? 0;
+
+    return Card(
+      color: Colors.amber.withValues(alpha: 0.1),
+      margin: const EdgeInsets.only(bottom: 24),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Colors.amber.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lock_clock, color: Colors.amber),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Match in Progress ($p1Sets - $p2Sets)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        isHost 
+                          ? 'You are the host. Finish this match to start a new one.'
+                          : 'You are a participant. You cannot start a new match yet.',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (isHost)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () async {
+                      bool? confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Discard Match?'),
+                          content: const Text('This will delete all match data. This action cannot be undone.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Discard', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        // Cleanup local first to prevent UI flicker
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove('active_tt_match');
+                        setState(() => _savedMatch = null);
+                        
+                        // Then cleanup cloud
+                        await _authService.deleteActiveMatch(matchDoc.id);
+                      }
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Discard'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _resumeMatch,
+                    icon: const Icon(Icons.play_arrow, size: 18),
+                    label: const Text('Resume'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+                  ),
+                ],
+              )
+            else
+              Align(
+                alignment: Alignment.center,
+                child: ElevatedButton.icon(
+                  onPressed: () => _authService.updateMatchStatus(matchDoc.id, 'forfeited'),
+                  icon: const Icon(Icons.flag, size: 18),
+                  label: const Text('Forfeit Match'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                ),
+              ),
+          ],
         ),
       ),
     );

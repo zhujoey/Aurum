@@ -84,8 +84,9 @@ class MatchState {
   final List<SetSummary> setSummaries;
   final bool p1TimeoutUsed;
   final bool p2TimeoutUsed;
-  final int firstServer;
-  final int firstReceiver;
+  final int firstServerOfMatch;
+  final int firstServerOfSet;
+  final int firstReceiverOfSet;
   final bool p1OnLeft;
   final List<MatchLogEntry> logs;
   final bool expediteActive;
@@ -103,8 +104,9 @@ class MatchState {
     required this.setSummaries,
     required this.p1TimeoutUsed,
     required this.p2TimeoutUsed,
-    required this.firstServer,
-    required this.firstReceiver,
+    required this.firstServerOfMatch,
+    required this.firstServerOfSet,
+    required this.firstReceiverOfSet,
     required this.p1OnLeft,
     required this.logs,
     required this.expediteActive,
@@ -112,4 +114,20 @@ class MatchState {
     this.activeTimerSeconds = 0,
     this.activeTimerTitle = '',
   });
+}
+
+class TTRotationLogic {
+  static List<int> calculateRotation(
+      int fs, int fr, bool isDoubles, bool isDecider, int p1Score, int p2Score) {
+    if (!isDoubles) return [fs, 3 - fs];
+    int p1 = fs;
+    int p2 = fr;
+    int p3 = (fs == 1 ? 2 : (fs == 2 ? 1 : (fs == 3 ? 4 : 3)));
+    int p4 = (fr == 1 ? 2 : (fr == 2 ? 1 : (fr == 3 ? 4 : 3)));
+    List<int> normal = [p1, p2, p3, p4];
+    if (isDecider && (p1Score >= 5 || p2Score >= 5)) {
+      return [p1, p4, p3, p2];
+    }
+    return normal;
+  }
 }

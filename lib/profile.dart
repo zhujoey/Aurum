@@ -62,6 +62,19 @@ class Profile extends StatelessWidget {
                 );
               },
             ),
+            _buildListTile(
+              context,
+              Icons.sync,
+              'Sync Account Data',
+              onTap: () async {
+                await authService.syncUserData(authService.currentUser);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Account data synced with cloud.')),
+                  );
+                }
+              },
+            ),
             _buildListTile(context, Icons.settings, 'Settings'),
                 _buildListTile(context, Icons.history, 'Match History'),
                 _buildListTile(context, Icons.help, 'Help & Support'),

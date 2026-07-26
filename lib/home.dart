@@ -4,6 +4,7 @@ import 'package:sportsaccesories/profile.dart';
 import 'package:sportsaccesories/auth_service.dart';
 import 'package:sportsaccesories/new_match.dart';
 import 'package:sportsaccesories/table_tennis/tt_scoreboard.dart';
+import 'package:sportsaccesories/table_tennis/tt_setup.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -16,75 +17,52 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final AuthService _authService = AuthService();
-  StreamSubscription? _requestSubscription;
 
   @override
   void initState() {
     super.initState();
-    _startListeningForRequests();
+    _initialSync();
+  }
+
+  Future<void> _initialSync() async {
+    final user = _authService.currentUser;
+    if (user != null) {
+      if (user.displayName == null || user.displayName!.isEmpty) {
+        await user.reload();
+      }
+      await _authService.syncUserData(_authService.currentUser);
+    }
   }
 
   @override
   void dispose() {
-    _requestSubscription?.cancel();
     super.dispose();
   }
 
-  void _startListeningForRequests() {
-    _requestSubscription = _authService.incomingMatchRequests.listen((snapshot) {
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          _showMatchPrompt(change.doc);
-        }
-      }
-    });
-  }
+  Widget _buildActiveMatchBanner(DocumentSnapshot matchDoc) {
+    final data = matchDoc.data() as Map<String, dynamic>;
+    final String sport = data['sport'] ?? '';
+    bool isHost = data['hostUid'] == _authService.currentUser?.uid;
 
-  void _showMatchPrompt(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    final String fromUser = data['fromUsername'];
-    final String sport = data['sport'];
-    final int setsToWin = data['setsToWin'] ?? 3;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Match Request'),
-        content: Text('$fromUser wants to play $sport (First to $setsToWin) with you!'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _authService.respondToRequest(doc.id, 'rejected');
-              Navigator.pop(context);
-            },
-            child: const Text('Decline', style: TextStyle(color: Colors.red)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _authService.respondToRequest(doc.id, 'accepted');
-              Navigator.pop(context);
-              
-              // Navigate to the match screen
-              if (sport == 'Table Tennis') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TableTennisMatch(
-                      p1Name: _authService.currentUser?.displayName ?? 'Me',
-                      p2Name: '',
-                      p3Name: fromUser,
-                      p4Name: '',
-                      isDoubles: false,
-                      setsToWin: setsToWin,
-                    ),
-                  ),
-                );
-              }
-            },
-            child: const Text('Accept'),
-          ),
-        ],
+    return Card(
+      color: Colors.amber.withValues(alpha: 0.1),
+      margin: const EdgeInsets.only(bottom: 24),
+      child: ListTile(
+        leading: const Icon(Icons.sports_tennis, color: Colors.amber),
+        title: const Text('Active Match in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(isHost ? 'You are hosting a match.' : 'You are participating in a match.'),
+        onTap: () {
+          if (sport == 'Table Tennis') {
+             Navigator.push(context, MaterialPageRoute(builder: (context) => const TableTennisSetup()));
+          }
+        },
+        trailing: isHost 
+          ? const Icon(Icons.chevron_right)
+          : ElevatedButton(
+              onPressed: () => _authService.updateMatchStatus(matchDoc.id, 'forfeited'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              child: const Text('Forfeit'),
+            ),
       ),
     );
   }
@@ -117,8 +95,17 @@ class _HomeState extends State<Home> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                StreamBuilder<QuerySnapshot>(
+                  stream: _authService.myActiveMatches,
+                  builder: (context, matchSnapshot) {
+                    if (matchSnapshot.hasData && matchSnapshot.data!.docs.isNotEmpty) {
+                      return _buildActiveMatchBanner(matchSnapshot.data!.docs.first);
+                    }
+                    return const SizedBox.shrink();
+                  }
+                ),
                 Text(
-                  'Welcome back, $displayName!',
+                  'Welcome, $displayName!',
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,

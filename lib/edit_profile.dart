@@ -35,8 +35,23 @@ class _EditProfileState extends State<EditProfile> {
 
     setState(() => _isLoading = true);
     try {
-      // Update only the Firebase displayName
       final newUsername = _usernameController.text.trim();
+      final currentUsername = _authService.currentUser?.displayName;
+
+      // Only check if they actually changed it
+      if (newUsername != currentUsername) {
+        final isTaken = await _authService.isUsernameTaken(newUsername);
+        if (isTaken) {
+          setState(() => _isLoading = false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Username is already taken. Please choose another.')),
+          );
+          return;
+        }
+      }
+
+      // Update only the Firebase displayName
       await _authService.currentUser?.updateDisplayName(newUsername);
       await _authService.syncUserData(_authService.currentUser, username: newUsername);
 

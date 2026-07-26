@@ -39,6 +39,18 @@ class _SignUpState extends State<SignUp> {
 
       setState(() => _isLoading = true);
 
+      // Check if username is already taken
+      final username = _usernameController.text.trim();
+      final isTaken = await _authService.isUsernameTaken(username);
+      if (isTaken) {
+        setState(() => _isLoading = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username is already taken. Please choose another.')),
+        );
+        return;
+      }
+
       final user = await _authService.signUp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
