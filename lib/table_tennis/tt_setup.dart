@@ -25,6 +25,8 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   int _setsToWin = 4;
   Map<String, dynamic>? _savedMatch;
   StreamSubscription? _matchSubscription;
+  StreamSubscription? _friendsSubscription;
+  List<Map<String, dynamic>> _friendsList = [];
 
   // Track if players are guests or invited users
   // index 0: P2, index 1: P3, index 2: P4
@@ -42,6 +44,14 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     _authService.cleanupSentRequests();
     _authService.cleanupOldHostedMatches();
 
+    _friendsSubscription = _authService.friendsStream.listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _friendsList = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+        });
+      }
+    });
+
     _checkSavedMatch();
     _startListeningToMatchStatus();
   }
@@ -49,6 +59,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   @override
   void dispose() {
     _matchSubscription?.cancel();
+    _friendsSubscription?.cancel();
     _p1Controller.dispose();
     _p2Controller.dispose();
     _p3Controller.dispose();
@@ -185,7 +196,39 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     );
   }
 
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+      ),
+    );
+  }
+
   Future<void> _handleStartMatch() async {
+    // Basic validation: ensure all Invite modes have a friend selected
+    if (!_isDoubles) {
+      if (_isInviteMode[1] && _p3Controller.text.isEmpty) {
+        _showError('Please select a friend for Player 2.');
+        return;
+      }
+    } else {
+      if (_isInviteMode[0] && _p2Controller.text.isEmpty) {
+        _showError('Please select a friend for Partner.');
+        return;
+      }
+      if (_isInviteMode[1] && _p3Controller.text.isEmpty) {
+        _showError('Please select a friend for Opponent 1.');
+        return;
+      }
+      if (_isInviteMode[2] && _p4Controller.text.isEmpty) {
+        _showError('Please select a friend for Opponent 2.');
+        return;
+      }
+    }
+
     String n1 = _p1Controller.text.trim(); if (n1.isEmpty) n1 = 'P1';
     String n2 = _p2Controller.text.trim(); if (n2.isEmpty) n2 = _isDoubles ? 'Partner' : '';
     String n3 = _p3Controller.text.trim(); if (n3.isEmpty) n3 = 'Opponent 1';
@@ -210,7 +253,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     for (String name in namesToInvite) {
       if (name.isEmpty) continue;
       
-      if (name == currentUsername) {
+      if (name.toLowerCase() == currentUsername.toLowerCase()) {
         invalidNames.add("$name (You cannot invite yourself)");
         continue;
       }
@@ -594,6 +637,13 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
 
   Widget _buildDynamicPlayerSection(int index, TextEditingController controller, String label, IconData icon) {
     bool isInvite = _isInviteMode[index];
+    
+    // Get currently selected friends in other invitation slots to avoid duplicates
+    List<String> otherSelectedFriends = [];
+    if (index != 0 && _isInviteMode[0] && _p2Controller.text.isNotEmpty) otherSelectedFriends.add(_p2Controller.text);
+    if (index != 1 && _isInviteMode[1] && _p3Controller.text.isNotEmpty) otherSelectedFriends.add(_p3Controller.text);
+    if (index != 2 && _isInviteMode[2] && _p4Controller.text.isNotEmpty) otherSelectedFriends.add(_p4Controller.text);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -623,15 +673,44 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
           ],
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: isInvite ? 'Username to Invite' : 'Temporary Guest Name',
-            border: const OutlineInputBorder(),
-            prefixIcon: Icon(icon),
-            hintText: isInvite ? 'Enter exact username' : 'e.g. Guest',
-          ),
-        ),
+        isInvite 
+          ? LayoutBuilder(
+              builder: (context, constraints) => DropdownMenu<String>(
+                width: constraints.maxWidth,
+                initialSelection: controller.text.isEmpty || !_friendsList.any((f) => f['username'] == controller.text) 
+                    ? null 
+                    : controller.text,
+                requestFocusOnTap: true,
+                enableFilter: true,
+                leadingIcon: Icon(icon),
+                label: const Text('Select Friend'),
+                inputDecorationTheme: const InputDecorationTheme(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                ),
+                dropdownMenuEntries: _friendsList
+                    .where((f) => !otherSelectedFriends.contains(f['username']))
+                    .map((f) => DropdownMenuEntry(
+                          value: f['username'] as String,
+                          label: f['username'] as String,
+                        ))
+                    .toList(),
+                onSelected: (val) {
+                  if (val != null) {
+                    setState(() => controller.text = val);
+                  }
+                },
+              ),
+            )
+          : TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'Temporary Guest Name',
+                border: const OutlineInputBorder(),
+                prefixIcon: Icon(icon),
+                hintText: 'e.g. Guest',
+              ),
+            ),
       ],
     );
   }

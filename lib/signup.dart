@@ -112,7 +112,7 @@ class _SignUpState extends State<SignUp> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'Join Sports Tracker',
+                  'Join Us',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,

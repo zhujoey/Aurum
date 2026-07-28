@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportsaccesories/friend_requests.dart';
 
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});
@@ -28,10 +29,12 @@ class _FriendsPageState extends State<FriendsPage> {
 
     setState(() => _isSearching = true);
 
+    final String searchKey = query.toLowerCase().trim();
+
     final results = await _db
         .collection('users')
-        .where('username', isGreaterThanOrEqualTo: query)
-        .where('username', isLessThanOrEqualTo: '$query\uf8ff')
+        .where('username_search', isGreaterThanOrEqualTo: searchKey)
+        .where('username_search', isLessThanOrEqualTo: '$searchKey\uf8ff')
         .get();
 
     setState(() {
@@ -43,32 +46,67 @@ class _FriendsPageState extends State<FriendsPage> {
     });
   }
 
-  Future<void> _addFriend(String friendId, String friendName) async {
-    final currentUserId = _authService.currentUser?.uid;
-    if (currentUserId == null) return;
-
-    await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('friends')
-        .doc(friendId)
-        .set({
-      'uid': friendId,
-      'username': friendName,
-      'addedAt': FieldValue.serverTimestamp(),
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Added $friendName as a friend!')),
-      );
+  Future<void> _sendFriendRequest(String targetUid, String friendName) async {
+    try {
+      await _authService.sendFriendRequest(targetUid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Friend request sent to $friendName!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Friends')),
+      appBar: AppBar(
+        title: const Text('Friends'),
+        actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const FriendRequestsPage()),
+                ),
+              ),
+              StreamBuilder<QuerySnapshot>(
+                stream: _authService.incomingFriendRequests,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                    return Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
+                        child: Text(
+                          '${snapshot.data!.docs.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 8),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -115,7 +153,7 @@ class _FriendsPageState extends State<FriendsPage> {
           title: Text(user['username']),
           trailing: IconButton(
             icon: const Icon(Icons.person_add, color: Colors.blue),
-            onPressed: () => _addFriend(user['uid'], user['username']),
+            onPressed: () => _sendFriendRequest(user['uid'], user['username']),
           ),
         );
       },

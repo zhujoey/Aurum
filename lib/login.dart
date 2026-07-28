@@ -163,11 +163,6 @@ class _LoginState extends State<Login> {
               children: [
                 const Icon(Icons.sports_tennis, size: 80, color: Colors.blue),
                 const SizedBox(height: 24),
-                const Text(
-                  'Sports Tracker',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                ),
                 const SizedBox(height: 48),
                 TextFormField(
                   controller: _emailController,

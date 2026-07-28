@@ -77,7 +77,7 @@ class _HomeState extends State<Home> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Sports Tracker'),
+            title: const Text('Home'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.account_circle),

@@ -105,6 +105,61 @@ class AuthService {
   // Stream of auth changes (including profile updates)
   Stream<User?> get userStream => _auth.userChanges();
 
+  // --- Friend Request Logic ---
+
+  Stream<QuerySnapshot> get friendsStream {
+    final user = currentUser;
+    if (user == null) return const Stream.empty();
+    return _db.collection('users').doc(user.uid).collection('friends').snapshots();
+  }
+
+  Future<void> sendFriendRequest(String targetUid) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    await _db.collection('friend_requests').add({
+      'fromUid': user.uid,
+      'fromUsername': user.displayName ?? 'Unknown',
+      'toUid': targetUid,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<QuerySnapshot> get incomingFriendRequests {
+    return _db
+        .collection('friend_requests')
+        .where('toUid', isEqualTo: currentUser?.uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+  }
+
+  Future<void> acceptFriendRequest(String requestId, String fromUid, String fromUsername) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Add to current user's friends
+    await _db.collection('users').doc(user.uid).collection('friends').doc(fromUid).set({
+      'uid': fromUid,
+      'username': fromUsername,
+      'addedAt': FieldValue.serverTimestamp(),
+    });
+
+    // 2. Add current user to sender's friends
+    await _db.collection('users').doc(fromUid).collection('friends').doc(user.uid).set({
+      'uid': user.uid,
+      'username': user.displayName ?? 'Unknown',
+      'addedAt': FieldValue.serverTimestamp(),
+    });
+
+    // 3. Delete the request
+    await _db.collection('friend_requests').doc(requestId).delete();
+  }
+
+  Future<void> declineFriendRequest(String requestId) async {
+    await _db.collection('friend_requests').doc(requestId).delete();
+  }
+
   // --- Match Request Logic ---
 
   // Check if a username is already taken (case-insensitive)
@@ -128,7 +183,7 @@ class AuthService {
         .where('username_search', isEqualTo: trimmed.toLowerCase())
         .limit(1)
         .get();
-    
+
     if (result.docs.isNotEmpty) {
       final data = result.docs.first.data();
       data['uid'] = result.docs.first.id; // Ensure UID is always present
