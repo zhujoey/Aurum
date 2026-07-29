@@ -29,16 +29,16 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   List<Map<String, dynamic>> _friendsList = [];
 
   // Track if players are guests or invited users
-  // index 0: P2, index 1: P3, index 2: P4
-  final List<bool> _isInviteMode = [false, false, false];
+  // index 0: P1, index 1: P2, index 2: P3, index 3: P4
+  final List<bool> _isInviteMode = [false, false, false, false];
 
   @override
   void initState() {
     super.initState();
     _p1Controller.text = _authService.currentUser?.displayName ?? 'Me';
-    _p2Controller.text = 'Guest';
-    _p3Controller.text = 'Guest';
-    _p4Controller.text = 'Guest';
+    _p2Controller.text = 'Guest 2';
+    _p3Controller.text = 'Guest 2'; // Default for Singles Opponent
+    _p4Controller.text = 'Guest 4';
     
     // Global Firebase Cleanup
     _authService.cleanupSentRequests();
@@ -210,20 +210,28 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   Future<void> _handleStartMatch() async {
     // Basic validation: ensure all Invite modes have a friend selected
     if (!_isDoubles) {
-      if (_isInviteMode[1] && _p3Controller.text.isEmpty) {
+      if (_isInviteMode[0] && _p1Controller.text.isEmpty) {
+        _showError('Please select a friend for Player 1.');
+        return;
+      }
+      if (_isInviteMode[2] && _p3Controller.text.isEmpty) {
         _showError('Please select a friend for Player 2.');
         return;
       }
     } else {
-      if (_isInviteMode[0] && _p2Controller.text.isEmpty) {
+      if (_isInviteMode[0] && _p1Controller.text.isEmpty) {
+        _showError('Please select a friend for Player 1.');
+        return;
+      }
+      if (_isInviteMode[1] && _p2Controller.text.isEmpty) {
         _showError('Please select a friend for Partner.');
         return;
       }
-      if (_isInviteMode[1] && _p3Controller.text.isEmpty) {
+      if (_isInviteMode[2] && _p3Controller.text.isEmpty) {
         _showError('Please select a friend for Opponent 1.');
         return;
       }
-      if (_isInviteMode[2] && _p4Controller.text.isEmpty) {
+      if (_isInviteMode[3] && _p4Controller.text.isEmpty) {
         _showError('Please select a friend for Opponent 2.');
         return;
       }
@@ -238,15 +246,30 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     List<String> namesToInvite = [];
     
     if (!_isDoubles) {
-      if (_isInviteMode[1]) namesToInvite.add(n3);
+      if (_isInviteMode[0]) namesToInvite.add(n1);
+      if (_isInviteMode[2]) namesToInvite.add(n3);
     } else {
-      if (_isInviteMode[0]) namesToInvite.add(n2);
-      if (_isInviteMode[1]) namesToInvite.add(n3);
-      if (_isInviteMode[2]) namesToInvite.add(n4);
+      if (_isInviteMode[0]) namesToInvite.add(n1);
+      if (_isInviteMode[1]) namesToInvite.add(n2);
+      if (_isInviteMode[2]) namesToInvite.add(n3);
+      if (_isInviteMode[3]) namesToInvite.add(n4);
     }
 
     String currentUsername = _authService.currentUser?.displayName ?? '';
     
+    // Final duplicate check for ALL players (Guests and Invites)
+    List<String> activeNames = [];
+    if (!_isDoubles) {
+      activeNames = [n1, n3];
+    } else {
+      activeNames = [n1, n2, n3, n4];
+    }
+
+    if (Set.from(activeNames).length != activeNames.length) {
+      _showError('All player names must be unique.');
+      return;
+    }
+
     List<String> invalidNames = [];
     List<String> inMatchNames = [];
     
@@ -432,21 +455,21 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   const Text('Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 20),
                   if (!_isDoubles) ...[
-                    _buildPlayerField(_p1Controller, 'Player 1 Name', Icons.person),
+                    _buildDynamicPlayerSection(0, _p1Controller, 'Player 1', Icons.person),
                     const SizedBox(height: 20),
-                    _buildDynamicPlayerSection(1, _p3Controller, 'Player 2', Icons.person_outline),
+                    _buildDynamicPlayerSection(2, _p3Controller, 'Player 2', Icons.person_outline),
                   ] else ...[
                     const Text('TEAM 1', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
                     const SizedBox(height: 8),
-                    _buildPlayerField(_p1Controller, 'Player 1 Name', Icons.person),
+                    _buildDynamicPlayerSection(0, _p1Controller, 'Player 1', Icons.person),
                     const SizedBox(height: 20),
-                    _buildDynamicPlayerSection(0, _p2Controller, 'Player 2', Icons.person),
+                    _buildDynamicPlayerSection(1, _p2Controller, 'Player 2', Icons.person),
                     const Divider(height: 40),
                     const Text('TEAM 2', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
                     const SizedBox(height: 8),
-                    _buildDynamicPlayerSection(1, _p3Controller, 'Player 3', Icons.person_outline),
+                    _buildDynamicPlayerSection(2, _p3Controller, 'Player 3', Icons.person_outline),
                     const SizedBox(height: 20),
-                    _buildDynamicPlayerSection(2, _p4Controller, 'Player 4', Icons.person_outline),
+                    _buildDynamicPlayerSection(3, _p4Controller, 'Player 4', Icons.person_outline),
                   ],
                 ],
               ),
@@ -629,7 +652,29 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   Widget _typeButton(String label, bool value) {
     bool isSelected = _isDoubles == value;
     return ElevatedButton(
-      onPressed: () => setState(() => _isDoubles = value),
+      onPressed: () {
+        if (_isDoubles != value) {
+          setState(() {
+            _isDoubles = value;
+            // Reset all names to unique defaults when switching modes 
+            // to prevent "ghost" name conflicts between Singles and Doubles.
+            _p1Controller.text = _authService.currentUser?.displayName ?? 'Me';
+            if (_isDoubles) {
+              _p2Controller.text = 'Guest 2';
+              _p3Controller.text = 'Guest 3';
+              _p4Controller.text = 'Guest 4';
+            } else {
+              _p2Controller.text = 'Guest 2';
+              _p3Controller.text = 'Guest 2';
+              _p4Controller.text = 'Guest 4';
+            }
+            
+            for (int i = 0; i < 4; i++) {
+              _isInviteMode[i] = false;
+            }
+          });
+        }
+      },
       style: ElevatedButton.styleFrom(backgroundColor: isSelected ? Colors.blue : Colors.grey[800], foregroundColor: Colors.white),
       child: Text(label),
     );
@@ -637,12 +682,18 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
 
   Widget _buildDynamicPlayerSection(int index, TextEditingController controller, String label, IconData icon) {
     bool isInvite = _isInviteMode[index];
+    bool isMe = index == 0 && !isInvite && controller.text == (_authService.currentUser?.displayName ?? 'Me');
     
-    // Get currently selected friends in other invitation slots to avoid duplicates
-    List<String> otherSelectedFriends = [];
-    if (index != 0 && _isInviteMode[0] && _p2Controller.text.isNotEmpty) otherSelectedFriends.add(_p2Controller.text);
-    if (index != 1 && _isInviteMode[1] && _p3Controller.text.isNotEmpty) otherSelectedFriends.add(_p3Controller.text);
-    if (index != 2 && _isInviteMode[2] && _p4Controller.text.isNotEmpty) otherSelectedFriends.add(_p4Controller.text);
+    // Get currently selected friends or typed names in other active slots to avoid duplicates
+    List<String> otherSelectedNames = [];
+    for (int i = 0; i < 4; i++) {
+      // Only consider indices relevant to the current mode to prevent "ghost" filtering
+      bool isRelevant = _isDoubles || (i == 0 || i == 2);
+      if (isRelevant && i != index) {
+        final ctrl = i == 0 ? _p1Controller : (i == 1 ? _p2Controller : (i == 2 ? _p3Controller : _p4Controller));
+        if (ctrl.text.isNotEmpty) otherSelectedNames.add(ctrl.text);
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -657,7 +708,15 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 setState(() {
                   _isInviteMode[index] = i == 1;
                   if (i == 0) {
-                    controller.text = 'Guest';
+                    if (index == 0) {
+                      controller.text = _authService.currentUser?.displayName ?? 'Me';
+                    } else if (index == 2) {
+                      controller.text = _isDoubles ? 'Guest 3' : 'Guest 2';
+                    } else if (index == 1) {
+                      controller.text = 'Guest 2';
+                    } else {
+                      controller.text = 'Guest 4';
+                    }
                   } else {
                     controller.clear();
                   }
@@ -665,9 +724,9 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
               },
               constraints: const BoxConstraints(minHeight: 30, minWidth: 60),
               borderRadius: BorderRadius.circular(8),
-              children: const [
-                Text('Guest', style: TextStyle(fontSize: 12)),
-                Text('Invite', style: TextStyle(fontSize: 12)),
+              children: [
+                Text(index == 0 ? 'Me' : 'Guest', style: const TextStyle(fontSize: 12)),
+                const Text('Invite', style: TextStyle(fontSize: 12)),
               ],
             ),
           ],
@@ -689,7 +748,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   contentPadding: EdgeInsets.symmetric(horizontal: 16),
                 ),
                 dropdownMenuEntries: _friendsList
-                    .where((f) => !otherSelectedFriends.contains(f['username']))
+                    .where((f) => !otherSelectedNames.contains(f['username']))
                     .map((f) => DropdownMenuEntry(
                           value: f['username'] as String,
                           label: f['username'] as String,
@@ -705,33 +764,15 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
           : TextField(
               controller: controller,
               decoration: InputDecoration(
-                labelText: 'Temporary Guest Name',
+                labelText: isMe ? 'Account: $label' : 'Temporary Guest Name',
                 border: const OutlineInputBorder(),
                 prefixIcon: Icon(icon),
                 hintText: 'e.g. Guest',
               ),
+              readOnly: isMe, // Prevent editing 'Me' to keep it as the account name
+              onTap: isMe ? () => setState(() => controller.text = 'Guest 1') : null, // If they tap it, switch back to guest mode
             ),
       ],
-    );
-  }
-
-  Widget _buildPlayerField(TextEditingController controller, String label, IconData icon) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label, 
-        border: const OutlineInputBorder(), 
-        prefixIcon: Icon(icon),
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.person_pin),
-          tooltip: 'Set to Me',
-          onPressed: () {
-            setState(() {
-              controller.text = _authService.currentUser?.displayName ?? 'Me';
-            });
-          },
-        ),
-      ),
     );
   }
 
