@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_all_platforms/google_sign_in_all_platforms.dart' as gsignin_all;
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // Singleton pattern
@@ -33,9 +34,17 @@ class AuthService {
   final gsignin_all.GoogleSignIn? _googleSignInWindows;
   String? _currentSessionId;
 
+  Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentSessionId = prefs.getString('currentSessionId');
+    print("Session: Initialized with persisted ID: $_currentSessionId");
+  }
+
   // Clear session ID to force a fresh one on next sync
-  void resetSessionId() {
+  Future<void> resetSessionId() async {
     _currentSessionId = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('currentSessionId');
   }
 
   // Sync user data to Firestore
@@ -63,12 +72,12 @@ class AuthService {
           'lastActive': FieldValue.serverTimestamp(),
         };
 
-        // Only update the session ID in the cloud during an actual login process.
-        // This prevents an existing instance from accidentally overwriting a 
-        // newer session from another device.
         if (isLogin) {
           _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
           dataToSync['currentSessionId'] = _currentSessionId;
+          
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('currentSessionId', _currentSessionId!);
         }
 
         await docRef.set(dataToSync, SetOptions(merge: true));
@@ -160,6 +169,7 @@ class AuthService {
     } else {
       await _googleSignIn.signOut();
     }
+    await resetSessionId();
     await _auth.signOut();
   }
 
@@ -179,15 +189,17 @@ class AuthService {
       
       print("Session Check: Local=$_currentSessionId, Cloud=$cloudSessionId");
 
-      // 1. If we don't have a local session ID yet, and the cloud HAS one,
-      // this means we just opened the app and should use the existing session.
+      // 1. If we have no local session ID yet (still loading SharedPreferences),
+      // we wait for it to be set. This is a rare race condition.
       if (_currentSessionId == null && cloudSessionId != null) {
+        // If we still have no local ID after sync/load, we adopt the cloud one.
+        // This handles cases where the user was logged in before the session feature.
         _currentSessionId = cloudSessionId;
-        print("Session: Adopting existing cloud session ID: $_currentSessionId");
+        print("Session: Adopting cloud ID as fallback: $_currentSessionId");
         return true;
       }
 
-      // 2. If the cloud session ID is null, we should probably set our local one there
+      // 2. If the cloud session ID is null, we are safe.
       if (cloudSessionId == null) return true;
 
       // 3. If they don't match, someone else logged in.

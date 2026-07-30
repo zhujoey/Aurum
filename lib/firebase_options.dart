@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '965668657122',
     projectId: 'sportsaccessories-c8431',
     storageBucket: 'sportsaccessories-c8431.firebasestorage.app',
-    iosBundleId: 'com.example.sportsaccesories',
+    iosBundleId: 'com.example.sportspro',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '965668657122',
     projectId: 'sportsaccessories-c8431',
     storageBucket: 'sportsaccessories-c8431.firebasestorage.app',
-    iosBundleId: 'com.example.sportsaccesories',
+    iosBundleId: 'com.example.sportspro',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
