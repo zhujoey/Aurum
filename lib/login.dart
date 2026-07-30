@@ -82,19 +82,27 @@ class _LoginState extends State<Login> {
 
   void _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
-    final user = await _authService.signInWithGoogle();
-    
-    if (user != null) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const Home()),
-      );
-    } else {
+    try {
+      final user = await _authService.signInWithGoogle();
+      
+      if (user != null) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Home()),
+        );
+      } else {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Sign-In was cancelled or failed.')),
+        );
+      }
+    } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Sign-In failed.')),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     }
   }

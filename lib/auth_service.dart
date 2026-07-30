@@ -1,11 +1,33 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_all_platforms/google_sign_in_all_platforms.dart' as gsignin_all;
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  
+  // Mobile/Web Google Sign In
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? _webClientId : null,
+  );
+
+  // For Windows support - Replace with your "Web Client ID" from Firebase Console
+  // 1. Go to Firebase Console > Authentication > Sign-in method > Google
+  // 2. Expand "Web SDK configuration" and copy the "Web client ID"
+  static const String _webClientId = '965668657122-c97pt6jvop87momdllc1a0r4int0g4vp.apps.googleusercontent.com';
+
+  final gsignin_all.GoogleSignIn? _googleSignInWindows;
+
+  AuthService()
+      : _googleSignInWindows = (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+            ? gsignin_all.GoogleSignIn(
+                params: const gsignin_all.GoogleSignInParams(
+                  clientId: _webClientId,
+                ),
+              )
+            : null;
 
   // Sync user data to Firestore
   Future<void> syncUserData(User? user, {String? username}) async {
@@ -41,18 +63,34 @@ class AuthService {
   // Google Sign In
   Future<User?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (_googleSignInWindows != null) {
+        // Windows specific flow
+        final credentials = await _googleSignInWindows.signIn();
+        if (credentials == null) return null;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: credentials.accessToken,
+          idToken: credentials.idToken,
+        );
 
-      final UserCredential result = await _auth.signInWithCredential(credential);
-      await syncUserData(result.user);
-      return result.user;
+        final UserCredential result = await _auth.signInWithCredential(credential);
+        await syncUserData(result.user);
+        return result.user;
+      } else {
+        // Mobile/Web flow
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) return null;
+
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final UserCredential result = await _auth.signInWithCredential(credential);
+        await syncUserData(result.user);
+        return result.user;
+      }
     } catch (e) {
       print("Google Sign In Error: $e");
       return null;
@@ -95,7 +133,11 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    if (_googleSignInWindows != null) {
+      await _googleSignInWindows.signOut();
+    } else {
+      await _googleSignIn.signOut();
+    }
     await _auth.signOut();
   }
 

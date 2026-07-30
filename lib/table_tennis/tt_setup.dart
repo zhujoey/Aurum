@@ -446,11 +446,21 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   const Divider(height: 40),
                   const Text('Match Format', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 16),
-                  SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    _formatButton('First to 4 sets', 4), const SizedBox(width: 8),
-                    _formatButton('First to 3 sets', 3), const SizedBox(width: 8),
-                    _customFormatButton(),
-                  ])),
+                  Center(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _formatButton('First to 4 sets', 4),
+                          const SizedBox(width: 8),
+                          _formatButton('First to 3 sets', 3),
+                          const SizedBox(width: 8),
+                          _customFormatButton(),
+                        ],
+                      ),
+                    ),
+                  ),
                   const Divider(height: 40),
                   const Text('Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 20),
