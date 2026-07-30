@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:sportsaccesories/profile.dart';
-import 'package:sportsaccesories/auth_service.dart';
-import 'package:sportsaccesories/new_match.dart';
-import 'package:sportsaccesories/table_tennis/tt_scoreboard.dart';
-import 'package:sportsaccesories/table_tennis/tt_setup.dart';
+import 'package:sportspro/profile.dart';
+import 'package:sportspro/auth_service.dart';
+import 'package:sportspro/new_match.dart';
+import 'package:sportspro/table_tennis/tt_scoreboard.dart';
+import 'package:sportspro/table_tennis/tt_setup.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sportsaccesories/home.dart';
-import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportspro/home.dart';
+import 'package:sportspro/auth_service.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -60,7 +60,7 @@ class _SignUpState extends State<SignUp> {
         // Set the username (displayName) immediately after sign up
         final username = _usernameController.text.trim();
         await user.updateDisplayName(username);
-        await _authService.syncUserData(user, username: username);
+        await _authService.syncUserData(user, username: username, isLogin: true);
         await user.reload();
         
         if (!mounted) return;

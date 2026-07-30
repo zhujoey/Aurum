@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportspro/auth_service.dart';
 import 'tt_models.dart';
 import 'widgets/tt_banners.dart';
 import 'widgets/tt_history.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportsaccesories/auth_service.dart';
-import 'package:sportsaccesories/friend_requests.dart';
+import 'package:sportspro/auth_service.dart';
+import 'package:sportspro/friend_requests.dart';
 
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});

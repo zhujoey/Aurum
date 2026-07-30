@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sportsaccesories/home.dart';
-import 'package:sportsaccesories/signup.dart';
-import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportspro/home.dart';
+import 'package:sportspro/signup.dart';
+import 'package:sportspro/auth_service.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -58,6 +58,9 @@ class _LoginState extends State<Login> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
+      // Force session reset on fresh login
+      _authService.resetSessionId();
+
       final user = await _authService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
@@ -83,6 +86,9 @@ class _LoginState extends State<Login> {
   void _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
     try {
+      // Force session reset on fresh login
+      _authService.resetSessionId();
+
       final user = await _authService.signInWithGoogle();
       
       if (user != null) {

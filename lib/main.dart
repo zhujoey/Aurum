@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:sportsaccesories/firebase_options.dart';
-import 'package:sportsaccesories/login.dart';
-import 'package:sportsaccesories/home.dart';
-import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportspro/firebase_options.dart';
+import 'package:sportspro/login.dart';
+import 'package:sportspro/home.dart';
+import 'package:sportspro/auth_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'package:sportsaccesories/table_tennis/tt_scoreboard.dart';
+import 'package:sportspro/table_tennis/tt_scoreboard.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sports Accessories',
+      title: 'Sports Pro',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -59,18 +59,56 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   final AuthService _authService = AuthService();
   StreamSubscription? _requestSubscription;
+  StreamSubscription? _sessionSubscription;
   final Set<String> _activeDialogRequestIds = {};
 
   @override
   void initState() {
     super.initState();
     _startListening();
+    _startSessionMonitor();
   }
 
   @override
   void dispose() {
     _requestSubscription?.cancel();
+    _sessionSubscription?.cancel();
     super.dispose();
+  }
+
+  void _startSessionMonitor() {
+    _sessionSubscription = _authService.sessionValidStream.listen((isValid) {
+      if (!isValid) {
+        _handleInvalidSession();
+      }
+    });
+  }
+
+  void _handleInvalidSession() async {
+    // Prevent multiple calls
+    _sessionSubscription?.cancel();
+    
+    await _authService.signOut();
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: navigatorKey.currentContext!,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Session Ended'),
+        content: const Text('Your account has been logged in on another device. You have been signed out from this instance.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _startSessionMonitor(); // Re-start monitoring for the next login
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _startListening() {

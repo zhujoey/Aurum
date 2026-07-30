@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sportsaccesories/auth_service.dart';
+import 'package:sportspro/auth_service.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});

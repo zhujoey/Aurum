@@ -5,6 +5,18 @@ import 'package:google_sign_in_all_platforms/google_sign_in_all_platforms.dart' 
 import 'package:flutter/foundation.dart';
 
 class AuthService {
+  // Singleton pattern
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal()
+      : _googleSignInWindows = (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+            ? gsignin_all.GoogleSignIn(
+                params: const gsignin_all.GoogleSignInParams(
+                  clientId: _webClientId,
+                ),
+              )
+            : null;
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   
@@ -19,18 +31,15 @@ class AuthService {
   static const String _webClientId = '965668657122-c97pt6jvop87momdllc1a0r4int0g4vp.apps.googleusercontent.com';
 
   final gsignin_all.GoogleSignIn? _googleSignInWindows;
+  String? _currentSessionId;
 
-  AuthService()
-      : _googleSignInWindows = (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
-            ? gsignin_all.GoogleSignIn(
-                params: const gsignin_all.GoogleSignInParams(
-                  clientId: _webClientId,
-                ),
-              )
-            : null;
+  // Clear session ID to force a fresh one on next sync
+  void resetSessionId() {
+    _currentSessionId = null;
+  }
 
   // Sync user data to Firestore
-  Future<void> syncUserData(User? user, {String? username}) async {
+  Future<void> syncUserData(User? user, {String? username, bool isLogin = false}) async {
     if (user == null) return;
 
     final docRef = _db.collection('users').doc(user.uid);
@@ -46,14 +55,27 @@ class AuthService {
 
     if (finalUsername != null && finalUsername.isNotEmpty) {
       try {
-        await docRef.set({
+        final Map<String, dynamic> dataToSync = {
           'uid': user.uid,
           'email': user.email,
           'username': finalUsername,
           'username_search': finalUsername.toLowerCase(),
           'lastActive': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        print("Firestore: User data synced successfully for $finalUsername");
+        };
+
+        // Only update the session ID in the cloud during an actual login process.
+        // This prevents an existing instance from accidentally overwriting a 
+        // newer session from another device.
+        if (isLogin) {
+          _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+          dataToSync['currentSessionId'] = _currentSessionId;
+        }
+
+        await docRef.set(dataToSync, SetOptions(merge: true));
+        
+        if (isLogin) {
+          print("Firestore: New session established: $_currentSessionId");
+        }
       } catch (e) {
         print("Firestore Error syncing user data: $e");
       }
@@ -74,7 +96,7 @@ class AuthService {
         );
 
         final UserCredential result = await _auth.signInWithCredential(credential);
-        await syncUserData(result.user);
+        await syncUserData(result.user, isLogin: true);
         return result.user;
       } else {
         // Mobile/Web flow
@@ -88,7 +110,7 @@ class AuthService {
         );
 
         final UserCredential result = await _auth.signInWithCredential(credential);
-        await syncUserData(result.user);
+        await syncUserData(result.user, isLogin: true);
         return result.user;
       }
     } catch (e) {
@@ -104,7 +126,7 @@ class AuthService {
         email: email, 
         password: password
       );
-      await syncUserData(result.user);
+      await syncUserData(result.user, isLogin: true);
       return result.user;
     } catch (e) {
       print(e.toString());
@@ -146,6 +168,36 @@ class AuthService {
 
   // Stream of auth changes (including profile updates)
   Stream<User?> get userStream => _auth.userChanges();
+
+  Stream<bool> get sessionValidStream {
+    final user = currentUser;
+    if (user == null) return Stream.value(true);
+    
+    return _db.collection('users').doc(user.uid).snapshots().map((doc) {
+      if (!doc.exists) return true;
+      final cloudSessionId = doc.data()?['currentSessionId'];
+      
+      print("Session Check: Local=$_currentSessionId, Cloud=$cloudSessionId");
+
+      // 1. If we don't have a local session ID yet, and the cloud HAS one,
+      // this means we just opened the app and should use the existing session.
+      if (_currentSessionId == null && cloudSessionId != null) {
+        _currentSessionId = cloudSessionId;
+        print("Session: Adopting existing cloud session ID: $_currentSessionId");
+        return true;
+      }
+
+      // 2. If the cloud session ID is null, we should probably set our local one there
+      if (cloudSessionId == null) return true;
+
+      // 3. If they don't match, someone else logged in.
+      bool isValid = cloudSessionId == _currentSessionId;
+      if (!isValid) {
+        print("Session: CONFLICT! Kicking this instance out.");
+      }
+      return isValid;
+    });
+  }
 
   // --- Friend Request Logic ---
 
