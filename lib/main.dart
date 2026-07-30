@@ -60,7 +60,7 @@ class AuthWrapper extends StatefulWidget {
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   final AuthService _authService = AuthService();
   StreamSubscription? _requestSubscription;
   StreamSubscription? _sessionSubscription;
@@ -69,18 +69,32 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startListening();
     _startSessionMonitor();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _requestSubscription?.cancel();
     _sessionSubscription?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh everything when the app comes back to foreground
+      // This is crucial for iOS and Android to re-establish Firestore streams
+      _authService.syncUserData(_authService.currentUser);
+      _startListening();
+      _startSessionMonitor();
+    }
+  }
+
   void _startSessionMonitor() {
+    _sessionSubscription?.cancel();
     _sessionSubscription = _authService.sessionValidStream.listen((isValid) {
       if (!isValid) {
         _handleInvalidSession();
@@ -92,12 +106,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // Prevent multiple calls
     _sessionSubscription?.cancel();
     
+    // Check if we still have a user and it's actually invalid
+    if (_authService.currentUser == null) return;
+    
     await _authService.signOut();
     
     if (!mounted) return;
     
+    // Ensure we have a context to show the dialog
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
     showDialog(
-      context: navigatorKey.currentContext!,
+      context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Session Ended'),
@@ -116,6 +137,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   void _startListening() {
+    _requestSubscription?.cancel();
     _requestSubscription = _authService.incomingMatchRequests.listen((snapshot) {
       for (var change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
@@ -125,8 +147,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
     });
   }
 
-  void _showMatchPrompt(DocumentSnapshot doc) {
+  void _showMatchPrompt(DocumentSnapshot doc) async {
     if (_activeDialogRequestIds.contains(doc.id)) return;
+
+    // Small delay to ensure navigator context and user profile are ready
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    final context = navigatorKey.currentContext;
+    if (context == null) {
+      print("Warning: Could not show match prompt, navigator context is null");
+      return;
+    }
 
     final data = doc.data() as Map<String, dynamic>;
     final String fromUser = data['fromUsername'] ?? 'Unknown';
@@ -138,14 +169,22 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final String p3Name = data['p3Name'] ?? '';
     final String p4Name = data['p4Name'] ?? '';
 
-    String currentUsername = _authService.currentUser?.displayName ?? '';
+    // Try to get displayName, reload if necessary
+    User? user = _authService.currentUser;
+    if (user != null && (user.displayName == null || user.displayName!.isEmpty)) {
+      await user.reload();
+      user = _authService.currentUser;
+    }
+    
+    String currentUsername = user?.displayName ?? '';
     String teamInfo = "";
+    
     if (isDoubles) {
-      if (currentUsername == p2Name) {
+      if (currentUsername.toLowerCase() == p2Name.toLowerCase()) {
         teamInfo = "\nYou will be on Team 1 with $p1Name.";
-      } else if (currentUsername == p3Name) {
+      } else if (currentUsername.toLowerCase() == p3Name.toLowerCase()) {
         teamInfo = "\nYou will be on Team 2 with $p4Name.";
-      } else if (currentUsername == p4Name) {
+      } else if (currentUsername.toLowerCase() == p4Name.toLowerCase()) {
         teamInfo = "\nYou will be on Team 2 with $p3Name.";
       }
     } else {
@@ -153,47 +192,78 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     _activeDialogRequestIds.add(doc.id);
+    
+    if (!mounted) return;
 
     showDialog(
-      context: navigatorKey.currentContext!,
+      context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text('$sport Request'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('$fromUser invited you to a ${isDoubles ? "Doubles" : "Singles"} match (First to $setsToWin sets).'),
-            const SizedBox(height: 12),
-            Text(teamInfo, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _authService.respondToRequest(doc.id, 'rejected');
-              if (mounted) {
+      builder: (dialogContext) {
+        // Listen to the request status to auto-close if host cancels
+        return StreamBuilder<DocumentSnapshot>(
+          stream: _authService.listenToRequest(doc.id),
+          builder: (context, snapshot) {
+            // If the document is deleted (status becomes 'cancelled' or doc vanishes)
+            if (snapshot.hasData && !snapshot.data!.exists) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (Navigator.canPop(dialogContext)) {
+                  Navigator.of(dialogContext, rootNavigator: true).pop();
+                }
                 setState(() => _activeDialogRequestIds.remove(doc.id));
-              }
-              Navigator.of(context, rootNavigator: true).pop();
-            },
-            child: const Text('Decline', style: TextStyle(color: Colors.red)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await _authService.respondToRequest(doc.id, 'accepted');
-              if (mounted) {
-                setState(() => _activeDialogRequestIds.remove(doc.id));
-              }
-              Navigator.of(context, rootNavigator: true).pop();
-              ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-                const SnackBar(content: Text('Accepted! Waiting for host to start.')),
-              );
-            },
-            child: const Text('Accept'),
-          ),
-        ],
-      ),
+              });
+            }
+
+            return AlertDialog(
+              title: Text('$sport Request'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$fromUser invited you to a ${isDoubles ? "Doubles" : "Singles"} match (First to $setsToWin sets).'),
+                  const SizedBox(height: 12),
+                  if (teamInfo.isNotEmpty)
+                    Text(teamInfo, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await _authService.respondToRequest(doc.id, 'rejected');
+                    } finally {
+                      if (mounted) {
+                        setState(() => _activeDialogRequestIds.remove(doc.id));
+                      }
+                      if (Navigator.canPop(dialogContext)) {
+                        Navigator.of(dialogContext, rootNavigator: true).pop();
+                      }
+                    }
+                  },
+                  child: const Text('Decline', style: TextStyle(color: Colors.red)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await _authService.respondToRequest(doc.id, 'accepted');
+                    } finally {
+                      if (mounted) {
+                        setState(() => _activeDialogRequestIds.remove(doc.id));
+                      }
+                      if (Navigator.canPop(dialogContext)) {
+                        Navigator.of(dialogContext, rootNavigator: true).pop();
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Accepted! Waiting for host to start.')),
+                      );
+                    }
+                  },
+                  child: const Text('Accept'),
+                ),
+              ],
+            );
+          }
+        );
+      },
     );
   }
 

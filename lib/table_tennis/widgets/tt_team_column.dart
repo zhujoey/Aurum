@@ -22,6 +22,7 @@ class TeamColumn extends StatelessWidget {
   final VoidCallback onYellowTap;
   final VoidCallback onRedTap;
   final Widget Function(String, int, bool) playerNameBuilder;
+  final bool isHost;
 
   const TeamColumn({
     super.key,
@@ -46,6 +47,7 @@ class TeamColumn extends StatelessWidget {
     required this.onYellowTap,
     required this.onRedTap,
     required this.playerNameBuilder,
+    this.isHost = true,
   });
 
   @override
@@ -86,74 +88,82 @@ class TeamColumn extends StatelessWidget {
         const SizedBox(height: 10),
         Row(mainAxisSize: MainAxisSize.min, children: [
           ElevatedButton(
-              onPressed: (timeoutUsed ||
+              onPressed: (!isHost ||
+                      timeoutUsed ||
                       isTimerRunning ||
                       isFinished ||
                       isAnySuspended)
                   ? null
                   : onTimeoutTap,
               style: ElevatedButton.styleFrom(
-                  backgroundColor: timeoutUsed ? Colors.grey : Colors.blueGrey,
+                  backgroundColor: (timeoutUsed || !isHost) ? Colors.grey : Colors.blueGrey,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                   minimumSize: const Size(40, 25)),
               child: const Text('T/O', style: TextStyle(fontSize: 9))),
           const SizedBox(width: 8),
           GestureDetector(
-              onTap: (isTimerRunning || isFinished || hasYellow || isAnySuspended)
+              onTap: (!isHost || isTimerRunning || isFinished || hasYellow || isAnySuspended)
                   ? null
                   : onYellowTap,
-              child: Container(
-                  width: 18,
-                  height: 28,
-                  decoration: BoxDecoration(
-                      color: hasYellow
-                          ? Colors.yellow
-                          : Colors.yellow.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(
-                          color: hasYellow ? Colors.yellow.shade700 : Colors.yellow,
-                          width: 1.5),
-                      boxShadow: hasYellow
-                          ? [
-                              BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 2,
-                                  offset: Offset(1, 1))
-                            ]
-                          : null))),
+              child: Opacity(
+                opacity: isHost ? 1.0 : 0.5,
+                child: Container(
+                    width: 18,
+                    height: 28,
+                    decoration: BoxDecoration(
+                        color: hasYellow
+                            ? Colors.yellow
+                            : Colors.yellow.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                            color: hasYellow ? Colors.yellow.shade700 : Colors.yellow,
+                            width: 1.5),
+                        boxShadow: hasYellow
+                            ? [
+                                BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 2,
+                                    offset: Offset(1, 1))
+                              ]
+                            : null)),
+              )),
           const SizedBox(width: 6),
           GestureDetector(
-              onTap: (isTimerRunning ||
+              onTap: (!isHost ||
+                      isTimerRunning ||
                       isFinished ||
                       isSuspended ||
                       isAnySuspended)
                   ? null
                   : onRedTap,
-              child: Container(
-                  width: 18,
-                  height: 28,
-                  decoration: BoxDecoration(
-                      color: hasRed ? Colors.red : Colors.red.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(
-                          color: hasRed ? Colors.red.shade900 : Colors.red,
-                          width: 1.5),
-                      boxShadow: hasRed
-                          ? [
-                              BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 2,
-                                  offset: Offset(1, 1))
-                            ]
-                          : null),
-                  child: isSuspended
-                      ? const Center(child: Icon(Icons.close, size: 14, color: Colors.white))
-                      : null)),
+              child: Opacity(
+                opacity: isHost ? 1.0 : 0.5,
+                child: Container(
+                    width: 18,
+                    height: 28,
+                    decoration: BoxDecoration(
+                        color: hasRed ? Colors.red : Colors.red.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                            color: hasRed ? Colors.red.shade900 : Colors.red,
+                            width: 1.5),
+                        boxShadow: hasRed
+                            ? [
+                                BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 2,
+                                    offset: Offset(1, 1))
+                              ]
+                            : null),
+                    child: isSuspended
+                        ? const Center(child: Icon(Icons.close, size: 14, color: Colors.white))
+                        : null),
+              )),
         ]),
         const SizedBox(height: 10),
         GestureDetector(
-            onTap: (isTimerRunning || isFinished || isAnySuspended)
+            onTap: (!isHost || isTimerRunning || isFinished || isAnySuspended)
                 ? null
                 : onScoreTap,
             child: Container(
@@ -169,7 +179,7 @@ class TeamColumn extends StatelessWidget {
                             ? Colors.white
                             : (hasWon
                                 ? Colors.amber
-                                : (isFinished || isTimerRunning || isAnySuspended
+                                : (isFinished || isTimerRunning || isAnySuspended || !isHost
                                     ? Colors.white.withValues(alpha: 0.1)
                                     : Colors.blue.withValues(alpha: 0.5))),
                         width: 3),
@@ -195,7 +205,7 @@ class TeamColumn extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             color: hasWon
                                 ? Colors.amber
-                                : (isFinished || isTimerRunning || isAnySuspended
+                                : (isFinished || isTimerRunning || isAnySuspended || !isHost
                                     ? Colors.white.withValues(alpha: 0.1)
                                     : null)))))),
         const SizedBox(height: 8),

@@ -72,13 +72,13 @@ class SuspensionBanner extends StatelessWidget {
 class TimerBanner extends StatelessWidget {
   final String title;
   final int seconds;
-  final VoidCallback onSkip;
+  final VoidCallback? onSkip;
 
   const TimerBanner({
     super.key,
     required this.title,
     required this.seconds,
-    required this.onSkip,
+    this.onSkip,
   });
 
   @override
@@ -94,7 +94,8 @@ class TimerBanner extends StatelessWidget {
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.blue)),
           const Spacer(),
-          TextButton(onPressed: onSkip, child: const Text('Skip')),
+          if (onSkip != null)
+            TextButton(onPressed: onSkip, child: const Text('Skip')),
         ]));
   }
 }

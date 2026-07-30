@@ -32,7 +32,7 @@ class MatchStatsSummary extends StatelessWidget {
               'Longest Streak', '${s1['longestStreak']}', '${s2['longestStreak']}'),
           const Divider(height: 24),
           _statsRow('Win % on Serve',
-              '${s1['serveWinRate'].toStringAsFixed(1)}%', '${s2['serveWinRate'].toStringAsFixed(1)}%'),
+              '${s1['serveWinRate'].toStringAsFixed(2)}%', '${s2['serveWinRate'].toStringAsFixed(2)}%'),
         ]));
   }
 

@@ -161,6 +161,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
             activeTimerSeconds: _savedMatch!['activeTimerSeconds'] ?? 0,
             activeTimerTitle: _savedMatch!['activeTimerTitle'] ?? '',
             matchId: _savedMatch!['matchId'] ?? '',
+            isHost: true,
           ),
         ),
       );
@@ -383,6 +384,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
           p1Name: n1, p2Name: n2, p3Name: n3, p4Name: n4,
           isDoubles: _isDoubles, setsToWin: _setsToWin,
           matchId: matchId, // Pass the match ID
+          isHost: true,
         ),
       ),
     );
@@ -583,14 +585,55 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 ],
               )
             else
-              Align(
-                alignment: Alignment.center,
-                child: ElevatedButton.icon(
-                  onPressed: () => _authService.updateMatchStatus(matchDoc.id, 'forfeited'),
-                  icon: const Icon(Icons.flag, size: 18),
-                  label: const Text('Forfeit Match'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () async {
+                      bool? confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Forfeit Match?'),
+                          content: const Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Forfeit', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await _authService.updateMatchStatus(matchDoc.id, 'forfeited');
+                      }
+                    },
+                    icon: const Icon(Icons.flag, size: 18),
+                    label: const Text('Forfeit'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final matchData = data['matchData'] ?? {};
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TableTennisMatch(
+                            p1Name: matchData['p1Name'] ?? 'P1',
+                            p2Name: matchData['p2Name'] ?? '',
+                            p3Name: matchData['p3Name'] ?? 'P2',
+                            p4Name: matchData['p4Name'] ?? '',
+                            isDoubles: matchData['isDoubles'] ?? false,
+                            setsToWin: matchData['setsToWin'] ?? 4,
+                            matchId: matchDoc.id,
+                            isHost: false,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('View Match'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                  ),
+                ],
               ),
           ],
         ),

@@ -53,15 +53,82 @@ class _HomeState extends State<Home> {
         subtitle: Text(isHost ? 'You are hosting a match.' : 'You are participating in a match.'),
         onTap: () {
           if (sport == 'Table Tennis') {
-             Navigator.push(context, MaterialPageRoute(builder: (context) => const TableTennisSetup()));
+            final matchData = data['matchData'] ?? {};
+            if (!isHost) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TableTennisMatch(
+                    p1Name: matchData['p1Name'] ?? 'P1',
+                    p2Name: matchData['p2Name'] ?? '',
+                    p3Name: matchData['p3Name'] ?? 'P2',
+                    p4Name: matchData['p4Name'] ?? '',
+                    isDoubles: matchData['isDoubles'] ?? false,
+                    setsToWin: matchData['setsToWin'] ?? 4,
+                    matchId: matchDoc.id,
+                    isHost: false,
+                  ),
+                ),
+              );
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const TableTennisSetup()));
+            }
           }
         },
         trailing: isHost 
           ? const Icon(Icons.chevron_right)
-          : ElevatedButton(
-              onPressed: () => _authService.updateMatchStatus(matchDoc.id, 'forfeited'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-              child: const Text('Forfeit'),
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: () async {
+                    bool? confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Forfeit Match?'),
+                        content: const Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Forfeit', style: TextStyle(color: Colors.red))),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await _authService.updateMatchStatus(matchDoc.id, 'forfeited');
+                    }
+                  },
+                  child: const Text('Forfeit', style: TextStyle(color: Colors.red, fontSize: 12)),
+                ),
+                const SizedBox(width: 4),
+                ElevatedButton(
+                  onPressed: () {
+                    if (sport == 'Table Tennis') {
+                      final matchData = data['matchData'] ?? {};
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TableTennisMatch(
+                            p1Name: matchData['p1Name'] ?? 'P1',
+                            p2Name: matchData['p2Name'] ?? '',
+                            p3Name: matchData['p3Name'] ?? 'P2',
+                            p4Name: matchData['p4Name'] ?? '',
+                            isDoubles: matchData['isDoubles'] ?? false,
+                            setsToWin: matchData['setsToWin'] ?? 4,
+                            matchId: matchDoc.id,
+                            isHost: false,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue, 
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('View Match', style: TextStyle(fontSize: 12)),
+                ),
+              ],
             ),
       ),
     );

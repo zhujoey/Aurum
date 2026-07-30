@@ -33,37 +33,45 @@ class AuthService {
 
   final gsignin_all.GoogleSignIn? _googleSignInWindows;
   String? _currentSessionId;
+  bool _ignoreSessionCheck = false;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _currentSessionId = prefs.getString('currentSessionId');
-    print("Session: Initialized with persisted ID: $_currentSessionId");
+    
+    // If this is a fresh install or cache was cleared, generate a persistent ID for this device
+    if (_currentSessionId == null) {
+      _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+      await prefs.setString('currentSessionId', _currentSessionId!);
+    }
+    print("Session: Device ID initialized: $_currentSessionId");
   }
 
-  // Clear session ID to force a fresh one on next sync
+  // Clear session ID (only used for full logout)
   Future<void> resetSessionId() async {
-    _currentSessionId = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('currentSessionId');
+    // Note: We no longer clear the local ID on simple sign-out 
+    // to maintain device identity for the next login attempt.
   }
 
   // Sync user data to Firestore
   Future<void> syncUserData(User? user, {String? username, bool isLogin = false}) async {
     if (user == null) return;
-
-    final docRef = _db.collection('users').doc(user.uid);
-    String? finalUsername = username ?? user.displayName;
     
-    // If name is missing from auth, try to get from existing DB entry
-    if (finalUsername == null || finalUsername.isEmpty) {
-      final doc = await docRef.get();
-      if (doc.exists) {
-        finalUsername = doc.data()?['username'];
-      }
-    }
+    if (isLogin) _ignoreSessionCheck = true;
 
-    if (finalUsername != null && finalUsername.isNotEmpty) {
-      try {
+    try {
+      final docRef = _db.collection('users').doc(user.uid);
+      String? finalUsername = username ?? user.displayName;
+      
+      // If name is missing from auth, try to get from existing DB entry
+      if (finalUsername == null || finalUsername.isEmpty) {
+        final doc = await docRef.get();
+        if (doc.exists) {
+          finalUsername = doc.data()?['username'];
+        }
+      }
+
+      if (finalUsername != null && finalUsername.isNotEmpty) {
         final Map<String, dynamic> dataToSync = {
           'uid': user.uid,
           'email': user.email,
@@ -72,27 +80,30 @@ class AuthService {
           'lastActive': FieldValue.serverTimestamp(),
         };
 
-        if (isLogin) {
-          _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+        // On every sync (including resume), we ensure the cloud knows our ID.
+        // During an explicit login, we 'force' this ID to be the active one.
+        if (_currentSessionId != null) {
           dataToSync['currentSessionId'] = _currentSessionId;
-          
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('currentSessionId', _currentSessionId!);
         }
 
         await docRef.set(dataToSync, SetOptions(merge: true));
-        
-        if (isLogin) {
-          print("Firestore: New session established: $_currentSessionId");
-        }
-      } catch (e) {
-        print("Firestore Error syncing user data: $e");
+        print("Firestore: Synced with session ID: $_currentSessionId");
+      }
+    } catch (e) {
+      print("Firestore Error syncing user data: $e");
+    } finally {
+      if (isLogin) {
+        // Give it a tiny bit of time for the stream to process the update 
+        // before we re-enable the check
+        await Future.delayed(const Duration(milliseconds: 500));
+        _ignoreSessionCheck = false;
       }
     }
   }
 
   // Google Sign In
   Future<User?> signInWithGoogle() async {
+    _ignoreSessionCheck = true;
     try {
       if (_googleSignInWindows != null) {
         // Windows specific flow
@@ -124,12 +135,14 @@ class AuthService {
       }
     } catch (e) {
       print("Google Sign In Error: $e");
+      _ignoreSessionCheck = false;
       return null;
     }
   }
 
   // Sign in with email and password
   Future<User?> signIn(String email, String password) async {
+    _ignoreSessionCheck = true;
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email, 
@@ -139,20 +152,24 @@ class AuthService {
       return result.user;
     } catch (e) {
       print(e.toString());
+      _ignoreSessionCheck = false;
       return null;
     }
   }
 
   // Sign up with email and password
   Future<User?> signUp(String email, String password) async {
+    _ignoreSessionCheck = true;
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email, 
         password: password
       );
+      // Note: syncUserData is usually called in signup.dart after this
       return result.user;
     } catch (e) {
       print(e.toString());
+      _ignoreSessionCheck = false;
       return null;
     }
   }
@@ -180,34 +197,32 @@ class AuthService {
   Stream<User?> get userStream => _auth.userChanges();
 
   Stream<bool> get sessionValidStream {
-    final user = currentUser;
-    if (user == null) return Stream.value(true);
-    
-    return _db.collection('users').doc(user.uid).snapshots().map((doc) {
-      if (!doc.exists) return true;
-      final cloudSessionId = doc.data()?['currentSessionId'];
+    return _auth.userChanges().asyncExpand((user) {
+      if (user == null) {
+        return Stream.value(true);
+      }
       
-      print("Session Check: Local=$_currentSessionId, Cloud=$cloudSessionId");
+      return _db.collection('users').doc(user.uid).snapshots().map((doc) {
+        if (!doc.exists) return true;
+        
+        // If we are currently in the middle of a login/sync, ignore mismatches
+        if (_ignoreSessionCheck) {
+          return true;
+        }
 
-      // 1. If we have no local session ID yet (still loading SharedPreferences),
-      // we wait for it to be set. This is a rare race condition.
-      if (_currentSessionId == null && cloudSessionId != null) {
-        // If we still have no local ID after sync/load, we adopt the cloud one.
-        // This handles cases where the user was logged in before the session feature.
-        _currentSessionId = cloudSessionId;
-        print("Session: Adopting cloud ID as fallback: $_currentSessionId");
-        return true;
-      }
+        final cloudSessionId = doc.data()?['currentSessionId'];
+        
+        // If no session is set in the cloud yet, we consider it valid.
+        if (cloudSessionId == null) return true;
 
-      // 2. If the cloud session ID is null, we are safe.
-      if (cloudSessionId == null) return true;
-
-      // 3. If they don't match, someone else logged in.
-      bool isValid = cloudSessionId == _currentSessionId;
-      if (!isValid) {
-        print("Session: CONFLICT! Kicking this instance out.");
-      }
-      return isValid;
+        // Strict check: Cloud session MUST match our local persistent device ID.
+        bool isValid = cloudSessionId == _currentSessionId;
+        
+        if (!isValid) {
+          print("Session: Mismatch detected for ${user.displayName}. Local=$_currentSessionId, Cloud=$cloudSessionId");
+        }
+        return isValid;
+      });
     });
   }
 
@@ -283,6 +298,8 @@ class AuthService {
     final String trimmed = username.trim();
     if (trimmed.isEmpty) return null;
     
+    print("Search: Looking for user '$trimmed'...");
+
     // 1. Try case-insensitive searchable field
     var result = await _db
         .collection('users')
@@ -293,10 +310,11 @@ class AuthService {
     if (result.docs.isNotEmpty) {
       final data = result.docs.first.data();
       data['uid'] = result.docs.first.id; // Ensure UID is always present
+      print("Search: Found by username_search: ${data['username']}");
       return data;
     }
 
-    // 2. Try original username (case-sensitive)
+    // 2. Try original username (case-sensitive) just in case index is lagging
     result = await _db
         .collection('users')
         .where('username', isEqualTo: trimmed)
@@ -306,6 +324,7 @@ class AuthService {
     if (result.docs.isNotEmpty) {
       final data = result.docs.first.data();
       data['uid'] = result.docs.first.id;
+      print("Search: Found by case-sensitive username: ${data['username']}");
       return data;
     }
 
@@ -319,10 +338,12 @@ class AuthService {
       if (result.docs.isNotEmpty) {
         final data = result.docs.first.data();
         data['uid'] = result.docs.first.id;
+        print("Search: Found by email: ${data['email']}");
         return data;
       }
     }
 
+    print("Search: No user found matching '$trimmed'");
     return null;
   }
 
@@ -360,9 +381,17 @@ class AuthService {
 
   // Respond to a match request
   Future<void> respondToRequest(String requestId, String status) async {
-    await _db.collection('match_requests').doc(requestId).update({
-      'status': status,
-    });
+    try {
+      final docRef = _db.collection('match_requests').doc(requestId);
+      final doc = await docRef.get();
+      if (!doc.exists) {
+        print("Firestore: Cannot respond to request $requestId, it no longer exists.");
+        return;
+      }
+      await docRef.update({'status': status});
+    } catch (e) {
+      print("Firestore Error responding to request: $e");
+    }
   }
 
   // Delete a match request
@@ -370,17 +399,26 @@ class AuthService {
     try {
       await _db.collection('match_requests').doc(requestId).delete();
     } catch (e) {
-      print("Error deleting request: $e");
+      print("Firestore Error deleting request: $e");
     }
   }
 
   // Listen for requests sent TO the current user
   Stream<QuerySnapshot> get incomingMatchRequests {
-    return _db
-        .collection('match_requests')
-        .where('toUid', isEqualTo: currentUser?.uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots();
+    return _auth.userChanges().asyncExpand((user) {
+      if (user == null) {
+        return const Stream.empty();
+      }
+      // Useful for debugging Web connectivity
+      if (kIsWeb) {
+        print("Firestore: Initializing real-time listener for user: ${user.uid}");
+      }
+      return _db
+          .collection('match_requests')
+          .where('toUid', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots();
+    });
   }
 
   // Listen for the status of a request sent BY the current user
