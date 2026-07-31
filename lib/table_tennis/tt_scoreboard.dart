@@ -707,22 +707,19 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
   bool get _isDecider => (player1Sets + player2Sets) == (widget.setsToWin * 2) - 2;
 
-  int get _currentServer {
-    int totalPoints = player1Score + player2Score;
-    List<int> rotation = TTRotationLogic.calculateRotation(firstServerOfSet, firstReceiverOfSet, widget.isDoubles, _isDecider, player1Score, player2Score);
-    int stintSize = (expediteActive || (player1Score >= 10 && player2Score >= 10)) ? 1 : 2;
-    int rotationIdx = (totalPoints ~/ stintSize) % (widget.isDoubles ? 4 : 2);
-    return rotation[rotationIdx];
+  TTServerResults get _currentRotation {
+    return TTRotationLogic.getRotationAtPoint(
+      fs: firstServerOfSet,
+      fr: firstReceiverOfSet,
+      isDoubles: widget.isDoubles,
+      isDecider: _isDecider,
+      pointSequence: pointHistory,
+      expediteActive: expediteActive,
+    );
   }
 
-  int get _currentReceiver {
-    if (!widget.isDoubles) return 0;
-    int totalPoints = player1Score + player2Score;
-    List<int> rotation = TTRotationLogic.calculateRotation(firstServerOfSet, firstReceiverOfSet, widget.isDoubles, _isDecider, player1Score, player2Score);
-    int stintSize = (expediteActive || (player1Score >= 10 && player2Score >= 10)) ? 1 : 2;
-    int nextIdx = ((totalPoints ~/ stintSize) + 1) % 4;
-    return rotation[nextIdx];
-  }
+  int get _currentServer => _currentRotation.server;
+  int get _currentReceiver => _currentRotation.receiver;
 
   String _getPlayerSide(int playerNum) {
     int currentSetNum = player1Sets + player2Sets;
@@ -854,30 +851,48 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     if (pointHistory.isNotEmpty || player1Score > 0 || player2Score > 0) { 
       allSets.add(SetSummary(p1Score: player1Score, p2Score: player2Score, pointSequence: List<int>.from(pointHistory), isExpediteSet: expediteActive, firstServer: firstServerOfSet, firstReceiver: firstReceiverOfSet)); 
     }
+    
     for (int i = 0; i < allSets.length; i++) {
-      final set = allSets[i]; int p1Points = 0, p2Points = 0;
-      for (int p in set.pointSequence) {
-        int totalInSet = p1Points + p2Points;
-        List<int> rotation = TTRotationLogic.calculateRotation(set.firstServer, set.firstReceiver, widget.isDoubles, (i == (widget.setsToWin * 2) - 2), p1Points, p2Points);
-        int stintSize = (set.isExpediteSet || (p1Points >= 10 && p2Points >= 10)) ? 1 : 2;
-        int currentServer = rotation[(totalInSet ~/ stintSize) % (widget.isDoubles ? 4 : 2)];
+      final set = allSets[i];
+      if (set.firstServer == 0) continue;
+      
+      int p1PointsInSet = 0, p2PointsInSet = 0;
+      int currentRotationIdx = 0;
+      int pointsInCurrentStint = 0;
+      bool hasSwitchedInDecider = false;
+      bool isDeciderSet = (i == (widget.setsToWin * 2) - 2);
+
+      for (int winner in set.pointSequence) {
+        int stintSize = (set.isExpediteSet || (p1PointsInSet >= 10 && p2PointsInSet >= 10)) ? 1 : 2;
+        
+        if (isDeciderSet && !hasSwitchedInDecider && (p1PointsInSet >= 5 || p2PointsInSet >= 5)) {
+           hasSwitchedInDecider = true;
+        }
+
+        List<int> rotation = hasSwitchedInDecider 
+            ? TTRotationLogic.getSwitchedRotation(set.firstServer, set.firstReceiver)
+            : TTRotationLogic.getNormalRotation(set.firstServer, set.firstReceiver, widget.isDoubles);
+        
+        int currentServer = rotation[currentRotationIdx];
         
         bool isServerTeam1 = widget.isDoubles ? (currentServer <= 2) : (currentServer == 1);
-        bool pointWonByTeam1 = (p == 1);
+        bool pointWonByTeam1 = (winner == 1);
         bool calcTeamWonPoint = (isCalcTeam1 == pointWonByTeam1);
         bool calcTeamIsServing = (isCalcTeam1 == isServerTeam1);
 
         if (calcTeamWonPoint) {
-           totalPoints++; 
-           currentStreak++; 
-           if (currentStreak > longestStreak) longestStreak = currentStreak; 
+           totalPoints++; currentStreak++; if (currentStreak > longestStreak) longestStreak = currentStreak; 
            if (calcTeamIsServing) pointsOnServe++; 
-        } else { 
-          currentStreak = 0; 
-        }
-        
+        } else { currentStreak = 0; }
         if (calcTeamIsServing) servesTotal++;
-        if (p == 1) p1Points++; else p2Points++;
+
+        if (winner == 1) p1PointsInSet++; else p2PointsInSet++;
+        
+        pointsInCurrentStint++;
+        if (pointsInCurrentStint >= stintSize) {
+           pointsInCurrentStint = 0;
+           currentRotationIdx = (currentRotationIdx + 1) % (widget.isDoubles ? 4 : 2);
+        }
       }
       currentStreak = 0;
     }

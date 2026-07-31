@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsignin;
 import 'package:google_sign_in_all_platforms/google_sign_in_all_platforms.dart' as gsignin_all;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +22,7 @@ class AuthService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   
   // Mobile/Web Google Sign In
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  final gsignin.GoogleSignIn _googleSignIn = gsignin.GoogleSignIn(
     clientId: kIsWeb ? _webClientId : null,
   );
 
@@ -120,10 +120,10 @@ class AuthService {
         return result.user;
       } else {
         // Mobile/Web flow
-        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        final gsignin.GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
         if (googleUser == null) return null;
 
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final gsignin.GoogleSignInAuthentication googleAuth = await googleUser.authentication;
         final AuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
@@ -182,7 +182,7 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     if (_googleSignInWindows != null) {
-      await _googleSignInWindows.signOut();
+      await _googleSignInWindows!.signOut();
     } else {
       await _googleSignIn.signOut();
     }
