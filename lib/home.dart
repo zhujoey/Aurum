@@ -200,8 +200,8 @@ class _HomeState extends State<Home> {
                     ),
                     _buildActionButton(
                       context,
-                      'Records',
-                      Icons.emoji_events,
+                      'Clubs',
+                      Icons.groups,
                       Colors.blue,
                       () {},
                     ),

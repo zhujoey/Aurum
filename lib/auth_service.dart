@@ -238,6 +238,42 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
+    // 1. Check if already friends
+    final friendDoc = await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('friends')
+        .doc(targetUid)
+        .get();
+    
+    if (friendDoc.exists) {
+      throw 'You are already friends with this user.';
+    }
+
+    // 2. Check if I already sent a request to them
+    final sentRequest = await _db
+        .collection('friend_requests')
+        .where('fromUid', isEqualTo: user.uid)
+        .where('toUid', isEqualTo: targetUid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    if (sentRequest.docs.isNotEmpty) {
+      throw 'Friend request already sent.';
+    }
+
+    // 3. Check if they already sent a request to me
+    final receivedRequest = await _db
+        .collection('friend_requests')
+        .where('fromUid', isEqualTo: targetUid)
+        .where('toUid', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    if (receivedRequest.docs.isNotEmpty) {
+      throw 'This user has already sent you a friend request. Check your notifications.';
+    }
+
     await _db.collection('friend_requests').add({
       'fromUid': user.uid,
       'fromUsername': user.displayName ?? 'Unknown',
@@ -279,6 +315,27 @@ class AuthService {
 
   Future<void> declineFriendRequest(String requestId) async {
     await _db.collection('friend_requests').doc(requestId).delete();
+  }
+
+  Future<void> removeFriend(String targetUid) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Remove from current user's friends
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('friends')
+        .doc(targetUid)
+        .delete();
+
+    // 2. Remove current user from target's friends
+    await _db
+        .collection('users')
+        .doc(targetUid)
+        .collection('friends')
+        .doc(user.uid)
+        .delete();
   }
 
   // --- Match Request Logic ---
