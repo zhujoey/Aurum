@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/login.dart';
-import 'package:sportspro/edit_profile.dart';
 import 'package:sportspro/friends.dart';
+import 'package:sportspro/settings.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class Profile extends StatelessWidget {
@@ -42,42 +42,39 @@ class Profile extends StatelessWidget {
                 const Divider(),
                 _buildListTile(
                   context,
-                  Icons.edit,
-                  'Edit Profile',
+                  Icons.people,
+                  'Friends',
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const EditProfile()),
+                      MaterialPageRoute(builder: (context) => const FriendsPage()),
                     );
                   },
                 ),
                 _buildListTile(
-              context,
-              Icons.people,
-              'Friends',
-              onTap: () {
-                Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const FriendsPage()),
-                );
-              },
-            ),
-            _buildListTile(
-              context,
-              Icons.sync,
-              'Sync Account Data',
-              onTap: () async {
-                await authService.syncUserData(authService.currentUser);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Account data synced with cloud.')),
-                  );
-                }
-              },
-            ),
-            _buildListTile(context, Icons.settings, 'Settings'),
-                _buildListTile(context, Icons.history, 'Match History'),
-                _buildListTile(context, Icons.help, 'Help & Support'),
+                  Icons.sync,
+                  'Sync Account Data',
+                  onTap: () async {
+                    await authService.syncUserData(authService.currentUser);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Account data synced with cloud.')),
+                      );
+                    }
+                  },
+                ),
+                _buildListTile(
+                  context,
+                  Icons.settings,
+                  'Settings',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsPage()),
+                    );
+                  },
+                ),
                 const Divider(),
                 _buildListTile(
                   context, 

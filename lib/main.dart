@@ -5,6 +5,7 @@ import 'package:sportspro/firebase_options.dart';
 import 'package:sportspro/login.dart';
 import 'package:sportspro/home.dart';
 import 'package:sportspro/auth_service.dart';
+import 'package:sportspro/theme_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
@@ -18,8 +19,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Initialize AuthService session
+  // Initialize services
   await AuthService().init();
+  await ThemeService().init();
 
   runApp(const MyApp());
 }
@@ -29,26 +31,44 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sports Pro',
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      themeMode: ThemeMode.dark,
-      home: const AuthWrapper(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService().themeMode,
+      builder: (context, mode, child) {
+        return ValueListenableBuilder<Color>(
+          valueListenable: ThemeService().seedColor,
+          builder: (context, color, child) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: ThemeService().useTrueDark,
+              builder: (context, trueDark, child) {
+                return MaterialApp(
+                  title: 'Sports Pro',
+                  navigatorKey: navigatorKey,
+                  debugShowCheckedModeBanner: false,
+                  theme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: color,
+                      brightness: Brightness.light,
+                    ),
+                    useMaterial3: true,
+                  ),
+                  darkTheme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: color,
+                      brightness: Brightness.dark,
+                      surface: trueDark ? Colors.black : null,
+                    ),
+                    scaffoldBackgroundColor: trueDark ? Colors.black : null,
+                    appBarTheme: trueDark ? const AppBarTheme(backgroundColor: Colors.black) : null,
+                    useMaterial3: true,
+                  ),
+                  themeMode: mode,
+                  home: const AuthWrapper(),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }
