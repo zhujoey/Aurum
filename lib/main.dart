@@ -9,7 +9,6 @@ import 'package:sportspro/theme_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'package:sportspro/table_tennis/tt_scoreboard.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 

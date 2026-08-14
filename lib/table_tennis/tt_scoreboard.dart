@@ -739,11 +739,15 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       if (isSetOver && delta > 0) _stopMatchTimer();
       if (teamNum == 1) {
         player1Score = (player1Score + delta).clamp(0, 99);
-        if (delta > 0) { for (int i = 0; i < delta; i++) pointHistory.add(1); }
+        if (delta > 0) { for (int i = 0; i < delta; i++) {
+          pointHistory.add(1);
+        } }
         else if (pointHistory.isNotEmpty && pointHistory.last == 1) { pointHistory.removeLast(); }
       } else {
         player2Score = (player2Score + delta).clamp(0, 99);
-        if (delta > 0) { for (int i = 0; i < delta; i++) pointHistory.add(2); }
+        if (delta > 0) { for (int i = 0; i < delta; i++) {
+          pointHistory.add(2);
+        } }
         else if (pointHistory.isNotEmpty && pointHistory.last == 2) { pointHistory.removeLast(); }
       }
       if (delta > 0) {
@@ -774,7 +778,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   void _useTimeout(int playerNum) {
     _saveState();
     setState(() {
-      if (playerNum == 1 || playerNum == 2) p1TimeoutUsed = true; else p2TimeoutUsed = true;
+      if (playerNum == 1 || playerNum == 2) {
+        p1TimeoutUsed = true;
+      } else {
+        p2TimeoutUsed = true;
+      }
       logs.add(MatchLogEntry(type: 'timeout', playerNum: playerNum, setNum: setSummaries.length + 1, p1Score: player1Score, p2Score: player2Score));
     });
     _startMatchTimer('Timeout', 60);
@@ -823,7 +831,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
   void _checkSetWinner() {
     if (!isSetOver && (player1Score >= 11 || player2Score >= 11) && (player1Score - player2Score).abs() >= 2) {
-      if (player1Score > player2Score) player1Sets++; else player2Sets++;
+      if (player1Score > player2Score) {
+        player1Sets++;
+      } else {
+        player2Sets++;
+      }
       isSetOver = true;
       setSummaries.add(SetSummary(p1Score: player1Score, p2Score: player2Score, pointSequence: List<int>.from(pointHistory), isExpediteSet: expediteActive, firstServer: firstServerOfSet, firstReceiver: firstReceiverOfSet));
       _checkMatchWinner();
@@ -886,7 +898,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         } else { currentStreak = 0; }
         if (calcTeamIsServing) servesTotal++;
 
-        if (winner == 1) p1PointsInSet++; else p2PointsInSet++;
+        if (winner == 1) {
+          p1PointsInSet++;
+        } else {
+          p2PointsInSet++;
+        }
         
         pointsInCurrentStint++;
         if (pointsInCurrentStint >= stintSize) {
@@ -1053,7 +1069,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     int p1Num = teamNum == 1 ? 1 : (widget.isDoubles ? 3 : 2);
     final teamPenalties = logs.where((p) => p.type == 'penalty' && ((teamNum == 1 && (widget.isDoubles ? (p.playerNum == 1 || p.playerNum == 2) : p.playerNum == 1)) || (teamNum == 2 && (widget.isDoubles ? (p.playerNum == 3 || p.playerNum == 4) : p.playerNum == 2)))).toList();
     return TeamColumn(
-      teamNum: teamNum, score: teamNum == 1 ? player1Score : player2Score, sets: teamNum == 1 ? player1Sets : player2Sets, name1: teamNum == 1 ? widget.p1Name : widget.p3Name, name2: teamNum == 1 ? widget.p2Name : widget.p4Name, isDoubles: widget.isDoubles, hasWon: hasWon, timeoutUsed: timeoutUsed, isTimerRunning: _activeTimerSeconds > 0, isFinished: isFinished, isAnySuspended: _isAnySuspended, teamServing: widget.isDoubles ? (teamNum == 1 ? (_currentServer <= 2) : (_currentServer >= 3)) : (_currentServer == teamNum), playerSide: _getPlayerSide(p1Num), hasYellow: teamPenalties.length >= 1, hasRed: teamPenalties.length >= 2, isSuspended: teamPenalties.length >= 4, 
+      teamNum: teamNum, score: teamNum == 1 ? player1Score : player2Score, sets: teamNum == 1 ? player1Sets : player2Sets, name1: teamNum == 1 ? widget.p1Name : widget.p3Name, name2: teamNum == 1 ? widget.p2Name : widget.p4Name, isDoubles: widget.isDoubles, hasWon: hasWon, timeoutUsed: timeoutUsed, isTimerRunning: _activeTimerSeconds > 0, isFinished: isFinished, isAnySuspended: _isAnySuspended, teamServing: widget.isDoubles ? (teamNum == 1 ? (_currentServer <= 2) : (_currentServer >= 3)) : (_currentServer == teamNum), playerSide: _getPlayerSide(p1Num), hasYellow: teamPenalties.isNotEmpty, hasRed: teamPenalties.length >= 2, isSuspended: teamPenalties.length >= 4, 
       onScoreTap: () => _updateScore(teamNum, 1), onTimeoutTap: () => _useTimeout(p1Num), onYellowTap: () => _issuePenalty(p1Num, 'yellow'), onRedTap: () => _issuePenalty(p1Num, 'red'),
       isHost: _isHost,
       playerNameBuilder: (name, pNum, won) {

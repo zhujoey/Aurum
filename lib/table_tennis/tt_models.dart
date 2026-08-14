@@ -173,7 +173,11 @@ class TTRotationLogic {
       }
 
       int winner = pointSequence[i];
-      if (winner == 1) p1Points++; else p2Points++;
+      if (winner == 1) {
+        p1Points++;
+      } else {
+        p2Points++;
+      }
 
       pointsInCurrentStint++;
       if (pointsInCurrentStint >= stintSize) {

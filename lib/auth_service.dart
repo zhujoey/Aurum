@@ -182,7 +182,7 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     if (_googleSignInWindows != null) {
-      await _googleSignInWindows!.signOut();
+      await _googleSignInWindows.signOut();
     } else {
       await _googleSignIn.signOut();
     }
@@ -336,6 +336,236 @@ class AuthService {
         .collection('friends')
         .doc(user.uid)
         .delete();
+  }
+
+  // --- Club Logic ---
+
+  Future<void> createClub(String name, String sport) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Check if user already owns or is in a club
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    final data = userDoc.data();
+    if (data?['ownedClubId'] != null || data?['joinedClubId'] != null) {
+      throw 'You are already part of an organization. You must leave it to create your own.';
+    }
+
+    final docRef = await _db.collection('clubs').add({
+      'name': name,
+      'sport': sport,
+      'ownerUid': user.uid,
+      'ownerName': user.displayName ?? 'Unknown',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // 2. Add owner as the first member
+    await docRef.collection('members').doc(user.uid).set({
+      'uid': user.uid,
+      'username': user.displayName ?? 'Unknown',
+      'role': 'owner',
+      'joinedAt': FieldValue.serverTimestamp(),
+    });
+
+    // 3. Mark user as owner in their profile
+    await _db.collection('users').doc(user.uid).update({
+      'ownedClubId': docRef.id,
+    });
+  }
+
+  Stream<QuerySnapshot> get myOwnedClubs {
+    return _db
+        .collection('clubs')
+        .where('ownerUid', isEqualTo: currentUser?.uid)
+        .snapshots();
+  }
+
+  Stream<DocumentSnapshot> get myJoinedClub {
+    final user = currentUser;
+    if (user == null) return const Stream.empty();
+    
+    // We listen to the user doc to see what club they joined
+    return _db.collection('users').doc(user.uid).snapshots().asyncExpand((userSnap) {
+      final joinedId = userSnap.data()?['joinedClubId'];
+      if (joinedId == null) return Stream.value(userSnap); // Return dummy
+      return _db.collection('clubs').doc(joinedId).snapshots();
+    });
+  }
+
+  Future<void> removeMemberFromClub(String clubId, String userUid) async {
+    // 1. Remove from club
+    await _db.collection('clubs').doc(clubId).collection('members').doc(userUid).delete();
+    
+    // 2. Clear from user's record
+    await _db.collection('users').doc(userUid).update({
+      'joinedClubId': FieldValue.delete(),
+    });
+  }
+
+  Future<void> leaveClub(String clubId) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Remove self from club members
+    await _db.collection('clubs').doc(clubId).collection('members').doc(user.uid).delete();
+
+    // 2. Clear joinedClubId from profile
+    await _db.collection('users').doc(user.uid).update({
+      'joinedClubId': FieldValue.delete(),
+    });
+  }
+
+  Future<void> deleteClub(String clubId) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Get all members to clear their profiles
+    final membersSnap = await _db.collection('clubs').doc(clubId).collection('members').get();
+    
+    final batch = _db.batch();
+    
+    for (var doc in membersSnap.docs) {
+      final mUid = doc.id;
+      // Clear joinedClubId for members
+      if (doc.data()['role'] == 'member') {
+        batch.update(_db.collection('users').doc(mUid), {
+          'joinedClubId': FieldValue.delete(),
+        });
+      }
+      // Delete member doc
+      batch.delete(doc.reference);
+    }
+
+    // 2. Delete all pending requests for this club
+    final requestsSnap = await _db
+        .collection('club_requests')
+        .where('clubId', isEqualTo: clubId)
+        .get();
+    for (var doc in requestsSnap.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // 3. Clear owner's profile
+    batch.update(_db.collection('users').doc(user.uid), {
+      'ownedClubId': FieldValue.delete(),
+    });
+
+    // 4. Delete the club doc
+    batch.delete(_db.collection('clubs').doc(clubId));
+
+    await batch.commit();
+  }
+
+  Stream<QuerySnapshot> getClubMembers(String clubId) {
+    return _db.collection('clubs').doc(clubId).collection('members').snapshots();
+  }
+
+  // Club Request Logic
+  Future<void> sendClubJoinRequest(String clubId, String clubName, String targetUid, String targetUsername) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Check if target user is already in a club
+    final targetDoc = await _db.collection('users').doc(targetUid).get();
+    final targetData = targetDoc.data();
+    if (targetData?['ownedClubId'] != null || targetData?['joinedClubId'] != null) {
+      throw 'This user is already part of another organization.';
+    }
+
+    // 2. Check if already a member of THIS club (redundant but safe)
+    final memberDoc = await _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('members')
+        .doc(targetUid)
+        .get();
+    
+    if (memberDoc.exists) {
+      throw 'User is already a member of this club.';
+    }
+
+    // 3. Check if a request is already pending
+    final existing = await _db
+        .collection('club_requests')
+        .where('clubId', isEqualTo: clubId)
+        .where('toUid', isEqualTo: targetUid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+    
+    if (existing.docs.isNotEmpty) {
+      throw 'Invitation already sent to this user.';
+    }
+
+    await _db.collection('club_requests').add({
+      'clubId': clubId,
+      'clubName': clubName,
+      'fromUid': user.uid,
+      'toUid': targetUid,
+      'toUsername': targetUsername,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<QuerySnapshot> getSentClubRequests(String clubId) {
+    return _db
+        .collection('club_requests')
+        .where('clubId', isEqualTo: clubId)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> get incomingClubRequests {
+    return _auth.userChanges().asyncExpand((user) {
+      if (user == null) {
+        return const Stream.empty();
+      }
+      // Only show pending invitations to the recipient
+      return _db
+          .collection('club_requests')
+          .where('toUid', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots();
+    });
+  }
+
+  Future<void> acceptClubRequest(String requestId, String clubId, String clubName) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // 1. Double check current user isn't in a club
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    final userData = userDoc.data();
+    if (userData?['ownedClubId'] != null || userData?['joinedClubId'] != null) {
+      throw 'You cannot join a club while you are an owner or member of another one.';
+    }
+
+    // 2. Add user to club members
+    await _db.collection('clubs').doc(clubId).collection('members').doc(user.uid).set({
+      'uid': user.uid,
+      'username': user.displayName ?? 'Unknown',
+      'role': 'member',
+      'joinedAt': FieldValue.serverTimestamp(),
+    });
+
+    // 3. Update user record
+    await _db.collection('users').doc(user.uid).update({
+      'joinedClubId': clubId,
+    });
+
+    // 4. Update the request status
+    await _db.collection('club_requests').doc(requestId).update({
+      'status': 'accepted',
+    });
+  }
+
+  Future<void> declineClubRequest(String requestId) async {
+    await _db.collection('club_requests').doc(requestId).update({
+      'status': 'declined',
+    });
+  }
+
+  Future<void> deleteClubRequest(String requestId) async {
+    await _db.collection('club_requests').doc(requestId).delete();
   }
 
   // --- Match Request Logic ---

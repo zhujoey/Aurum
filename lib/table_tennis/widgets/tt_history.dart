@@ -36,10 +36,11 @@ class MatchHistoryBottomSheet extends StatelessWidget {
                   List<int> p1Progress = [], p2Progress = [];
                   int curP1 = 0, curP2 = 0;
                   for (int p in set.pointSequence) {
-                    if (p == 1)
+                    if (p == 1) {
                       curP1++;
-                    else
+                    } else {
                       curP2++;
+                    }
                     p1Progress.add(curP1);
                     p2Progress.add(curP2);
                   }
@@ -62,9 +63,9 @@ class MatchHistoryBottomSheet extends StatelessWidget {
                                 ? Colors.red
                                 : Colors.yellow;
                             String pName = 'P${entry.playerNum}';
-                            if (entry.playerNum == 1)
+                            if (entry.playerNum == 1) {
                               pName = p1Name;
-                            else if (entry.playerNum == 2)
+                            } else if (entry.playerNum == 2)
                               pName = p2Name;
                             else if (entry.playerNum == 3)
                               pName = p3Name;

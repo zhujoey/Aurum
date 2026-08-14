@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sportspro/profile.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/new_match.dart';
+import 'package:sportspro/clubs.dart';
 import 'package:sportspro/table_tennis/tt_scoreboard.dart';
 import 'package:sportspro/table_tennis/tt_setup.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -144,7 +145,7 @@ class _HomeState extends State<Home> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Home'),
+            title: const Icon(Icons.home),
             actions: [
               IconButton(
                 icon: const Icon(Icons.account_circle),
@@ -178,11 +179,6 @@ class _HomeState extends State<Home> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'What would you like to do today?',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
                 const SizedBox(height: 30),
                 GridView.count(
                   shrinkWrap: true,
@@ -203,11 +199,16 @@ class _HomeState extends State<Home> {
                       'Clubs',
                       Icons.groups,
                       Colors.blue,
-                      () {},
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ClubsPage()),
+                        );
+                      },
                     ),
                     _buildActionButton(
                       context,
-                      'New Match',
+                      'Quick Match',
                       Icons.sports_tennis,
                       Colors.green,
                       () {

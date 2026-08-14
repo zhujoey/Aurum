@@ -74,118 +74,128 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
-      body: ListView(
-        children: [
-          _buildSectionHeader('Account'),
-          ListTile(
-            title: const Text('Change Username'),
-            subtitle: Text(_authService.currentUser?.displayName ?? 'Not set'),
-            leading: const Icon(Icons.person_outline),
-            onTap: _showChangeUsernameDialog,
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text('Settings'),
           ),
-          const Divider(),
-          _buildSectionHeader('Appearance'),
-          ValueListenableBuilder<ThemeMode>(
-            valueListenable: _themeService.themeMode,
-            builder: (context, mode, child) {
-              return Column(
-                children: [
-                  RadioListTile<ThemeMode>(
-                    title: const Text('Light Mode'),
-                    value: ThemeMode.light,
-                    groupValue: mode,
-                    onChanged: (val) => _themeService.setTheme(val!),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('Dark Mode'),
-                    value: ThemeMode.dark,
-                    groupValue: mode,
-                    onChanged: (val) => _themeService.setTheme(val!),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('System Default'),
-                    value: ThemeMode.system,
-                    groupValue: mode,
-                    onChanged: (val) => _themeService.setTheme(val!),
-                  ),
-                  ValueListenableBuilder<bool>(
-                    valueListenable: _themeService.useTrueDark,
-                    builder: (context, trueDark, child) {
-                      return SwitchListTile(
-                        title: const Text('AMOLED Mode (Pure Black)'),
-                        subtitle: const Text('Saves battery on OLED screens'),
-                        value: trueDark,
-                        onChanged: mode == ThemeMode.light ? null : (val) => _themeService.setTrueDark(val),
-                      );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-          const Divider(),
-          _buildSectionHeader('Accent Color'),
-          ValueListenableBuilder<Color>(
-            valueListenable: _themeService.seedColor,
-            builder: (context, currentSeed, child) {
-              final List<Color> availableColors = [
-                Colors.blue,
-                Colors.indigo,
-                Colors.deepPurple,
-                Colors.purple,
-                Colors.pink,
-                Colors.red,
-                Colors.deepOrange,
-                Colors.orange,
-                Colors.amber,
-                Colors.yellow,
-                Colors.lime,
-                Colors.lightGreen,
-                Colors.green,
-                Colors.teal,
-                Colors.cyan,
-                Colors.lightBlue,
-                Colors.blueGrey,
-                Colors.brown,
-              ];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: availableColors.map((color) {
-                    final bool isSelected = currentSeed.value == color.value;
-                    return GestureDetector(
-                      onTap: () => _themeService.setColor(color),
-                      child: Container(
-                        width: 45,
-                        height: 45,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: isSelected
-                              ? Border.all(color: Colors.white, width: 3)
-                              : null,
-                          boxShadow: isSelected
-                              ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8, spreadRadius: 2)]
-                              : null,
-                        ),
-                        child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white)
-                            : null,
+          body: ListView(
+            children: [
+              _buildSectionHeader('Account'),
+              ListTile(
+                title: const Text('Change Username'),
+                subtitle: Text(_authService.currentUser?.displayName ?? 'Not set'),
+                leading: const Icon(Icons.person_outline),
+                onTap: _showChangeUsernameDialog,
+              ),
+              const Divider(),
+              _buildSectionHeader('Appearance'),
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: _themeService.themeMode,
+                builder: (context, mode, child) {
+                  return Column(
+                    children: [
+                      RadioListTile<ThemeMode>(
+                        title: const Text('Light Mode'),
+                        value: ThemeMode.light,
+                        groupValue: mode,
+                        onChanged: (val) => _themeService.setTheme(val!),
                       ),
-                    );
-                  }).toList(),
-                ),
-              );
-            },
+                      RadioListTile<ThemeMode>(
+                        title: const Text('Dark Mode'),
+                        value: ThemeMode.dark,
+                        groupValue: mode,
+                        onChanged: (val) => _themeService.setTheme(val!),
+                      ),
+                      RadioListTile<ThemeMode>(
+                        title: const Text('System Default'),
+                        value: ThemeMode.system,
+                        groupValue: mode,
+                        onChanged: (val) => _themeService.setTheme(val!),
+                      ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _themeService.useTrueDark,
+                        builder: (context, trueDark, child) {
+                          return SwitchListTile(
+                            title: const Text('AMOLED Mode (Pure Black)'),
+                            subtitle: const Text('Saves battery on OLED screens'),
+                            value: trueDark,
+                            onChanged: mode == ThemeMode.light ? null : (val) => _themeService.setTrueDark(val),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const Divider(),
+              _buildSectionHeader('Accent Color'),
+              ValueListenableBuilder<Color>(
+                valueListenable: _themeService.seedColor,
+                builder: (context, currentSeed, child) {
+                  final List<Color> availableColors = [
+                    Colors.blue,
+                    Colors.indigo,
+                    Colors.deepPurple,
+                    Colors.purple,
+                    Colors.pink,
+                    Colors.red,
+                    Colors.deepOrange,
+                    Colors.orange,
+                    Colors.amber,
+                    Colors.yellow,
+                    Colors.lime,
+                    Colors.lightGreen,
+                    Colors.green,
+                    Colors.teal,
+                    Colors.cyan,
+                    Colors.lightBlue,
+                    Colors.blueGrey,
+                    Colors.brown,
+                  ];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: availableColors.map((color) {
+                        // Use toARGB32() or compare directly to avoid .value deprecation
+                        final bool isSelected = currentSeed.toARGB32() == color.toARGB32();
+                        return GestureDetector(
+                          onTap: () => _themeService.setColor(color),
+                          child: Container(
+                            width: 45,
+                            height: 45,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: isSelected
+                                  ? Border.all(color: Colors.white, width: 3)
+                                  : null,
+                              boxShadow: isSelected
+                                  ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2)]
+                                  : null,
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check, color: Colors.white)
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        if (_isLoading)
+          Container(
+            color: Colors.black45,
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+      ],
     );
   }
 

@@ -59,7 +59,7 @@ class TeamColumn extends StatelessWidget {
     int p1Num = teamNum == 1 ? 1 : (isDoubles ? 3 : 2);
     int p2Num = teamNum == 1 ? 2 : 4;
 
-    return Container(
+    return SizedBox(
       width: columnWidth,
       child: Column(children: [
         Column(children: [
