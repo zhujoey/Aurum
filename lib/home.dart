@@ -6,6 +6,8 @@ import 'package:sportspro/new_match.dart';
 import 'package:sportspro/clubs.dart';
 import 'package:sportspro/table_tennis/tt_scoreboard.dart';
 import 'package:sportspro/table_tennis/tt_setup.dart';
+import 'package:sportspro/badminton/badminton_scoreboard.dart';
+import 'package:sportspro/badminton/badminton_setup.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -53,8 +55,8 @@ class _HomeState extends State<Home> {
         title: const Text('Active Match in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(isHost ? 'You are hosting a match.' : 'You are participating in a match.'),
         onTap: () {
+          final matchData = data['matchData'] ?? {};
           if (sport == 'Table Tennis') {
-            final matchData = data['matchData'] ?? {};
             if (!isHost) {
               Navigator.push(
                 context,
@@ -73,6 +75,26 @@ class _HomeState extends State<Home> {
               );
             } else {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const TableTennisSetup()));
+            }
+          } else if (sport == 'Badminton') {
+            if (!isHost) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BadmintonMatch(
+                    p1Name: matchData['p1Name'] ?? 'P1',
+                    p2Name: matchData['p2Name'] ?? '',
+                    p3Name: matchData['p3Name'] ?? 'P2',
+                    p4Name: matchData['p4Name'] ?? '',
+                    isDoubles: matchData['isDoubles'] ?? false,
+                    gamesToWin: matchData['gamesToWin'] ?? 2,
+                    matchId: matchDoc.id,
+                    isHost: false,
+                  ),
+                ),
+              );
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const BadmintonSetup()));
             }
           }
         },
@@ -103,8 +125,8 @@ class _HomeState extends State<Home> {
                 const SizedBox(width: 4),
                 ElevatedButton(
                   onPressed: () {
+                    final matchData = data['matchData'] ?? {};
                     if (sport == 'Table Tennis') {
-                      final matchData = data['matchData'] ?? {};
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -115,6 +137,22 @@ class _HomeState extends State<Home> {
                             p4Name: matchData['p4Name'] ?? '',
                             isDoubles: matchData['isDoubles'] ?? false,
                             setsToWin: matchData['setsToWin'] ?? 4,
+                            matchId: matchDoc.id,
+                            isHost: false,
+                          ),
+                        ),
+                      );
+                    } else if (sport == 'Badminton') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BadmintonMatch(
+                            p1Name: matchData['p1Name'] ?? 'P1',
+                            p2Name: matchData['p2Name'] ?? '',
+                            p3Name: matchData['p3Name'] ?? 'P2',
+                            p4Name: matchData['p4Name'] ?? '',
+                            isDoubles: matchData['isDoubles'] ?? false,
+                            gamesToWin: matchData['gamesToWin'] ?? 2,
                             matchId: matchDoc.id,
                             isHost: false,
                           ),

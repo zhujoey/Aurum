@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'table_tennis/tt_setup.dart';
+import 'badminton/badminton_setup.dart';
 
 class NewMatch extends StatelessWidget {
   const NewMatch({super.key});
@@ -27,15 +28,20 @@ class NewMatch extends StatelessWidget {
           ),
           _buildSportCard(
             context,
-            'Tennis (Coming Soon)',
-            Icons.sports_tennis_outlined,
-            Colors.grey,
-            null,
+            'Badminton',
+            Icons.sports,
+            Colors.green,
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BadmintonSetup()),
+              );
+            },
           ),
           _buildSportCard(
             context,
-            'Badminton (Coming Soon)',
-            Icons.sports,
+            'Tennis (Coming Soon)',
+            Icons.sports_tennis_outlined,
             Colors.grey,
             null,
           ),

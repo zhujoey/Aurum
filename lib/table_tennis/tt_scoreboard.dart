@@ -104,6 +104,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   bool _isHost = true;
   
   final List<MatchState> _history = [];
+  final List<MatchState> _redoHistory = [];
 
   @override
   void initState() {
@@ -521,6 +522,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       activeTimerTitle: _activeTimerTitle,
     ));
     if (_history.length > 50) _history.removeAt(0);
+    _redoHistory.clear(); // Clear redo history on new action
     _persistMatch();
   }
 
@@ -564,7 +566,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         content: const Text('What would you like to do?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Choose Service')),
-          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Choose Side')),
+          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Choose Side (Home/Away)')),
           TextButton(onPressed: () => Navigator.pop(context, 3), child: const Text('Let Opponent Choose')),
         ],
       ),
@@ -582,7 +584,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           content: const Text('What would you like to choose?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Choose Service')),
-            TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Choose Side')),
+            TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Choose Side (Home/Away)')),
           ],
         ),
       );
@@ -629,10 +631,10 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('$display: Which side to start at?'),
+        title: Text('$display: Which side to start at? (Home/Away)'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Left Side')),
-          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Right Side')),
+          TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Home Side')),
+          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Away Side')),
         ],
       ),
     );
@@ -728,11 +730,12 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     bool finalP1OnLeft = p1OnLeftInSet;
     if (_isDecider && (player1Score >= 5 || player2Score >= 5)) finalP1OnLeft = !p1OnLeftInSet;
     bool isTeam1 = widget.isDoubles ? (playerNum == 1 || playerNum == 2) : (playerNum == 1);
-    return isTeam1 ? (finalP1OnLeft ? 'LEFT' : 'RIGHT') : (finalP1OnLeft ? 'RIGHT' : 'LEFT');
+    return isTeam1 ? (finalP1OnLeft ? 'HOME' : 'AWAY') : (finalP1OnLeft ? 'AWAY' : 'HOME');
   }
 
   void _updateScore(int teamNum, int delta, {bool isPenalty = false}) {
     if (isFinished && delta > 0) return;
+    if (_activeTimerSeconds > 0 && delta > 0) return; // Block changes during break
     if (!isPenalty) _saveState();
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     setState(() {
@@ -753,7 +756,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       if (delta > 0) {
         if (_isDecider && (player1Score == 5 || player2Score == 5)) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Decider: Switch Sides! ↔️'), 
+            content: Text('Decider: Switch Ends! ↔️'), 
             backgroundColor: Colors.orange, 
             duration: Duration(minutes: 30)
           ));
@@ -776,6 +779,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   }
 
   void _useTimeout(int playerNum) {
+    if (_activeTimerSeconds > 0) return; // Block during break
     _saveState();
     setState(() {
       if (playerNum == 1 || playerNum == 2) {
@@ -789,6 +793,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   }
 
   void _issuePenalty(int playerNum, String type) async {
+    if (_activeTimerSeconds > 0) return; // Block during break
+
     final TextEditingController reasonController = TextEditingController();
     int actualPlayerNum = playerNum;
     int teamNum = widget.isDoubles ? (playerNum <= 2 ? 1 : 2) : (playerNum == 1 ? 1 : 2);
@@ -917,6 +923,16 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
   void _undo() {
     if (_history.isNotEmpty) {
+      // Capture current state for redo
+      _redoHistory.add(MatchState(
+        p1Score: player1Score, p2Score: player2Score, p1Sets: player1Sets, p2Sets: player2Sets, isSetOver: isSetOver,
+        pointHistory: List<int>.from(pointHistory), setSummaries: List<SetSummary>.from(setSummaries),
+        p1TimeoutUsed: p1TimeoutUsed, p2TimeoutUsed: p2TimeoutUsed, firstServerOfMatch: firstServerOfMatch,
+        firstServerOfSet: firstServerOfSet, firstReceiverOfSet: firstReceiverOfSet, p1OnLeft: p1OnLeftOfMatch,
+        logs: List<MatchLogEntry>.from(logs), expediteActive: expediteActive, gameTimeSeconds: gameTimeSeconds,
+        activeTimerSeconds: _activeTimerSeconds, activeTimerTitle: _activeTimerTitle,
+      ));
+
       setState(() {
         final lastState = _history.removeLast();
         player1Score = lastState.p1Score; player2Score = lastState.p2Score; player1Sets = lastState.p1Sets; player2Sets = lastState.p2Sets; isSetOver = lastState.isSetOver; pointHistory = lastState.pointHistory;         setSummaries = lastState.setSummaries;
@@ -933,6 +949,48 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         if (firstServerOfMatch == 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _promptTossWinner());
         }
+      });
+      _persistMatch();
+    }
+  }
+
+  void _redo() {
+    if (_redoHistory.isNotEmpty) {
+      // Save current to history
+      _history.add(MatchState(
+        p1Score: player1Score, p2Score: player2Score, p1Sets: player1Sets, p2Sets: player2Sets, isSetOver: isSetOver,
+        pointHistory: List<int>.from(pointHistory), setSummaries: List<SetSummary>.from(setSummaries),
+        p1TimeoutUsed: p1TimeoutUsed, p2TimeoutUsed: p2TimeoutUsed, firstServerOfMatch: firstServerOfMatch,
+        firstServerOfSet: firstServerOfSet, firstReceiverOfSet: firstReceiverOfSet, p1OnLeft: p1OnLeftOfMatch,
+        logs: List<MatchLogEntry>.from(logs), expediteActive: expediteActive, gameTimeSeconds: gameTimeSeconds,
+        activeTimerSeconds: _activeTimerSeconds, activeTimerTitle: _activeTimerTitle,
+      ));
+
+      setState(() {
+        final nextState = _redoHistory.removeLast();
+        player1Score = nextState.p1Score;
+        player2Score = nextState.p2Score;
+        player1Sets = nextState.p1Sets;
+        player2Sets = nextState.p2Sets;
+        isSetOver = nextState.isSetOver;
+        pointHistory = nextState.pointHistory;
+        setSummaries = nextState.setSummaries;
+        p1TimeoutUsed = nextState.p1TimeoutUsed;
+        p2TimeoutUsed = nextState.p2TimeoutUsed;
+        firstServerOfMatch = nextState.firstServerOfMatch;
+        firstServerOfSet = nextState.firstServerOfSet;
+        firstReceiverOfSet = nextState.firstReceiverOfSet;
+        p1OnLeftOfMatch = nextState.p1OnLeft;
+        logs = nextState.logs;
+        expediteActive = nextState.expediteActive;
+        gameTimeSeconds = nextState.gameTimeSeconds;
+        _activeTimerSeconds = nextState.activeTimerSeconds;
+        _activeTimerTitle = nextState.activeTimerTitle;
+        _activeTimer?.cancel();
+        if (_activeTimerSeconds > 0) {
+          _startMatchTimer(_activeTimerTitle, _activeTimerSeconds);
+        }
+        _checkMatchWinner();
       });
       _persistMatch();
     }
@@ -980,6 +1038,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
               return MatchHistoryBottomSheet(allSets: allSets, logs: logs, p1Name: widget.p1Name, p2Name: widget.p2Name, p3Name: widget.p3Name, p4Name: widget.p4Name);
             }); }, icon: const Icon(Icons.history), tooltip: 'Point history'),
             IconButton(onPressed: (!_isHost || _history.isEmpty) ? null : _undo, icon: const Icon(Icons.undo)),
+            IconButton(onPressed: (!_isHost || _redoHistory.isEmpty) ? null : _redo, icon: const Icon(Icons.redo)),
             IconButton(onPressed: _isHost ? _resetMatch : null, icon: const Icon(Icons.refresh)),
             PopupMenuButton<String>(
               onSelected: (value) async {
