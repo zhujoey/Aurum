@@ -460,6 +460,62 @@ class AuthService {
     return _db.collection('clubs').doc(clubId).collection('members').snapshots();
   }
 
+  // --- Tournament Logic ---
+
+  Future<void> createTournament({
+    required String clubId,
+    required String name,
+    required String sport,
+    required bool needsPermission,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // Check club ownership
+    final clubDoc = await _db.collection('clubs').doc(clubId).get();
+    if (!clubDoc.exists || clubDoc.data()?['ownerUid'] != user.uid) {
+      throw 'Only the club owner can create tournaments.';
+    }
+
+    // Check limit of 3 active tournaments
+    final existing = await _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .where('status', isNotEqualTo: 'completed')
+        .get();
+    
+    if (existing.docs.length >= 3) {
+      throw 'Clubs are limited to 3 active tournaments at a time.';
+    }
+
+    await _db.collection('clubs').doc(clubId).collection('tournaments').add({
+      'name': name,
+      'sport': sport,
+      'needsPermission': needsPermission,
+      'status': 'upcoming',
+      'ownerUid': user.uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<QuerySnapshot> getClubTournaments(String clubId) {
+    return _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .snapshots();
+  }
+
+  Future<void> deleteTournament(String clubId, String tournamentId) async {
+    await _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .delete();
+  }
+
   // Club Request Logic
   Future<void> sendClubJoinRequest(String clubId, String clubName, String targetUid, String targetUsername) async {
     final user = currentUser;

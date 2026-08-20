@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/main.dart';
 import 'package:sportspro/club_requests.dart';
+import 'package:sportspro/tournaments.dart';
+
 
 class ClubsPage extends StatefulWidget {
   const ClubsPage({super.key});
@@ -185,6 +187,48 @@ class _ClubsPageState extends State<ClubsPage> {
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Text(
+            'Tournaments',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(
+          height: 150,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _authService.getClubTournaments(clubDoc.id),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text('No active tournaments', style: TextStyle(color: Colors.grey)));
+              }
+              final tournaments = snapshot.data!.docs;
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: tournaments.length,
+                itemBuilder: (context, index) {
+                  final t = tournaments[index].data() as Map<String, dynamic>;
+                  return Card(
+                    child: Container(
+                      width: 200,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const Spacer(),
+                          Text(t['sport'], style: const TextStyle(color: Colors.blue)),
+                          Text(t['status'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text(
             'Members',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
@@ -278,6 +322,57 @@ class _ClubsPageState extends State<ClubsPage> {
                 ],
               ),
             ],
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text(
+            'Tournaments',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(
+          height: 150,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _authService.getClubTournaments(clubDoc.id),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text('No active tournaments', style: TextStyle(color: Colors.grey)));
+              }
+              final tournaments = snapshot.data!.docs;
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: tournaments.length,
+                itemBuilder: (context, index) {
+                  final t = tournaments[index];
+                  final data = t.data() as Map<String, dynamic>;
+                  return Card(
+                    child: InkWell(
+                      onTap: () {
+                         Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => TournamentsPage()),
+                        );
+                      },
+                      child: Container(
+                        width: 200,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(data['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            const Spacer(),
+                            Text(data['sport'], style: const TextStyle(color: Colors.blue)),
+                            Text(data['status'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ),
         Padding(

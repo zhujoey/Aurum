@@ -4,6 +4,7 @@ import 'package:sportspro/profile.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/new_match.dart';
 import 'package:sportspro/clubs.dart';
+import 'package:sportspro/tournaments.dart';
 import 'package:sportspro/table_tennis/tt_scoreboard.dart';
 import 'package:sportspro/table_tennis/tt_setup.dart';
 import 'package:sportspro/badminton/badminton_scoreboard.dart';
@@ -258,10 +259,15 @@ class _HomeState extends State<Home> {
                     ),
                     _buildActionButton(
                       context,
-                      'New Tournament',
+                      'Tournament',
                       Icons.military_tech,
                       Colors.purple,
-                      () {},
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => TournamentsPage()),
+                        );
+                      },
                     ),
                   ],
                 ),
