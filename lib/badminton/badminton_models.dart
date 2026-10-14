@@ -98,6 +98,44 @@ class BadmintonMatchState {
     this.timerEndTime,
     this.timerTitle,
   });
+
+  Map<String, dynamic> toMap() => {
+    'p1Score': p1Score,
+    'p2Score': p2Score,
+    'p1Games': p1Games,
+    'p2Games': p2Games,
+    'isGameOver': isGameOver,
+    'pointHistory': pointHistory,
+    'gameSummaries': gameSummaries.map((s) => s.toMap()).toList(),
+    'firstServerOfMatch': firstServerOfMatch,
+    'firstServerOfGame': firstServerOfGame,
+    'p1OnLeft': p1OnLeft,
+    'logs': logs.map((l) => l.toMap()).toList(),
+    'matchTimeSeconds': matchTimeSeconds,
+    'timerEndTime': timerEndTime,
+    'timerTitle': timerTitle,
+  };
+
+  factory BadmintonMatchState.fromMap(Map<String, dynamic> map) => BadmintonMatchState(
+    p1Score: map['p1Score'] ?? 0,
+    p2Score: map['p2Score'] ?? 0,
+    p1Games: map['p1Games'] ?? 0,
+    p2Games: map['p2Games'] ?? 0,
+    isGameOver: map['isGameOver'] ?? false,
+    pointHistory: List<int>.from(map['pointHistory'] ?? []),
+    gameSummaries: (map['gameSummaries'] as List? ?? [])
+        .map((s) => BadmintonGameSummary.fromMap(s))
+        .toList(),
+    firstServerOfMatch: map['firstServerOfMatch'] ?? 0,
+    firstServerOfGame: map['firstServerOfGame'] ?? 0,
+    p1OnLeft: map['p1OnLeft'] ?? true,
+    logs: (map['logs'] as List? ?? [])
+        .map((l) => BadmintonLogEntry.fromMap(l))
+        .toList(),
+    matchTimeSeconds: map['matchTimeSeconds'] ?? 0,
+    timerEndTime: map['timerEndTime'],
+    timerTitle: map['timerTitle'],
+  );
 }
 
 class BadmintonServerResults {

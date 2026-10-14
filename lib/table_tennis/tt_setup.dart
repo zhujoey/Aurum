@@ -23,6 +23,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   final AuthService _authService = AuthService();
   bool _isDoubles = false;
   int _setsToWin = 4;
+  bool _keepRunningTimers = false;
   Map<String, dynamic>? _savedMatch;
   StreamSubscription? _matchSubscription;
   StreamSubscription? _friendsSubscription;
@@ -105,7 +106,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
             return;
           }
         } catch (e) {
-          print("Setup: Error verifying saved match status: $e");
+          debugPrint("Setup: Error verifying saved match status: $e");
         }
       }
 
@@ -126,41 +127,54 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     });
   }
 
-  void _resumeMatch() async {
-    if (_savedMatch != null) {
+  void _resumeMatch({DocumentSnapshot? cloudDoc}) async {
+    Map<String, dynamic>? data = _savedMatch;
+    
+    if (cloudDoc != null) {
+      final cloudData = cloudDoc.data() as Map<String, dynamic>;
+      data = cloudData['matchData'];
+      // Ensure matchId is present in the data map for the scoreboard to use
+      if (data != null) {
+        data['matchId'] = cloudDoc.id;
+      }
+    }
+
+    if (data != null) {
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => TableTennisMatch(
-            p1Name: _savedMatch!['p1Name'] ?? 'P1',
-            p2Name: _savedMatch!['p2Name'] ?? '',
-            p3Name: _savedMatch!['p3Name'] ?? _savedMatch!['p2Name'] ?? 'P2',
-            p4Name: _savedMatch!['p4Name'] ?? '',
-            isDoubles: _savedMatch!['isDoubles'] ?? false,
-            setsToWin: _savedMatch!['setsToWin'] ?? 4,
-            initialP1Score: _savedMatch!['p1Score'] ?? 0,
-            initialP2Score: _savedMatch!['p2Score'] ?? 0,
-            initialP1Sets: _savedMatch!['p1Sets'] ?? 0,
-            initialP2Sets: _savedMatch!['p2Sets'] ?? 0,
-            initialIsSetOver: _savedMatch!['isSetOver'] ?? false,
-            initialPointHistory: List<int>.from(_savedMatch!['pointHistory'] ?? []),
-            initialSetSummaries: (_savedMatch!['setSummaries'] as List? ?? [])
+            p1Name: data!['p1Name'] ?? 'P1',
+            p2Name: data['p2Name'] ?? '',
+            p3Name: data['p3Name'] ?? data['p2Name'] ?? 'P2',
+            p4Name: data['p4Name'] ?? '',
+            isDoubles: data['isDoubles'] ?? false,
+            setsToWin: data['setsToWin'] ?? 4,
+            initialP1Score: data['p1Score'] ?? 0,
+            initialP2Score: data['p2Score'] ?? 0,
+            initialP1Sets: data['p1Sets'] ?? 0,
+            initialP2Sets: data['p2Sets'] ?? 0,
+            initialIsSetOver: data['isSetOver'] ?? false,
+            initialPointHistory: List<int>.from(data['pointHistory'] ?? []),
+            initialSetSummaries: (data['setSummaries'] as List? ?? [])
                 .map((s) => SetSummary.fromMap(s))
                 .toList(),
-            initialP1TimeoutUsed: _savedMatch!['p1TimeoutUsed'] ?? false,
-            initialP2TimeoutUsed: _savedMatch!['p2TimeoutUsed'] ?? false,
-            initialFirstServerOfMatch: _savedMatch!['firstServerOfMatch'] ?? 0,
-            initialFirstServerOfSet: _savedMatch!['firstServerOfSet'] ?? 0,
-            initialFirstReceiverOfSet: _savedMatch!['firstReceiverOfSet'] ?? 0,
-            initialP1OnLeft: _savedMatch!['p1OnLeft'] ?? true,
-            initialLogs: (_savedMatch!['logs'] as List? ?? [])
+            initialP1TimeoutUsed: data['p1TimeoutUsed'] ?? false,
+            initialP2TimeoutUsed: data['p2TimeoutUsed'] ?? false,
+            initialFirstServerOfMatch: data['firstServerOfMatch'] ?? 0,
+            initialFirstServerOfSet: data['firstServerOfSet'] ?? 0,
+            initialFirstReceiverOfSet: data['firstReceiverOfSet'] ?? 0,
+            initialP1OnLeft: data['p1OnLeft'] ?? true,
+            initialLogs: (data['logs'] as List? ?? [])
                 .map((p) => MatchLogEntry.fromMap(p))
                 .toList(),
-            initialExpediteActive: _savedMatch!['expediteActive'] ?? false,
-            initialGameTimeSeconds: _savedMatch!['gameTimeSeconds'] ?? 0,
-            activeTimerSeconds: _savedMatch!['activeTimerSeconds'] ?? 0,
-            activeTimerTitle: _savedMatch!['activeTimerTitle'] ?? '',
-            matchId: _savedMatch!['matchId'] ?? '',
+            initialExpediteActive: data['expediteActive'] ?? false,
+            initialGameTimeSeconds: data['gameTimeSeconds'] ?? 0,
+            activeTimerSeconds: data['activeTimerSeconds'] ?? 0,
+            activeTimerTitle: data['activeTimerTitle'] ?? '',
+            initialKeepRunningTimers: data['keepRunningTimers'] ?? false,
+            initialLastSavedTimestamp: data['lastSavedTimestamp'],
+            matchId: data['matchId'] ?? '',
             isHost: true,
           ),
         ),
@@ -209,6 +223,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   }
 
   Future<void> _handleStartMatch() async {
+    final navigator = Navigator.of(context);
     // Basic validation: ensure all Invite modes have a friend selected
     if (!_isDoubles) {
       if (_isInviteMode[0] && _p1Controller.text.isEmpty) {
@@ -329,6 +344,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     }
 
     if (invitations.isNotEmpty) {
+      if (!mounted) return;
       bool? proceed = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -369,6 +385,8 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
       initialData: {
         'p1Name': n1, 'p2Name': n2, 'p3Name': n3, 'p4Name': n4,
         'isDoubles': _isDoubles, 'setsToWin': _setsToWin,
+        'keepRunningTimers': _keepRunningTimers,
+        'lastSavedTimestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
     
@@ -377,13 +395,19 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
       _authService.deleteMatchRequest(invite['id']);
     }
 
-    await Navigator.push(
-      context,
+    if (!mounted) return;
+    await navigator.push(
       MaterialPageRoute(
         builder: (context) => TableTennisMatch(
-          p1Name: n1, p2Name: n2, p3Name: n3, p4Name: n4,
-          isDoubles: _isDoubles, setsToWin: _setsToWin,
-          matchId: matchId, // Pass the match ID
+          p1Name: n1,
+          p2Name: n2,
+          p3Name: n3,
+          p4Name: n4,
+          isDoubles: _isDoubles,
+          setsToWin: _setsToWin,
+          initialKeepRunningTimers: _keepRunningTimers,
+          initialLastSavedTimestamp: DateTime.now().millisecondsSinceEpoch,
+          matchId: matchId,
           isHost: true,
         ),
       ),
@@ -483,6 +507,16 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                     const SizedBox(height: 20),
                     _buildDynamicPlayerSection(3, _p4Controller, 'Player 4', Icons.person_outline),
                   ],
+                  const Divider(height: 40),
+                  const Text('Timer Options', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Keep running timers when page not loaded'),
+                    subtitle: const Text('Timer continues running even when you leave the match screen'),
+                    value: _keepRunningTimers,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) => setState(() => _keepRunningTimers = val),
+                  ),
                 ],
               ),
             ),
@@ -506,7 +540,24 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
 
   Widget _buildActiveCloudMatchBanner(DocumentSnapshot matchDoc) {
     final data = matchDoc.data() as Map<String, dynamic>;
+    final String activeSport = data['sport'] ?? '';
     bool isHost = data['hostUid'] == _authService.currentUser?.uid;
+    
+    if (activeSport != 'Table Tennis') {
+      return Card(
+        color: Colors.red.withValues(alpha: 0.1),
+        margin: const EdgeInsets.only(bottom: 24),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.warning, color: Colors.red),
+          title: Text('Active $activeSport Match', style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: const Text('You must finish your current match before managing Table Tennis.'),
+        ),
+      );
+    }
     
     // Attempt to get scores from cloud data if available, or fall back to local
     int p1Sets = data['matchData']?['p1Sets'] ?? _savedMatch?['p1Sets'] ?? 0;
@@ -577,7 +628,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
-                    onPressed: _resumeMatch,
+                    onPressed: () => _resumeMatch(cloudDoc: matchDoc),
                     icon: const Icon(Icons.play_arrow, size: 18),
                     label: const Text('Resume'),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),

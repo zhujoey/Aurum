@@ -44,7 +44,7 @@ class AuthService {
       _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
       await prefs.setString('currentSessionId', _currentSessionId!);
     }
-    print("Session: Device ID initialized: $_currentSessionId");
+    debugPrint("Session: Device ID initialized: $_currentSessionId");
   }
 
   // Clear session ID (only used for full logout)
@@ -87,10 +87,10 @@ class AuthService {
         }
 
         await docRef.set(dataToSync, SetOptions(merge: true));
-        print("Firestore: Synced with session ID: $_currentSessionId");
+        debugPrint("Firestore: Synced with session ID: $_currentSessionId");
       }
     } catch (e) {
-      print("Firestore Error syncing user data: $e");
+      debugPrint("Firestore Error syncing user data: $e");
     } finally {
       if (isLogin) {
         // Give it a tiny bit of time for the stream to process the update 
@@ -134,7 +134,7 @@ class AuthService {
         return result.user;
       }
     } catch (e) {
-      print("Google Sign In Error: $e");
+      debugPrint("Google Sign In Error: $e");
       _ignoreSessionCheck = false;
       return null;
     }
@@ -151,7 +151,7 @@ class AuthService {
       await syncUserData(result.user, isLogin: true);
       return result.user;
     } catch (e) {
-      print(e.toString());
+      debugPrint(e.toString());
       _ignoreSessionCheck = false;
       return null;
     }
@@ -168,7 +168,7 @@ class AuthService {
       // Note: syncUserData is usually called in signup.dart after this
       return result.user;
     } catch (e) {
-      print(e.toString());
+      debugPrint(e.toString());
       _ignoreSessionCheck = false;
       return null;
     }
@@ -219,7 +219,7 @@ class AuthService {
         bool isValid = cloudSessionId == _currentSessionId;
         
         if (!isValid) {
-          print("Session: Mismatch detected for ${user.displayName}. Local=$_currentSessionId, Cloud=$cloudSessionId");
+          debugPrint("Session: Mismatch detected for ${user.displayName}. Local=$_currentSessionId, Cloud=$cloudSessionId");
         }
         return isValid;
       });
@@ -465,8 +465,13 @@ class AuthService {
   Future<void> createTournament({
     required String clubId,
     required String name,
+    String description = '',
     required String sport,
-    required bool needsPermission,
+    bool isOpen = false,
+    int rankingPoints = 1000,
+    String tournamentStyle = 'Single Elimination',
+    String seedingMethod = 'ITTF Seeded',
+    bool hasThirdPlacePlayoff = true,
   }) async {
     final user = currentUser;
     if (user == null) return;
@@ -477,24 +482,37 @@ class AuthService {
       throw 'Only the club owner can create tournaments.';
     }
 
-    // Check limit of 3 active tournaments
+    // Check limit of 3 tournaments
     final existing = await _db
         .collection('clubs')
         .doc(clubId)
         .collection('tournaments')
-        .where('status', isNotEqualTo: 'completed')
         .get();
     
     if (existing.docs.length >= 3) {
-      throw 'Clubs are limited to 3 active tournaments at a time.';
+      throw 'Clubs are limited to 3 tournaments at a time.';
     }
 
     await _db.collection('clubs').doc(clubId).collection('tournaments').add({
       'name': name,
+      'description': description,
       'sport': sport,
-      'needsPermission': needsPermission,
-      'status': 'upcoming',
+      'isOpen': isOpen,
+      'needsPermission': !isOpen,
+      'rankingPoints': rankingPoints,
+      'tournamentStyle': tournamentStyle,
+      'seedingMethod': seedingMethod,
+      'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
+      'isStarted': false,
       'ownerUid': user.uid,
+      'participants': [
+        {
+          'uid': user.uid,
+          'username': user.displayName ?? 'Owner',
+          'joinedAt': DateTime.now().toIso8601String(),
+        }
+      ],
+      'participantUids': [user.uid],
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -505,6 +523,206 @@ class AuthService {
         .doc(clubId)
         .collection('tournaments')
         .snapshots();
+  }
+
+  Stream<DocumentSnapshot> getTournamentStream(String clubId, String tournamentId) {
+    return _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .snapshots();
+  }
+
+  Future<void> updateTournamentSettings({
+    required String clubId,
+    required String tournamentId,
+    required String name,
+    required String description,
+    required bool isOpen,
+    required int rankingPoints,
+    required String tournamentStyle,
+    required String seedingMethod,
+    required bool hasThirdPlacePlayoff,
+  }) async {
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    await docRef.update({
+      'name': name,
+      'description': description,
+      'isOpen': isOpen,
+      'needsPermission': !isOpen,
+      'rankingPoints': rankingPoints,
+      'tournamentStyle': tournamentStyle,
+      'seedingMethod': seedingMethod,
+      'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
+    });
+  }
+
+  Future<void> startTournament({
+    required String clubId,
+    required String tournamentId,
+    required String seedingMethod,
+    required bool hasThirdPlacePlayoff,
+  }) async {
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) throw 'Tournament not found.';
+
+    final data = doc.data() as Map<String, dynamic>;
+    List participants = List.from(data['participants'] ?? []);
+    if (participants.length < 2) {
+      throw 'At least 2 participants are required to start a tournament.';
+    }
+
+    if (seedingMethod == 'Random') {
+      participants.shuffle();
+    }
+
+    await docRef.update({
+      'isStarted': true,
+      'seedingMethod': seedingMethod,
+      'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
+      'participants': participants,
+      'startedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> joinTournament({
+    required String clubId,
+    required String tournamentId,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) throw 'Tournament not found.';
+
+    final data = doc.data() as Map<String, dynamic>;
+    final bool isOpen = data['isOpen'] ?? false;
+    if (!isOpen) {
+      throw 'This tournament is closed. An owner or manager must invite you.';
+    }
+
+    final String username = user.displayName ?? 'Member';
+    final participantEntry = {
+      'uid': user.uid,
+      'username': username,
+      'joinedAt': DateTime.now().toIso8601String(),
+    };
+
+    await docRef.update({
+      'participants': FieldValue.arrayUnion([participantEntry]),
+      'participantUids': FieldValue.arrayUnion([user.uid]),
+    });
+  }
+
+  Future<void> leaveTournament({
+    required String clubId,
+    required String tournamentId,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final data = doc.data() as Map<String, dynamic>;
+    final List participants = data['participants'] as List? ?? [];
+    final matchingEntry = participants.firstWhere(
+      (p) => (p as Map)['uid'] == user.uid,
+      orElse: () => null,
+    );
+
+    if (matchingEntry != null) {
+      await docRef.update({
+        'participants': FieldValue.arrayRemove([matchingEntry]),
+        'participantUids': FieldValue.arrayRemove([user.uid]),
+      });
+    }
+  }
+
+  Future<void> inviteMemberToTournament({
+    required String clubId,
+    required String tournamentId,
+    required String targetUid,
+    required String targetUsername,
+  }) async {
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) throw 'Tournament not found.';
+
+    final data = doc.data() as Map<String, dynamic>;
+    final List participantUids = List.from(data['participantUids'] ?? []);
+    if (participantUids.contains(targetUid)) {
+      throw 'This member is already in the tournament.';
+    }
+
+    final participantEntry = {
+      'uid': targetUid,
+      'username': targetUsername,
+      'joinedAt': DateTime.now().toIso8601String(),
+    };
+
+    await docRef.update({
+      'participants': FieldValue.arrayUnion([participantEntry]),
+      'participantUids': FieldValue.arrayUnion([targetUid]),
+    });
+  }
+
+  Future<void> removeParticipantFromTournament({
+    required String clubId,
+    required String tournamentId,
+    required String targetUid,
+  }) async {
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final data = doc.data() as Map<String, dynamic>;
+    final List participants = data['participants'] as List? ?? [];
+    final matchingEntry = participants.firstWhere(
+      (p) => (p as Map)['uid'] == targetUid,
+      orElse: () => null,
+    );
+
+    if (matchingEntry != null) {
+      await docRef.update({
+        'participants': FieldValue.arrayRemove([matchingEntry]),
+        'participantUids': FieldValue.arrayRemove([targetUid]),
+      });
+    }
   }
 
   Future<void> deleteTournament(String clubId, String tournamentId) async {
@@ -641,7 +859,7 @@ class AuthService {
     final String trimmed = username.trim();
     if (trimmed.isEmpty) return null;
     
-    print("Search: Looking for user '$trimmed'...");
+    debugPrint("Search: Looking for user '$trimmed'...");
 
     // 1. Try case-insensitive searchable field
     var result = await _db
@@ -653,7 +871,7 @@ class AuthService {
     if (result.docs.isNotEmpty) {
       final data = result.docs.first.data();
       data['uid'] = result.docs.first.id; // Ensure UID is always present
-      print("Search: Found by username_search: ${data['username']}");
+      debugPrint("Search: Found by username_search: ${data['username']}");
       return data;
     }
 
@@ -667,7 +885,7 @@ class AuthService {
     if (result.docs.isNotEmpty) {
       final data = result.docs.first.data();
       data['uid'] = result.docs.first.id;
-      print("Search: Found by case-sensitive username: ${data['username']}");
+      debugPrint("Search: Found by case-sensitive username: ${data['username']}");
       return data;
     }
 
@@ -681,12 +899,12 @@ class AuthService {
       if (result.docs.isNotEmpty) {
         final data = result.docs.first.data();
         data['uid'] = result.docs.first.id;
-        print("Search: Found by email: ${data['email']}");
+        debugPrint("Search: Found by email: ${data['email']}");
         return data;
       }
     }
 
-    print("Search: No user found matching '$trimmed'");
+    debugPrint("Search: No user found matching '$trimmed'");
     return null;
   }
 
@@ -718,7 +936,7 @@ class AuthService {
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
     });
-    print("Firestore: Match request sent to $targetUid (ID: ${docRef.id})");
+    debugPrint("Firestore: Match request sent to $targetUid (ID: ${docRef.id})");
     return docRef.id;
   }
 
@@ -728,12 +946,12 @@ class AuthService {
       final docRef = _db.collection('match_requests').doc(requestId);
       final doc = await docRef.get();
       if (!doc.exists) {
-        print("Firestore: Cannot respond to request $requestId, it no longer exists.");
+        debugPrint("Firestore: Cannot respond to request $requestId, it no longer exists.");
         return;
       }
       await docRef.update({'status': status});
     } catch (e) {
-      print("Firestore Error responding to request: $e");
+      debugPrint("Firestore Error responding to request: $e");
     }
   }
 
@@ -742,7 +960,7 @@ class AuthService {
     try {
       await _db.collection('match_requests').doc(requestId).delete();
     } catch (e) {
-      print("Firestore Error deleting request: $e");
+      debugPrint("Firestore Error deleting request: $e");
     }
   }
 
@@ -754,7 +972,7 @@ class AuthService {
       }
       // Useful for debugging Web connectivity
       if (kIsWeb) {
-        print("Firestore: Initializing real-time listener for user: ${user.uid}");
+        debugPrint("Firestore: Initializing real-time listener for user: ${user.uid}");
       }
       return _db
           .collection('match_requests')
@@ -834,7 +1052,7 @@ class AuthService {
     try {
       await _db.collection('active_matches').doc(matchId).delete();
     } catch (e) {
-      print("Error deleting match: $e");
+      debugPrint("Error deleting match: $e");
     }
   }
 

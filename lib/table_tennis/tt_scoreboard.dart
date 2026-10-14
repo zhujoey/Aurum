@@ -34,6 +34,8 @@ class TableTennisMatch extends StatefulWidget {
   final int activeTimerSeconds;
   final String activeTimerTitle;
   final int? initialTimerEndTime;
+  final bool initialKeepRunningTimers;
+  final int? initialLastSavedTimestamp;
   final int initialFirstServerOfMatch;
   final int initialFirstServerOfSet;
   final int initialFirstReceiverOfSet;
@@ -67,6 +69,8 @@ class TableTennisMatch extends StatefulWidget {
     this.activeTimerSeconds = 0,
     this.activeTimerTitle = '',
     this.initialTimerEndTime,
+    this.initialKeepRunningTimers = false,
+    this.initialLastSavedTimestamp,
     this.matchId = '',
     this.isHost,
   });
@@ -98,6 +102,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   
   bool expediteActive = false;
   int gameTimeSeconds = 0;
+  bool keepRunningTimers = false;
+  int _lastSavedTimestamp = 0;
   Timer? _expediteInternalTimer;
   StreamSubscription? _matchSubscription;
   final AuthService _authService = AuthService();
@@ -126,6 +132,17 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     logs = List<MatchLogEntry>.from(widget.initialLogs);
     expediteActive = widget.initialExpediteActive;
     gameTimeSeconds = widget.initialGameTimeSeconds;
+    keepRunningTimers = widget.initialKeepRunningTimers;
+    _lastSavedTimestamp = widget.initialLastSavedTimestamp ?? DateTime.now().millisecondsSinceEpoch;
+
+    if (keepRunningTimers && _lastSavedTimestamp > 0) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final elapsedSeconds = (now - _lastSavedTimestamp) ~/ 1000;
+      if (elapsedSeconds > 0 && !isFinished && !isSetOver) {
+        gameTimeSeconds += elapsedSeconds;
+      }
+    }
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
     
     _activeTimerSeconds = widget.activeTimerSeconds;
     _activeTimerTitle = widget.activeTimerTitle;
@@ -190,6 +207,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           setState(() {
             isFinished = true;
           });
+          if (!mounted) return;
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -250,9 +268,12 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       p2TimeoutUsed = data['p2TimeoutUsed'] ?? p2TimeoutUsed;
       expediteActive = data['expediteActive'] ?? expediteActive;
       gameTimeSeconds = data['gameTimeSeconds'] ?? gameTimeSeconds;
+      keepRunningTimers = data['keepRunningTimers'] ?? keepRunningTimers;
       
+      firstServerOfMatch = data['firstServerOfMatch'] ?? firstServerOfMatch;
       firstServerOfSet = data['firstServerOfSet'] ?? firstServerOfSet;
       firstReceiverOfSet = data['firstReceiverOfSet'] ?? firstReceiverOfSet;
+      p1OnLeftOfMatch = data['p1OnLeft'] ?? p1OnLeftOfMatch;
 
       String newTitle = data['activeTimerTitle'] ?? '';
       int? newEndTime = data['timerEndTime'];
@@ -439,11 +460,15 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           'p2TimeoutUsed': p2TimeoutUsed,
           'expediteActive': expediteActive,
           'gameTimeSeconds': gameTimeSeconds,
+          'keepRunningTimers': keepRunningTimers,
+          'lastSavedTimestamp': _lastSavedTimestamp,
           'activeTimerSeconds': _activeTimerSeconds,
           'activeTimerTitle': _activeTimerTitle,
           'timerEndTime': _timerEndTime,
+          'firstServerOfMatch': firstServerOfMatch,
           'firstServerOfSet': firstServerOfSet,
           'firstReceiverOfSet': firstReceiverOfSet,
+          'p1OnLeft': p1OnLeftOfMatch,
           'pointHistory': pointHistory,
           'setSummaries': setSummaries.map((s) => s.toMap()).toList(),
           'logs': logs.map((p) => p.toMap()).toList(),
@@ -451,11 +476,15 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         'lastUpdate': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print("Error pushing match data to cloud: $e");
+      debugPrint("Error pushing match data to cloud: $e");
     }
   }
 
   Future<void> _persistMatch() async {
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
+    if (_isHost) {
+      _pushMatchDataToCloud();
+    }
     // Local persistence
     final prefs = await SharedPreferences.getInstance();
     final data = jsonEncode({
@@ -481,6 +510,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       'logs': logs.map((p) => p.toMap()).toList(),
       'expediteActive': expediteActive,
       'gameTimeSeconds': gameTimeSeconds,
+      'keepRunningTimers': keepRunningTimers,
+      'lastSavedTimestamp': _lastSavedTimestamp,
       'activeTimerSeconds': _activeTimerSeconds,
       'activeTimerTitle': _activeTimerTitle,
       'timerEndTime': _timerEndTime,
@@ -572,10 +603,13 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       ),
     );
 
+    if (!mounted) return;
+
     int servingTeam = 1;
     bool p1StartsLeft = true;
 
     if (winnerAction == 3) {
+      if (!context.mounted) return;
       int? loserAction = await showDialog<int>(
         context: context,
         barrierDismissible: false,
@@ -588,6 +622,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           ],
         ),
       );
+      if (!mounted) return;
       
       if (loserAction == 1) {
         servingTeam = await _pickService(3 - tossWinnerTeam, loserDisplay);
@@ -649,6 +684,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     String teamDisplay = widget.isDoubles ? "Team $servingTeam" : (servingTeam == 1 ? widget.p1Name : widget.p3Name);
 
     if (widget.isDoubles) {
+      if (!mounted) return;
       server = await showDialog<int>(
         context: context,
         barrierDismissible: false,
@@ -666,8 +702,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         if (isFirstGame) {
           int receivingTeam = 3 - servingTeam;
           String rTeamDisplay = "Team $receivingTeam";
+          if (!mounted) return;
+          final dialogCtx = context;
+          if (!dialogCtx.mounted) return;
           receiver = await showDialog<int>(
-            context: context,
+            context: dialogCtx,
             barrierDismissible: false,
             builder: (context) => AlertDialog(
               title: Text('$rTeamDisplay: Select Receiver'),
@@ -677,6 +716,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
               ],
             ),
           ) ?? (receivingTeam == 1 ? 1 : 3);
+          if (!mounted) return;
         } else {
           receiver = _getAutomaticReceiver(server);
         }
@@ -804,10 +844,12 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Which player?'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            ListTile(title: Text(teamNum == 1 ? widget.p1Name : widget.p3Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 1 : 3)),
-            ListTile(title: Text(teamNum == 1 ? widget.p2Name : widget.p4Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 2 : 4)),
-          ]),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(title: Text(teamNum == 1 ? widget.p1Name : widget.p3Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 1 : 3)),
+              ListTile(title: Text(teamNum == 1 ? widget.p2Name : widget.p4Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 2 : 4)),
+            ]),
+          ),
         ),
       );
       if (selected == null) return;
@@ -818,8 +860,33 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     if (teamPenalties >= 4) return;
 
     String cardName = teamPenalties == 0 ? 'Yellow Card (Warning)' : teamPenalties == 1 ? 'Yellow + Red Card (+1 point)' : teamPenalties == 2 ? 'Yellow + Red Card (+2 points)' : 'Red Card (Suspension Warning)';
-    String? reason = await showDialog<String>(context: context, builder: (context) => AlertDialog(title: Text('Issue $cardName'), content: TextField(controller: reasonController, decoration: const InputDecoration(hintText: 'Reason (Optional)', border: OutlineInputBorder()), autofocus: true), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(context, reasonController.text.trim()), child: const Text('Confirm'))]));
+    if (!mounted) return;
+    final dialogCtx = context;
+    if (!dialogCtx.mounted) return;
+    String? reason = await showDialog<String>(
+      context: dialogCtx, 
+      builder: (context) => AlertDialog(
+        title: Text('Issue $cardName'), 
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: reasonController, 
+                decoration: const InputDecoration(hintText: 'Reason (Optional)', border: OutlineInputBorder()), 
+                autofocus: true,
+              ),
+            ],
+          ),
+        ), 
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
+          ElevatedButton(onPressed: () => Navigator.pop(context, reasonController.text.trim()), child: const Text('Confirm'))
+        ],
+      ),
+    );
 
+    if (!mounted) return;
     if (reason != null) {
       _saveState();
       setState(() {
@@ -921,7 +988,18 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     return {'totalPoints': totalPoints, 'serveWinRate': servesTotal > 0 ? (pointsOnServe / servesTotal * 100) : 0.0, 'longestStreak': longestStreak};
   }
 
+  bool get _allPointsReset =>
+      player1Score == 0 &&
+      player2Score == 0 &&
+      player1Sets == 0 &&
+      player2Sets == 0 &&
+      pointHistory.isEmpty &&
+      setSummaries.isEmpty;
+
   void _undo() {
+    if (!_isHost) return;
+    final bool wasAllPointsReset = _allPointsReset;
+
     if (_history.isNotEmpty) {
       // Capture current state for redo
       _redoHistory.add(MatchState(
@@ -935,7 +1013,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
       setState(() {
         final lastState = _history.removeLast();
-        player1Score = lastState.p1Score; player2Score = lastState.p2Score; player1Sets = lastState.p1Sets; player2Sets = lastState.p2Sets; isSetOver = lastState.isSetOver; pointHistory = lastState.pointHistory;         setSummaries = lastState.setSummaries;
+        player1Score = lastState.p1Score; player2Score = lastState.p2Score; player1Sets = lastState.p1Sets; player2Sets = lastState.p2Sets; isSetOver = lastState.isSetOver; pointHistory = lastState.pointHistory; setSummaries = lastState.setSummaries;
         p1TimeoutUsed = lastState.p1TimeoutUsed;
         p2TimeoutUsed = lastState.p2TimeoutUsed;
         firstServerOfMatch = lastState.firstServerOfMatch;
@@ -943,14 +1021,21 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         firstReceiverOfSet = lastState.firstReceiverOfSet;
         p1OnLeftOfMatch = lastState.p1OnLeft;
         logs = lastState.logs;
- expediteActive = lastState.expediteActive; gameTimeSeconds = lastState.gameTimeSeconds; _activeTimerSeconds = lastState.activeTimerSeconds; _activeTimerTitle = lastState.activeTimerTitle;
+        expediteActive = lastState.expediteActive; gameTimeSeconds = lastState.gameTimeSeconds; _activeTimerSeconds = lastState.activeTimerSeconds; _activeTimerTitle = lastState.activeTimerTitle;
         _activeTimer?.cancel(); if (_activeTimerSeconds > 0) { _startMatchTimer(_activeTimerTitle, _activeTimerSeconds); }
         _checkMatchWinner();
-        if (firstServerOfMatch == 0) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _promptTossWinner());
-        }
       });
       _persistMatch();
+    }
+
+    if (wasAllPointsReset) {
+      setState(() {
+        firstServerOfMatch = 0;
+        firstServerOfSet = 0;
+        firstReceiverOfSet = 0;
+      });
+      _persistMatch();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _promptTossWinner());
     }
   }
 
@@ -1018,26 +1103,22 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         appBar: AppBar(
           title: const Text('Table Tennis Match'),
           actions: [
-            IconButton(onPressed: () {
-              showDialog(context: context, builder: (context) => AlertDialog(
-                title: const Text('Match Rules'),
-                content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Game: 11 points (win by 2).'),
-                    const Text('Cards: 1st=Warning, 2nd=1pt, 3rd=2pts, 4th=Suspend.'),
-                    const Text('Expedite: After 10 mins (if score < 18), serve switches every 1 pt. Receiver wins after 13 returns.'),
-                    const SizedBox(height: 16),
-                    if (_isHost)
-                      ElevatedButton(onPressed: () { _activateExpedite(); Navigator.pop(context); }, child: const Text('Force Expedite System'))
-                ])),
-                actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-              ));
-            }, icon: const Icon(Icons.info_outline)),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'Match Rules & Expedite Info',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => _buildMatchRulesDialog(context),
+                );
+              },
+            ),
             IconButton(onPressed: () { showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) {
               List<SetSummary> allSets = List.from(setSummaries);
               if (pointHistory.isNotEmpty || player1Score > 0 || player2Score > 0) allSets.add(SetSummary(p1Score: player1Score, p2Score: player2Score, pointSequence: pointHistory, isExpediteSet: expediteActive, firstServer: firstServerOfSet, firstReceiver: firstReceiverOfSet));
               return MatchHistoryBottomSheet(allSets: allSets, logs: logs, p1Name: widget.p1Name, p2Name: widget.p2Name, p3Name: widget.p3Name, p4Name: widget.p4Name);
             }); }, icon: const Icon(Icons.history), tooltip: 'Point history'),
-            IconButton(onPressed: (!_isHost || _history.isEmpty) ? null : _undo, icon: const Icon(Icons.undo)),
+            IconButton(onPressed: (!_isHost || (_history.isEmpty && !_allPointsReset)) ? null : _undo, icon: const Icon(Icons.undo)),
             IconButton(onPressed: (!_isHost || _redoHistory.isEmpty) ? null : _redo, icon: const Icon(Icons.redo)),
             IconButton(onPressed: _isHost ? _resetMatch : null, icon: const Icon(Icons.refresh)),
             PopupMenuButton<String>(
@@ -1059,7 +1140,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                       await _authService.deleteActiveMatch(widget.matchId);
                     }
                     await _clearPersistedMatch();
-                    if (mounted) Navigator.pop(context);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
                   }
                 } else if (value == 'forfeit') {
                   bool? confirm = await showDialog<bool>(
@@ -1077,7 +1159,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                     if (widget.matchId.isNotEmpty) {
                       await _authService.updateMatchStatus(widget.matchId, 'forfeited');
                     }
-                    if (mounted) Navigator.pop(context);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
                   }
                 }
               },
@@ -1124,6 +1207,53 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     );
   }
 
+  Widget _buildMatchRulesDialog(BuildContext dialogContext) {
+    return AlertDialog(
+      title: const Text('Match Rules & Expedite Info'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('General Scoring & Conduct', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 6),
+            const Text('• Game: First to 11 points (must win by 2 points).'),
+            const Text('• Misconduct Cards: 1st Yellow = Warning, 2nd Yellow/Red = Fault + 1 point to opponent, 3rd = Fault + 2 points, 4th Red = Disqualification.'),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text('Expedite System Rule', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue)),
+            const SizedBox(height: 6),
+            const Text(
+              'The Expedite System is an official ITTF rule designed to shorten overlong sets:\n\n'
+              '• Automatic Activation: Automatically triggers if a set reaches 10 minutes (600s) of play and fewer than 18 total points have been scored.\n\n'
+              '• Service Rotation: Once active, service changes after EVERY single point.\n\n'
+              '• 13-Return Rule: The receiving player/pair wins the point if they successfully make 13 returns in a rally.',
+              style: TextStyle(fontSize: 13, height: 1.3),
+            ),
+            const SizedBox(height: 16),
+            _ExpediteInfoWidget(
+              isHost: _isHost,
+              expediteActive: expediteActive,
+              gameTimeSeconds: gameTimeSeconds,
+              totalPoints: player1Score + player2Score,
+              onForceExpedite: () {
+                _activateExpedite();
+                Navigator.pop(dialogContext);
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTeamCol(int teamNum, bool hasWon, bool timeoutUsed) {
     int p1Num = teamNum == 1 ? 1 : (widget.isDoubles ? 3 : 2);
     final teamPenalties = logs.where((p) => p.type == 'penalty' && ((teamNum == 1 && (widget.isDoubles ? (p.playerNum == 1 || p.playerNum == 2) : p.playerNum == 1)) || (teamNum == 2 && (widget.isDoubles ? (p.playerNum == 3 || p.playerNum == 4) : p.playerNum == 2)))).toList();
@@ -1135,6 +1265,116 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         bool isS = _currentServer == pNum; bool isR = _currentReceiver == pNum;
         return Text(name + (isS ? ' (S)' : isR ? ' (R)' : ''), textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: isS || isR ? FontWeight.bold : FontWeight.normal, color: isS ? Colors.white : isR ? Colors.blueAccent : (won ? Colors.amber : null)), overflow: TextOverflow.ellipsis);
       }
+    );
+  }
+}
+
+class _ExpediteInfoWidget extends StatefulWidget {
+  final bool isHost;
+  final bool expediteActive;
+  final int gameTimeSeconds;
+  final int totalPoints;
+  final VoidCallback onForceExpedite;
+
+  const _ExpediteInfoWidget({
+    required this.isHost,
+    required this.expediteActive,
+    required this.gameTimeSeconds,
+    required this.totalPoints,
+    required this.onForceExpedite,
+  });
+
+  @override
+  State<_ExpediteInfoWidget> createState() => _ExpediteInfoWidgetState();
+}
+
+class _ExpediteInfoWidgetState extends State<_ExpediteInfoWidget> {
+  Timer? _timer;
+  late int _currentGameTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentGameTime = widget.gameTimeSeconds;
+    if (!widget.expediteActive && widget.totalPoints < 18) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (mounted) {
+          setState(() {
+            _currentGameTime++;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = max(0, 600 - _currentGameTime);
+    final min = remaining ~/ 60;
+    final sec = remaining % 60;
+    final timeStr = '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.timer_outlined, color: Colors.blue, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Expedite System Status & Timer',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (widget.expediteActive)
+            const Row(
+              children: [
+                Icon(Icons.bolt, color: Colors.orange, size: 18),
+                SizedBox(width: 6),
+                Text('Status: ACTIVE ⚡', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+              ],
+            )
+          else if (widget.totalPoints >= 18)
+            const Text('Status: Exempt (18+ total points scored in this set)', style: TextStyle(color: Colors.grey, fontSize: 12))
+          else ...[
+            Text('Countdown to Auto-Expedite: $timeStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue)),
+            const SizedBox(height: 4),
+            Text('Current Set Duration: ${_currentGameTime ~/ 60}:${(_currentGameTime % 60).toString().padLeft(2, '0')} / 10:00', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+          if (widget.isHost && !widget.expediteActive) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.bolt),
+                label: const Text('Force Expedite System'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: widget.onForceExpedite,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/theme_service.dart';
@@ -96,23 +98,29 @@ class _SettingsPageState extends State<SettingsPage> {
                 builder: (context, mode, child) {
                   return Column(
                     children: [
-                      RadioListTile<ThemeMode>(
+                      ListTile(
                         title: const Text('Light Mode'),
-                        value: ThemeMode.light,
-                        groupValue: mode,
-                        onChanged: (val) => _themeService.setTheme(val!),
+                        trailing: Icon(
+                          mode == ThemeMode.light ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: mode == ThemeMode.light ? Theme.of(context).colorScheme.primary : Colors.grey,
+                        ),
+                        onTap: () => _themeService.setTheme(ThemeMode.light),
                       ),
-                      RadioListTile<ThemeMode>(
+                      ListTile(
                         title: const Text('Dark Mode'),
-                        value: ThemeMode.dark,
-                        groupValue: mode,
-                        onChanged: (val) => _themeService.setTheme(val!),
+                        trailing: Icon(
+                          mode == ThemeMode.dark ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: mode == ThemeMode.dark ? Theme.of(context).colorScheme.primary : Colors.grey,
+                        ),
+                        onTap: () => _themeService.setTheme(ThemeMode.dark),
                       ),
-                      RadioListTile<ThemeMode>(
+                      ListTile(
                         title: const Text('System Default'),
-                        value: ThemeMode.system,
-                        groupValue: mode,
-                        onChanged: (val) => _themeService.setTheme(val!),
+                        trailing: Icon(
+                          mode == ThemeMode.system ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: mode == ThemeMode.system ? Theme.of(context).colorScheme.primary : Colors.grey,
+                        ),
+                        onTap: () => _themeService.setTheme(ThemeMode.system),
                       ),
                       ValueListenableBuilder<bool>(
                         valueListenable: _themeService.useTrueDark,

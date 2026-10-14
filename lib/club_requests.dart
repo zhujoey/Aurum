@@ -95,7 +95,6 @@ class ClubRequestsPage extends StatelessWidget {
               final data = req.data() as Map<String, dynamic>;
               final clubName = data['clubName'] ?? 'Unknown Club';
               final clubId = data['clubId'];
-              final status = data['status'] ?? 'pending';
 
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.groups)),

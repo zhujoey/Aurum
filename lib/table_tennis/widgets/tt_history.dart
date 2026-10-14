@@ -65,11 +65,13 @@ class MatchHistoryBottomSheet extends StatelessWidget {
                             String pName = 'P${entry.playerNum}';
                             if (entry.playerNum == 1) {
                               pName = p1Name;
-                            } else if (entry.playerNum == 2)
+                            } else if (entry.playerNum == 2) {
                               pName = p2Name;
-                            else if (entry.playerNum == 3)
+                            } else if (entry.playerNum == 3) {
                               pName = p3Name;
-                            else if (entry.playerNum == 4) pName = p4Name;
+                            } else if (entry.playerNum == 4) {
+                              pName = p4Name;
+                            }
                             text = '$pName: ${entry.reason}';
                           } else if (entry.type == 'timeout') {
                             String pName =

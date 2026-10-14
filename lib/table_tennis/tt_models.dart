@@ -93,6 +93,7 @@ class MatchState {
   final int gameTimeSeconds;
   final int activeTimerSeconds;
   final String activeTimerTitle;
+  final int? timerEndTime;
 
   MatchState({
     required this.p1Score, 
@@ -113,7 +114,56 @@ class MatchState {
     required this.gameTimeSeconds,
     this.activeTimerSeconds = 0,
     this.activeTimerTitle = '',
+    this.timerEndTime,
   });
+
+  Map<String, dynamic> toMap() => {
+    'p1Score': p1Score,
+    'p2Score': p2Score,
+    'p1Sets': p1Sets,
+    'p2Sets': p2Sets,
+    'isSetOver': isSetOver,
+    'pointHistory': pointHistory,
+    'setSummaries': setSummaries.map((s) => s.toMap()).toList(),
+    'p1TimeoutUsed': p1TimeoutUsed,
+    'p2TimeoutUsed': p2TimeoutUsed,
+    'firstServerOfMatch': firstServerOfMatch,
+    'firstServerOfSet': firstServerOfSet,
+    'firstReceiverOfSet': firstReceiverOfSet,
+    'p1OnLeft': p1OnLeft,
+    'logs': logs.map((l) => l.toMap()).toList(),
+    'expediteActive': expediteActive,
+    'gameTimeSeconds': gameTimeSeconds,
+    'activeTimerSeconds': activeTimerSeconds,
+    'activeTimerTitle': activeTimerTitle,
+    'timerEndTime': timerEndTime,
+  };
+
+  factory MatchState.fromMap(Map<String, dynamic> map) => MatchState(
+    p1Score: map['p1Score'] ?? 0,
+    p2Score: map['p2Score'] ?? 0,
+    p1Sets: map['p1Sets'] ?? 0,
+    p2Sets: map['p2Sets'] ?? 0,
+    isSetOver: map['isSetOver'] ?? false,
+    pointHistory: List<int>.from(map['pointHistory'] ?? []),
+    setSummaries: (map['setSummaries'] as List? ?? [])
+        .map((s) => SetSummary.fromMap(s))
+        .toList(),
+    p1TimeoutUsed: map['p1TimeoutUsed'] ?? false,
+    p2TimeoutUsed: map['p2TimeoutUsed'] ?? false,
+    firstServerOfMatch: map['firstServerOfMatch'] ?? 0,
+    firstServerOfSet: map['firstServerOfSet'] ?? 0,
+    firstReceiverOfSet: map['firstReceiverOfSet'] ?? 0,
+    p1OnLeft: map['p1OnLeft'] ?? true,
+    logs: (map['logs'] as List? ?? [])
+        .map((l) => MatchLogEntry.fromMap(l))
+        .toList(),
+    expediteActive: map['expediteActive'] ?? false,
+    gameTimeSeconds: map['gameTimeSeconds'] ?? 0,
+    activeTimerSeconds: map['activeTimerSeconds'] ?? 0,
+    activeTimerTitle: map['activeTimerTitle'] ?? '',
+    timerEndTime: map['timerEndTime'],
+  );
 }
 
 class TTServerResults {

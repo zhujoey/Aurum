@@ -130,11 +130,9 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
     
     await _authService.signOut();
     
-    if (!mounted) return;
-    
     // Ensure we have a context to show the dialog
     final context = navigatorKey.currentContext;
-    if (context == null) return;
+    if (context == null || !context.mounted) return;
 
     showDialog(
       context: context,
@@ -174,7 +172,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
     
     final context = navigatorKey.currentContext;
     if (context == null) {
-      print("Warning: Could not show match prompt, navigator context is null");
+      debugPrint("Warning: Could not show match prompt, navigator context is null");
       return;
     }
 
@@ -212,7 +210,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
 
     _activeDialogRequestIds.add(doc.id);
     
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -253,7 +251,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
                       if (mounted) {
                         setState(() => _activeDialogRequestIds.remove(doc.id));
                       }
-                      if (Navigator.canPop(dialogContext)) {
+                      if (dialogContext.mounted && Navigator.canPop(dialogContext)) {
                         Navigator.of(dialogContext, rootNavigator: true).pop();
                       }
                     }
@@ -268,12 +266,15 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
                       if (mounted) {
                         setState(() => _activeDialogRequestIds.remove(doc.id));
                       }
-                      if (Navigator.canPop(dialogContext)) {
+                      if (dialogContext.mounted && Navigator.canPop(dialogContext)) {
                         Navigator.of(dialogContext, rootNavigator: true).pop();
                       }
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Accepted! Waiting for host to start.')),
-                      );
+                      final scaffoldCtx = navigatorKey.currentContext;
+                      if (scaffoldCtx != null && scaffoldCtx.mounted) {
+                        ScaffoldMessenger.of(scaffoldCtx).showSnackBar(
+                          const SnackBar(content: Text('Accepted! Waiting for host to start.')),
+                        );
+                      }
                     }
                   },
                   child: const Text('Accept'),

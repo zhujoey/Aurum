@@ -5,10 +5,7 @@ import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/new_match.dart';
 import 'package:sportspro/clubs.dart';
 import 'package:sportspro/tournaments.dart';
-import 'package:sportspro/table_tennis/tt_scoreboard.dart';
-import 'package:sportspro/table_tennis/tt_setup.dart';
-import 'package:sportspro/badminton/badminton_scoreboard.dart';
-import 'package:sportspro/badminton/badminton_setup.dart';
+import 'package:sportspro/widgets/active_match_banner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -44,134 +41,7 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildActiveMatchBanner(DocumentSnapshot matchDoc) {
-    final data = matchDoc.data() as Map<String, dynamic>;
-    final String sport = data['sport'] ?? '';
-    bool isHost = data['hostUid'] == _authService.currentUser?.uid;
-
-    return Card(
-      color: Colors.amber.withValues(alpha: 0.1),
-      margin: const EdgeInsets.only(bottom: 24),
-      child: ListTile(
-        leading: const Icon(Icons.sports_tennis, color: Colors.amber),
-        title: const Text('Active Match in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(isHost ? 'You are hosting a match.' : 'You are participating in a match.'),
-        onTap: () {
-          final matchData = data['matchData'] ?? {};
-          if (sport == 'Table Tennis') {
-            if (!isHost) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TableTennisMatch(
-                    p1Name: matchData['p1Name'] ?? 'P1',
-                    p2Name: matchData['p2Name'] ?? '',
-                    p3Name: matchData['p3Name'] ?? 'P2',
-                    p4Name: matchData['p4Name'] ?? '',
-                    isDoubles: matchData['isDoubles'] ?? false,
-                    setsToWin: matchData['setsToWin'] ?? 4,
-                    matchId: matchDoc.id,
-                    isHost: false,
-                  ),
-                ),
-              );
-            } else {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const TableTennisSetup()));
-            }
-          } else if (sport == 'Badminton') {
-            if (!isHost) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BadmintonMatch(
-                    p1Name: matchData['p1Name'] ?? 'P1',
-                    p2Name: matchData['p2Name'] ?? '',
-                    p3Name: matchData['p3Name'] ?? 'P2',
-                    p4Name: matchData['p4Name'] ?? '',
-                    isDoubles: matchData['isDoubles'] ?? false,
-                    gamesToWin: matchData['gamesToWin'] ?? 2,
-                    matchId: matchDoc.id,
-                    isHost: false,
-                  ),
-                ),
-              );
-            } else {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const BadmintonSetup()));
-            }
-          }
-        },
-        trailing: isHost 
-          ? const Icon(Icons.chevron_right)
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: () async {
-                    bool? confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Forfeit Match?'),
-                        content: const Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Forfeit', style: TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      await _authService.updateMatchStatus(matchDoc.id, 'forfeited');
-                    }
-                  },
-                  child: const Text('Forfeit', style: TextStyle(color: Colors.red, fontSize: 12)),
-                ),
-                const SizedBox(width: 4),
-                ElevatedButton(
-                  onPressed: () {
-                    final matchData = data['matchData'] ?? {};
-                    if (sport == 'Table Tennis') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TableTennisMatch(
-                            p1Name: matchData['p1Name'] ?? 'P1',
-                            p2Name: matchData['p2Name'] ?? '',
-                            p3Name: matchData['p3Name'] ?? 'P2',
-                            p4Name: matchData['p4Name'] ?? '',
-                            isDoubles: matchData['isDoubles'] ?? false,
-                            setsToWin: matchData['setsToWin'] ?? 4,
-                            matchId: matchDoc.id,
-                            isHost: false,
-                          ),
-                        ),
-                      );
-                    } else if (sport == 'Badminton') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BadmintonMatch(
-                            p1Name: matchData['p1Name'] ?? 'P1',
-                            p2Name: matchData['p2Name'] ?? '',
-                            p3Name: matchData['p3Name'] ?? 'P2',
-                            p4Name: matchData['p4Name'] ?? '',
-                            isDoubles: matchData['isDoubles'] ?? false,
-                            gamesToWin: matchData['gamesToWin'] ?? 2,
-                            matchId: matchDoc.id,
-                            isHost: false,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, 
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  child: const Text('View Match', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-      ),
-    );
+    return ActiveMatchBanner(matchDoc: matchDoc);
   }
 
   @override

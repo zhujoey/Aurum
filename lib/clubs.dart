@@ -205,19 +205,33 @@ class _ClubsPageState extends State<ClubsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: tournaments.length,
                 itemBuilder: (context, index) {
-                  final t = tournaments[index].data() as Map<String, dynamic>;
+                  final tDoc = tournaments[index];
+                  final t = tDoc.data() as Map<String, dynamic>;
                   return Card(
-                    child: Container(
-                      width: 200,
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          const Spacer(),
-                          Text(t['sport'], style: const TextStyle(color: Colors.blue)),
-                          Text(t['status'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TournamentDetailsPage(
+                              clubId: clubDoc.id,
+                              tournamentId: tDoc.id,
+                              isOwnerOrManager: true,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 200,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            const Spacer(),
+                            Text('${t['sport'] ?? "Sport"} • ${t['rankingPoints'] ?? 1000} pts', style: const TextStyle(color: Colors.blue, fontSize: 12)),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -345,14 +359,20 @@ class _ClubsPageState extends State<ClubsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: tournaments.length,
                 itemBuilder: (context, index) {
-                  final t = tournaments[index];
-                  final data = t.data() as Map<String, dynamic>;
+                  final tDoc = tournaments[index];
+                  final data = tDoc.data() as Map<String, dynamic>;
                   return Card(
                     child: InkWell(
                       onTap: () {
-                         Navigator.push(
+                        Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => TournamentsPage()),
+                          MaterialPageRoute(
+                            builder: (context) => TournamentDetailsPage(
+                              clubId: clubDoc.id,
+                              tournamentId: tDoc.id,
+                              isOwnerOrManager: false,
+                            ),
+                          ),
                         );
                       },
                       child: Container(
@@ -363,8 +383,7 @@ class _ClubsPageState extends State<ClubsPage> {
                           children: [
                             Text(data['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const Spacer(),
-                            Text(data['sport'], style: const TextStyle(color: Colors.blue)),
-                            Text(data['status'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text('${data['sport'] ?? "Sport"} • ${data['rankingPoints'] ?? 1000} pts', style: const TextStyle(color: Colors.blue, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -448,7 +467,7 @@ class _ClubsPageState extends State<ClubsPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedSport,
+                initialValue: selectedSport,
                 decoration: const InputDecoration(
                   labelText: 'Sport',
                   border: OutlineInputBorder(),
@@ -704,11 +723,13 @@ class _ClubsPageState extends State<ClubsPage> {
                               onPressed: () async {
                                 try {
                                   await _authService.sendClubJoinRequest(clubId, clubName, user['uid'], user['username']);
-                                  if (context.mounted) Navigator.pop(context);
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
                                   ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
                                     SnackBar(content: Text('Invitation sent to ${user['username']}!')),
                                   );
                                 } catch (e) {
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
                                 }
                               },

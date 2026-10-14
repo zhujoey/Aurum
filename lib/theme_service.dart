@@ -42,7 +42,7 @@ class ThemeService {
   Future<void> setColor(Color color) async {
     seedColor.value = color;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('seedColor', color.value);
+    await prefs.setInt('seedColor', color.toARGB32());
   }
 
   Future<void> setTrueDark(bool value) async {

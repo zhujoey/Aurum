@@ -24,6 +24,8 @@ class BadmintonMatch extends StatefulWidget {
   final int initialMatchTimeSeconds;
   final int? activeTimerEndTime;
   final String activeTimerTitle;
+  final bool initialKeepRunningTimers;
+  final int? initialLastSavedTimestamp;
   final String matchId;
 
   const BadmintonMatch({
@@ -34,7 +36,9 @@ class BadmintonMatch extends StatefulWidget {
     this.initialGameSummaries = const [], this.initialFirstServerOfMatch = 0,
     this.initialFirstServerOfGame = 0, this.initialP1OnLeft = true,
     this.initialLogs = const [], this.initialMatchTimeSeconds = 0,
-    this.activeTimerEndTime, this.activeTimerTitle = '', this.matchId = '',
+    this.activeTimerEndTime, this.activeTimerTitle = '',
+    this.initialKeepRunningTimers = false, this.initialLastSavedTimestamp,
+    this.matchId = '',
   });
 
   @override
@@ -54,6 +58,8 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
   Timer? _activeTimer, _matchClock;
   
   late int firstServerOfMatch, firstServerOfGame;
+  bool keepRunningTimers = false;
+  int _lastSavedTimestamp = 0;
   final AuthService _authService = AuthService();
   StreamSubscription? _matchSubscription;
   final List<BadmintonMatchState> _history = [];
@@ -73,6 +79,17 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     firstServerOfGame = widget.initialFirstServerOfGame;
     timerEndTime = widget.activeTimerEndTime;
     timerTitle = widget.activeTimerTitle;
+    keepRunningTimers = widget.initialKeepRunningTimers;
+    _lastSavedTimestamp = widget.initialLastSavedTimestamp ?? DateTime.now().millisecondsSinceEpoch;
+
+    if (keepRunningTimers && _lastSavedTimestamp > 0) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final elapsedSeconds = (now - _lastSavedTimestamp) ~/ 1000;
+      if (elapsedSeconds > 0 && !isGameOver) {
+        matchTimeSeconds += elapsedSeconds;
+      }
+    }
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
 
     _startMatchClock();
     _listenToMatchStatus();
@@ -103,7 +120,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
   void _syncFromCloud(Map<String, dynamic> data) {
     int cloudP1 = data['p1Score'] ?? p1Score;
     int cloudP2 = data['p2Score'] ?? p2Score;
-    bool progressed = (cloudP1 + (data['p2Score'] ?? p2Score)) > (p1Score + p2Score);
+    bool progressed = (cloudP1 + cloudP2) > (p1Score + p2Score);
 
     if (progressed && mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
@@ -112,8 +129,11 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       p1Games = data['p1Games'] ?? p1Games; p2Games = data['p2Games'] ?? p2Games;
       isGameOver = data['isGameOver'] ?? isGameOver;
       pointHistory = List<int>.from(data['pointHistory'] ?? pointHistory);
+      firstServerOfMatch = data['firstServerOfMatch'] ?? firstServerOfMatch;
       firstServerOfGame = data['firstServerOfGame'] ?? firstServerOfGame;
       p1OnLeft = data['p1OnLeft'] ?? p1OnLeft;
+      matchTimeSeconds = data['matchTimeSeconds'] ?? matchTimeSeconds;
+      keepRunningTimers = data['keepRunningTimers'] ?? keepRunningTimers;
       
       int? newEndTime = data['timerEndTime'];
       if (newEndTime != null && newEndTime != timerEndTime) {
@@ -121,9 +141,17 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         _startLocalTimer(timerTitle, newEndTime);
       } else if (newEndTime == null) { _activeTimer?.cancel(); timerEndTime = null; }
 
+      if (data['gameSummaries'] != null) {
+        gameSummaries = (data['gameSummaries'] as List)
+            .map((s) => BadmintonGameSummary.fromMap(s))
+            .toList();
+      }
+
       if (data['logs'] != null) {
         logs = (data['logs'] as List).map((l) => BadmintonLogEntry.fromMap(l)).toList();
       }
+      
+      // ... same logic for decider switch ...
 
       if (!widget.isHost && progressed) {
          if ((p1Score + p2Score) % 6 == 0 && !isGameOver) {
@@ -167,6 +195,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
   }
 
   Future<void> _persistMatch() async {
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
     final prefs = await SharedPreferences.getInstance();
     final data = jsonEncode({
       'p1Name': widget.p1Name, 'p2Name': widget.p2Name, 'p3Name': widget.p3Name, 'p4Name': widget.p4Name,
@@ -174,19 +203,39 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       'isGameOver': isGameOver, 'pointHistory': pointHistory, 'gameSummaries': gameSummaries.map((s) => s.toMap()).toList(),
       'firstServerOfMatch': firstServerOfMatch, 'firstServerOfGame': firstServerOfGame, 'p1OnLeft': p1OnLeft,
       'logs': logs.map((l) => l.toMap()).toList(), 'matchTimeSeconds': matchTimeSeconds, 'timerEndTime': timerEndTime,
-      'timerTitle': timerTitle, 'matchId': widget.matchId,
+      'timerTitle': timerTitle, 'keepRunningTimers': keepRunningTimers, 'lastSavedTimestamp': _lastSavedTimestamp,
+      'matchId': widget.matchId,
     });
     await prefs.setString('active_badminton_match', data);
     if (widget.isHost && widget.matchId.isNotEmpty) _pushToCloud();
   }
 
   Future<void> _pushToCloud() async {
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
     await FirebaseFirestore.instance.collection('active_matches').doc(widget.matchId).update({
       'matchData': {
-        'p1Score': p1Score, 'p2Score': p2Score, 'p1Games': p1Games, 'p2Games': p2Games,
-        'isGameOver': isGameOver, 'pointHistory': pointHistory, 'firstServerOfGame': firstServerOfGame,
-        'p1OnLeft': p1OnLeft, 'timerEndTime': timerEndTime, 'timerTitle': timerTitle,
+        'p1Name': widget.p1Name,
+        'p2Name': widget.p2Name,
+        'p3Name': widget.p3Name,
+        'p4Name': widget.p4Name,
+        'isDoubles': widget.isDoubles,
+        'gamesToWin': widget.gamesToWin,
+        'p1Score': p1Score,
+        'p2Score': p2Score,
+        'p1Games': p1Games,
+        'p2Games': p2Games,
+        'isGameOver': isGameOver,
+        'pointHistory': pointHistory,
+        'gameSummaries': gameSummaries.map((s) => s.toMap()).toList(),
+        'firstServerOfMatch': firstServerOfMatch,
+        'firstServerOfGame': firstServerOfGame,
+        'p1OnLeft': p1OnLeft,
+        'timerEndTime': timerEndTime,
+        'timerTitle': timerTitle,
         'logs': logs.map((l) => l.toMap()).toList(),
+        'matchTimeSeconds': matchTimeSeconds,
+        'keepRunningTimers': keepRunningTimers,
+        'lastSavedTimestamp': _lastSavedTimestamp,
       },
       'lastUpdate': FieldValue.serverTimestamp(),
     });
@@ -225,6 +274,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     // BWF Law 6.1: The side winning the toss shall exercise the choice in either 6.1.1 or 6.1.2:
     // 6.1.1 to serve or receive first;
     // 6.1.2 to start play at one end of the court or the other.
+    if (!mounted) return;
     int? choice = await showDialog<int>(
       context: context,
       barrierDismissible: false,
@@ -233,10 +283,11 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Choose Service')),
           TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Choose Side (Home/Away)')),
-          TextButton(onPressed: () => Navigator.pop(context, 3), child: const Text('Let Opponent Choose')),
+          TextButton(onPressed: () => Navigator.pop(c, 3), child: const Text('Let Opponent Choose')),
         ],
       ),
     );
+    if (!mounted) return;
 
     bool p1StartsLeft = widget.initialP1OnLeft;
     int firstServer = 1;
@@ -258,6 +309,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           ],
         ),
       );
+      if (!mounted) return;
 
       if (loserChoice == 1) {
         // Loser chooses Service
@@ -272,6 +324,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             ],
           ),
         );
+        if (!mounted) return;
         int servingTeam = (serviceChoice == 1) ? loserTeam : (3 - loserTeam);
         firstServer = widget.isDoubles ? (servingTeam == 1 ? 1 : 3) : servingTeam;
 
@@ -287,6 +340,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             ],
           ),
         );
+        if (!mounted) return;
         p1StartsLeft = (sideChoice == 1) ? (winnerTeam == 1) : (winnerTeam != 1);
       } else {
         // Loser chooses Side
@@ -301,6 +355,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             ],
           ),
         );
+        if (!mounted) return;
         p1StartsLeft = (sideChoice == 1) ? (loserTeam == 1) : (loserTeam != 1);
 
         // Winner gets Service
@@ -315,6 +370,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             ],
           ),
         );
+        if (!mounted) return;
         int servingTeam = (serviceChoice == 1) ? winnerTeam : (3 - winnerTeam);
         firstServer = widget.isDoubles ? (servingTeam == 1 ? 1 : 3) : servingTeam;
       }
@@ -331,6 +387,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           ],
         ),
       );
+      if (!mounted) return;
       
       // If winner chooses to serve, they serve. If they choose receive, the other team serves.
       int servingTeam = (serviceChoice == 1) ? winnerTeam : (3 - winnerTeam);
@@ -351,6 +408,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           ],
         ),
       );
+      if (!mounted) return;
       p1StartsLeft = (sideChoice == 1) ? ((3 - winnerTeam) == 1) : ((3 - winnerTeam) != 1);
 
     } else {
@@ -366,6 +424,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           ],
         ),
       );
+      if (!mounted) return;
       p1StartsLeft = (sideChoice == 1) ? (winnerTeam == 1) : (winnerTeam != 1);
 
       // Loser chooses Service
@@ -453,10 +512,16 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
 
   void _updateScore(int team, int delta) {
     if (timerEndTime != null || isGameOver) return; // Block changes during break or if game is over
-    if (delta > 0) _saveState();
+    if (delta > 0) {
+      _saveState();
+    }
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     setState(() {
-      if (team == 1) p1Score = max(0, p1Score + delta); else p2Score = max(0, p2Score + delta);
+      if (team == 1) {
+        p1Score = max(0, p1Score + delta);
+      } else {
+        p2Score = max(0, p2Score + delta);
+      }
       if (delta > 0) {
         pointHistory.add(team);
         _checkGameWinner();
@@ -490,13 +555,16 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Which player?'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            ListTile(title: Text(teamNum == 1 ? widget.p1Name : widget.p3Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 1 : 3)),
-            ListTile(title: Text(teamNum == 1 ? widget.p2Name : widget.p4Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 2 : 4)),
-          ]),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(title: Text(teamNum == 1 ? widget.p1Name : widget.p3Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 1 : 3)),
+              ListTile(title: Text(teamNum == 1 ? widget.p2Name : widget.p4Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 2 : 4)),
+            ]),
+          ),
         ),
       );
       if (selected == null) return;
+      if (!mounted) return;
       actualPlayerNum = selected;
     }
 
@@ -518,10 +586,17 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       context: context, 
       builder: (context) => AlertDialog(
         title: Text('Issue $cardName'), 
-        content: TextField(
-          controller: reasonController, 
-          decoration: const InputDecoration(hintText: 'Reason (Optional)', border: OutlineInputBorder()), 
-          autofocus: true
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: reasonController, 
+                decoration: const InputDecoration(hintText: 'Reason (Optional)', border: OutlineInputBorder()), 
+                autofocus: true,
+              ),
+            ],
+          ),
         ), 
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
@@ -531,18 +606,27 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     );
 
     if (reason == null) return;
+    if (!mounted) return;
 
     _saveState();
     setState(() {
       if (type == 'red') {
         // Award point to opponent
-        if (teamNum == 1) p2Score = max(0, p2Score + 1); else p1Score = max(0, p1Score + 1);
+        if (teamNum == 1) {
+          p2Score = max(0, p2Score + 1);
+        } else {
+          p1Score = max(0, p1Score + 1);
+        }
         pointHistory.add(teamNum == 1 ? 2 : 1);
         _checkGameWinner();
       } else if (type == 'black') {
         isGameOver = true;
         // Winner is the other team
-        if (teamNum == 1) p2Games = widget.gamesToWin; else p1Games = widget.gamesToWin;
+        if (teamNum == 1) {
+          p2Games = widget.gamesToWin;
+        } else {
+          p1Games = widget.gamesToWin;
+        }
       }
       logs.add(BadmintonLogEntry(
         type: 'penalty', 
@@ -574,7 +658,11 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     if (p1Score == 30 || p2Score == 30) win = true;
 
     if (win) {
-      if (p1Score > p2Score) p1Games++; else p2Games++;
+      if (p1Score > p2Score) {
+        p1Games++;
+      } else {
+        p2Games++;
+      }
       gameSummaries.add(BadmintonGameSummary(p1Score: p1Score, p2Score: p2Score, pointSequence: List.from(pointHistory), firstServer: firstServerOfGame));
       isGameOver = true;
       if (p1Games < widget.gamesToWin && p2Games < widget.gamesToWin) {
@@ -582,6 +670,14 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       }
     }
   }
+
+  bool get _allPointsReset =>
+      p1Score == 0 &&
+      p2Score == 0 &&
+      p1Games == 0 &&
+      p2Games == 0 &&
+      pointHistory.isEmpty &&
+      gameSummaries.isEmpty;
 
   bool get _isDecider => (p1Games + p2Games) == (widget.gamesToWin * 2) - 2;
 
@@ -621,20 +717,33 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
           ));
         }),
-        IconButton(icon: const Icon(Icons.undo), onPressed: _history.isEmpty || !widget.isHost ? null : () {
-          _redoHistory.add(BadmintonMatchState(
-            p1Score: p1Score, p2Score: p2Score, p1Games: p1Games, p2Games: p2Games, isGameOver: isGameOver,
-            pointHistory: List<int>.from(pointHistory), gameSummaries: List.from(gameSummaries),
-            firstServerOfMatch: firstServerOfMatch, firstServerOfGame: firstServerOfGame, p1OnLeft: p1OnLeft,
-            logs: List.from(logs), matchTimeSeconds: matchTimeSeconds, timerEndTime: timerEndTime, timerTitle: timerTitle,
-          ));
-          final s = _history.removeLast();
-          setState(() {
-            p1Score = s.p1Score; p2Score = s.p2Score; p1Games = s.p1Games; p2Games = s.p2Games;
-            isGameOver = s.isGameOver; pointHistory = s.pointHistory; gameSummaries = s.gameSummaries;
-            firstServerOfGame = s.firstServerOfGame; p1OnLeft = s.p1OnLeft; logs = s.logs;
-          });
-          _persistMatch();
+        IconButton(icon: const Icon(Icons.undo), onPressed: (!widget.isHost || (_history.isEmpty && !_allPointsReset)) ? null : () {
+          final bool wasAllPointsReset = _allPointsReset;
+
+          if (_history.isNotEmpty) {
+            _redoHistory.add(BadmintonMatchState(
+              p1Score: p1Score, p2Score: p2Score, p1Games: p1Games, p2Games: p2Games, isGameOver: isGameOver,
+              pointHistory: List<int>.from(pointHistory), gameSummaries: List.from(gameSummaries),
+              firstServerOfMatch: firstServerOfMatch, firstServerOfGame: firstServerOfGame, p1OnLeft: p1OnLeft,
+              logs: List.from(logs), matchTimeSeconds: matchTimeSeconds, timerEndTime: timerEndTime, timerTitle: timerTitle,
+            ));
+            final s = _history.removeLast();
+            setState(() {
+              p1Score = s.p1Score; p2Score = s.p2Score; p1Games = s.p1Games; p2Games = s.p2Games;
+              isGameOver = s.isGameOver; pointHistory = s.pointHistory; gameSummaries = s.gameSummaries;
+              firstServerOfGame = s.firstServerOfGame; p1OnLeft = s.p1OnLeft; logs = s.logs;
+            });
+            _persistMatch();
+          }
+
+          if (wasAllPointsReset) {
+            setState(() {
+              firstServerOfMatch = 0;
+              firstServerOfGame = 0;
+            });
+            _persistMatch();
+            WidgetsBinding.instance.addPostFrameCallback((_) => _promptToss());
+          }
         }),
         IconButton(icon: const Icon(Icons.redo), onPressed: _redoHistory.isEmpty || !widget.isHost ? null : () {
           _history.add(BadmintonMatchState(

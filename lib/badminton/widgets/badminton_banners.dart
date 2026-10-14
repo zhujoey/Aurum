@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-
-import 'package:flutter/material.dart';
 import '../badminton_models.dart';
 
 class BadmintonSuspensionBanner extends StatelessWidget {

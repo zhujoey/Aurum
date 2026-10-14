@@ -54,7 +54,7 @@ class BadmintonTeamColumn extends StatelessWidget {
 
     bool interactionsEnabled = isHost && !isBlacked && !isTimerRunning;
 
-    return Container(
+    return SizedBox(
       width: columnWidth,
       child: Column(children: [
         Column(children: [

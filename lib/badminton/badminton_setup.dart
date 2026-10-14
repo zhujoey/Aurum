@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'badminton_models.dart';
 import 'badminton_scoreboard.dart';
 import '../table_tennis/widgets/tt_invitation_waiting.dart';
-import '../main.dart';
 
 class BadmintonSetup extends StatefulWidget {
   const BadmintonSetup({super.key});
@@ -24,6 +23,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
   final AuthService _authService = AuthService();
   bool _isDoubles = false;
   int _gamesToWin = 2; // Best of 3
+  bool _keepRunningTimers = false;
   Map<String, dynamic>? _savedMatch;
   StreamSubscription? _matchSubscription;
   StreamSubscription? _friendsSubscription;
@@ -99,44 +99,56 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
             return;
           }
         } catch (e) {
-          print("Setup: Error verifying saved match status: $e");
+          debugPrint("Setup: Error verifying saved match status: $e");
         }
       }
       setState(() => _savedMatch = saved);
     }
   }
 
-  void _resumeMatch() async {
-    if (_savedMatch != null) {
+  void _resumeMatch({DocumentSnapshot? cloudDoc}) async {
+    Map<String, dynamic>? data = _savedMatch;
+    
+    if (cloudDoc != null) {
+      final cloudData = cloudDoc.data() as Map<String, dynamic>;
+      data = cloudData['matchData'];
+      if (data != null) {
+        data['matchId'] = cloudDoc.id;
+      }
+    }
+
+    if (data != null) {
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => BadmintonMatch(
-            p1Name: _savedMatch!['p1Name'] ?? 'P1',
-            p2Name: _savedMatch!['p2Name'] ?? '',
-            p3Name: _savedMatch!['p3Name'] ?? 'P2',
-            p4Name: _savedMatch!['p4Name'] ?? '',
-            isDoubles: _savedMatch!['isDoubles'] ?? false,
-            gamesToWin: _savedMatch!['gamesToWin'] ?? 2,
-            initialP1Score: _savedMatch!['p1Score'] ?? 0,
-            initialP2Score: _savedMatch!['p2Score'] ?? 0,
-            initialP1Games: _savedMatch!['p1Games'] ?? 0,
-            initialP2Games: _savedMatch!['p2Games'] ?? 0,
-            initialIsGameOver: _savedMatch!['isGameOver'] ?? false,
-            initialPointHistory: List<int>.from(_savedMatch!['pointHistory'] ?? []),
-            initialGameSummaries: (_savedMatch!['gameSummaries'] as List? ?? [])
+            p1Name: data!['p1Name'] ?? 'P1',
+            p2Name: data['p2Name'] ?? '',
+            p3Name: data['p3Name'] ?? 'P2',
+            p4Name: data['p4Name'] ?? '',
+            isDoubles: data['isDoubles'] ?? false,
+            gamesToWin: data['gamesToWin'] ?? 2,
+            initialP1Score: data['p1Score'] ?? 0,
+            initialP2Score: data['p2Score'] ?? 0,
+            initialP1Games: data['p1Games'] ?? 0,
+            initialP2Games: data['p2Games'] ?? 0,
+            initialIsGameOver: data['isGameOver'] ?? false,
+            initialPointHistory: List<int>.from(data['pointHistory'] ?? []),
+            initialGameSummaries: (data['gameSummaries'] as List? ?? [])
                 .map((s) => BadmintonGameSummary.fromMap(s))
                 .toList(),
-            initialFirstServerOfMatch: _savedMatch!['firstServerOfMatch'] ?? 0,
-            initialFirstServerOfGame: _savedMatch!['firstServerOfGame'] ?? 0,
-            initialP1OnLeft: _savedMatch!['p1OnLeft'] ?? true,
-            initialLogs: (_savedMatch!['logs'] as List? ?? [])
+            initialFirstServerOfMatch: data['firstServerOfMatch'] ?? 0,
+            initialFirstServerOfGame: data['firstServerOfGame'] ?? 0,
+            initialP1OnLeft: data['p1OnLeft'] ?? true,
+            initialLogs: (data['logs'] as List? ?? [])
                 .map((p) => BadmintonLogEntry.fromMap(p))
                 .toList(),
-            initialMatchTimeSeconds: _savedMatch!['matchTimeSeconds'] ?? 0,
-            activeTimerEndTime: _savedMatch!['timerEndTime'],
-            activeTimerTitle: _savedMatch!['timerTitle'] ?? '',
-            matchId: _savedMatch!['matchId'] ?? '',
+            initialMatchTimeSeconds: data['matchTimeSeconds'] ?? 0,
+            activeTimerEndTime: data['timerEndTime'],
+            activeTimerTitle: data['timerTitle'] ?? '',
+            initialKeepRunningTimers: data['keepRunningTimers'] ?? false,
+            initialLastSavedTimestamp: data['lastSavedTimestamp'],
+            matchId: data['matchId'] ?? '',
             isHost: true,
           ),
         ),
@@ -211,10 +223,12 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
     }
 
     if (invitations.isNotEmpty) {
+      if (!mounted) return;
       bool? proceed = await showDialog<bool>(
         context: context, barrierDismissible: false,
         builder: (context) => InvitationWaitingDialog(invitations: invitations, authService: _authService),
       );
+      if (!mounted) return;
       if (proceed != true) {
         for (var invite in invitations) { _authService.deleteMatchRequest(invite['id']); }
         return;
@@ -225,14 +239,22 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
     uids.addAll(invitations.map((i) => i['uid'] as String));
     String matchId = await _authService.createActiveMatch(
       sport: 'Badminton', participantUids: uids, hostUid: _authService.currentUser!.uid,
-      initialData: {'p1Name': n1, 'p2Name': n2, 'p3Name': n3, 'p4Name': n4, 'isDoubles': _isDoubles, 'gamesToWin': _gamesToWin},
+      initialData: {
+        'p1Name': n1, 'p2Name': n2, 'p3Name': n3, 'p4Name': n4,
+        'isDoubles': _isDoubles, 'gamesToWin': _gamesToWin,
+        'keepRunningTimers': _keepRunningTimers,
+        'lastSavedTimestamp': DateTime.now().millisecondsSinceEpoch,
+      },
     );
 
     for (var invite in invitations) { _authService.deleteMatchRequest(invite['id']); }
 
     if (!mounted) return;
     await Navigator.push(context, MaterialPageRoute(builder: (context) => BadmintonMatch(
-      p1Name: n1, p2Name: n2, p3Name: n3, p4Name: n4, isDoubles: _isDoubles, gamesToWin: _gamesToWin, matchId: matchId, isHost: true,
+      p1Name: n1, p2Name: n2, p3Name: n3, p4Name: n4, isDoubles: _isDoubles, gamesToWin: _gamesToWin,
+      initialKeepRunningTimers: _keepRunningTimers,
+      initialLastSavedTimestamp: DateTime.now().millisecondsSinceEpoch,
+      matchId: matchId, isHost: true,
     )));
     _checkSavedMatch();
   }
@@ -314,6 +336,16 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
                     const SizedBox(height: 12),
                     _buildPlayerSection(3, _p4Controller, 'Team 2 - P2', Icons.person_outline),
                   ],
+                  const Divider(height: 40),
+                  const Text('Timer Options', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Keep running timers when page not loaded'),
+                    subtitle: const Text('Timers will continue running even when you leave the match screen'),
+                    value: _keepRunningTimers,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) => setState(() => _keepRunningTimers = val),
+                  ),
                 ],
               ),
             ),
@@ -330,7 +362,26 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
   }
 
   Widget _buildActiveCloudMatchBanner(DocumentSnapshot matchDoc) {
-    bool isHost = matchDoc.get('hostUid') == _authService.currentUser?.uid;
+    final data = matchDoc.data() as Map<String, dynamic>;
+    final String activeSport = data['sport'] ?? '';
+    bool isHost = data['hostUid'] == _authService.currentUser?.uid;
+
+    if (activeSport != 'Badminton') {
+      return Card(
+        color: Colors.red.withValues(alpha: 0.1),
+        margin: const EdgeInsets.only(bottom: 24),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.warning, color: Colors.red),
+          title: Text('Active $activeSport Match', style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: const Text('You must finish your current match before managing Badminton.'),
+        ),
+      );
+    }
+
     return Card(
       color: Colors.amber.withValues(alpha: 0.1),
       margin: const EdgeInsets.only(bottom: 24),
@@ -340,7 +391,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
           const ListTile(leading: Icon(Icons.lock_clock, color: Colors.amber), title: Text('Match in Progress', style: TextStyle(fontWeight: FontWeight.bold))),
           if (isHost) Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             TextButton(onPressed: () => _authService.deleteActiveMatch(matchDoc.id), child: const Text('Discard', style: TextStyle(color: Colors.red))),
-            ElevatedButton(onPressed: _resumeMatch, child: const Text('Resume')),
+            ElevatedButton(onPressed: () => _resumeMatch(cloudDoc: matchDoc), child: const Text('Resume')),
           ])
           else ElevatedButton(onPressed: () {}, child: const Text('View Match'))
         ]),
