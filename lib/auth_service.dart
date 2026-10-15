@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsignin;
@@ -472,6 +473,9 @@ class AuthService {
     String tournamentStyle = 'Single Elimination',
     String seedingMethod = 'ITTF Seeded',
     bool hasThirdPlacePlayoff = true,
+    String singlesType = 'everyone',
+    String doublesType = 'none',
+    bool hasMixedDoubles = false,
   }) async {
     final user = currentUser;
     if (user == null) return;
@@ -493,6 +497,10 @@ class AuthService {
       throw 'Clubs are limited to 3 tournaments at a time.';
     }
 
+    final bool resolvedOpenDoubles = doublesType == 'open';
+    final bool resolvedGenderDoubles = doublesType == 'gendered' || doublesType == 'all';
+    final bool resolvedMixedDoubles = doublesType == 'mixed_only' || doublesType == 'all';
+
     await _db.collection('clubs').doc(clubId).collection('tournaments').add({
       'name': name,
       'description': description,
@@ -503,16 +511,15 @@ class AuthService {
       'tournamentStyle': tournamentStyle,
       'seedingMethod': seedingMethod,
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
+      'singlesType': singlesType,
+      'doublesType': doublesType,
+      'hasMixedDoubles': resolvedMixedDoubles,
+      'hasGenderDoubles': resolvedGenderDoubles,
+      'hasOpenDoubles': resolvedOpenDoubles,
       'isStarted': false,
       'ownerUid': user.uid,
-      'participants': [
-        {
-          'uid': user.uid,
-          'username': user.displayName ?? 'Owner',
-          'joinedAt': DateTime.now().toIso8601String(),
-        }
-      ],
-      'participantUids': [user.uid],
+      'participants': [],
+      'participantUids': [],
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -534,6 +541,7 @@ class AuthService {
         .snapshots();
   }
 
+  // Update tournament settings
   Future<void> updateTournamentSettings({
     required String clubId,
     required String tournamentId,
@@ -544,12 +552,18 @@ class AuthService {
     required String tournamentStyle,
     required String seedingMethod,
     required bool hasThirdPlacePlayoff,
+    required String singlesType,
+    required String doublesType,
   }) async {
     final docRef = _db
         .collection('clubs')
         .doc(clubId)
         .collection('tournaments')
         .doc(tournamentId);
+
+    final bool resolvedOpenDoubles = doublesType == 'open';
+    final bool resolvedGenderDoubles = doublesType == 'gendered' || doublesType == 'all';
+    final bool resolvedMixedDoubles = doublesType == 'mixed_only' || doublesType == 'all';
 
     await docRef.update({
       'name': name,
@@ -560,6 +574,11 @@ class AuthService {
       'tournamentStyle': tournamentStyle,
       'seedingMethod': seedingMethod,
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
+      'singlesType': singlesType,
+      'doublesType': doublesType,
+      'hasMixedDoubles': resolvedMixedDoubles,
+      'hasGenderDoubles': resolvedGenderDoubles,
+      'hasOpenDoubles': resolvedOpenDoubles,
     });
   }
 
@@ -619,6 +638,13 @@ class AuthService {
       throw 'This tournament is closed. An owner or manager must invite you.';
     }
 
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    final userData = userDoc.data() as Map<String, dynamic>?;
+    final String gender = userData?['gender'] ?? 'Not set';
+    if (gender == 'Not set') {
+      throw 'Please set your gender in Settings before joining tournaments.';
+    }
+
     final String username = user.displayName ?? 'Member';
     final participantEntry = {
       'uid': user.uid,
@@ -660,40 +686,17 @@ class AuthService {
         'participants': FieldValue.arrayRemove([matchingEntry]),
         'participantUids': FieldValue.arrayRemove([user.uid]),
       });
+
+      // Clean up tournament requests
+      final reqs = await _db
+          .collection('tournament_requests')
+          .where('tournamentId', isEqualTo: tournamentId)
+          .where('toUid', isEqualTo: user.uid)
+          .get();
+      for (var req in reqs.docs) {
+        await req.reference.delete();
+      }
     }
-  }
-
-  Future<void> inviteMemberToTournament({
-    required String clubId,
-    required String tournamentId,
-    required String targetUid,
-    required String targetUsername,
-  }) async {
-    final docRef = _db
-        .collection('clubs')
-        .doc(clubId)
-        .collection('tournaments')
-        .doc(tournamentId);
-
-    final doc = await docRef.get();
-    if (!doc.exists) throw 'Tournament not found.';
-
-    final data = doc.data() as Map<String, dynamic>;
-    final List participantUids = List.from(data['participantUids'] ?? []);
-    if (participantUids.contains(targetUid)) {
-      throw 'This member is already in the tournament.';
-    }
-
-    final participantEntry = {
-      'uid': targetUid,
-      'username': targetUsername,
-      'joinedAt': DateTime.now().toIso8601String(),
-    };
-
-    await docRef.update({
-      'participants': FieldValue.arrayUnion([participantEntry]),
-      'participantUids': FieldValue.arrayUnion([targetUid]),
-    });
   }
 
   Future<void> removeParticipantFromTournament({
@@ -722,16 +725,105 @@ class AuthService {
         'participants': FieldValue.arrayRemove([matchingEntry]),
         'participantUids': FieldValue.arrayRemove([targetUid]),
       });
+
+      // Clean up tournament requests
+      final reqs = await _db
+          .collection('tournament_requests')
+          .where('tournamentId', isEqualTo: tournamentId)
+          .where('toUid', isEqualTo: targetUid)
+          .get();
+      for (var req in reqs.docs) {
+        await req.reference.delete();
+      }
     }
   }
 
-  Future<void> deleteTournament(String clubId, String tournamentId) async {
-    await _db
+  Future<void> addTestParticipantsToTournament({
+    required String clubId,
+    required String tournamentId,
+    int count = 7,
+  }) async {
+    final tourRef = _db
         .collection('clubs')
         .doc(clubId)
         .collection('tournaments')
-        .doc(tournamentId)
-        .delete();
+        .doc(tournamentId);
+
+    final doc = await tourRef.get();
+    if (!doc.exists) throw 'Tournament not found.';
+
+    final data = doc.data() as Map<String, dynamic>;
+    final List participants = List.from(data['participants'] ?? []);
+    final List participantUids = List.from(data['participantUids'] ?? []);
+
+    final String singlesType = data['singlesType'] ?? 'everyone';
+
+    for (int i = 1; i <= count; i++) {
+      final String botUid = 'test_bot_${tournamentId}_$i';
+      final String gender = (singlesType == 'separate_gender' && i % 2 == 0) ? 'Female' : 'Male';
+      final String botName = 'Test Player $i (${gender[0]})';
+
+      if (!participantUids.contains(botUid)) {
+        participantUids.add(botUid);
+        participants.add({
+          'uid': botUid,
+          'username': botName,
+          'gender': gender,
+          'isBot': true,
+          'joinedAt': DateTime.now().toIso8601String(),
+        });
+
+        // Ensure test user document exists in 'users' collection so gender & ratings work
+        await _db.collection('users').doc(botUid).set({
+          'username': botName,
+          'displayName': botName,
+          'gender': gender,
+          'isBot': true,
+          'points_open_singles': 0,
+          'elo_open_singles': 800,
+          'glicko_open_singles': 800,
+          'wins': 0,
+          'losses': 0,
+        }, SetOptions(merge: true));
+      }
+    }
+
+    await tourRef.update({
+      'participants': participants,
+      'participantUids': participantUids,
+    });
+  }
+
+  Future<void> deleteTournament(String clubId, String tournamentId) async {
+    final tourRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    // 1. Clean up matches subcollection
+    final matches = await tourRef.collection('matches').get();
+    for (var doc in matches.docs) {
+      await doc.reference.delete();
+    }
+
+    // 2. Clean up doubles_requests subcollection
+    final doublesReqs = await tourRef.collection('doubles_requests').get();
+    for (var doc in doublesReqs.docs) {
+      await doc.reference.delete();
+    }
+
+    // 3. Clean up pending invitations in tournament_requests
+    final pendingInvites = await _db
+        .collection('tournament_requests')
+        .where('tournamentId', isEqualTo: tournamentId)
+        .get();
+    for (var doc in pendingInvites.docs) {
+      await doc.reference.delete();
+    }
+
+    // 4. Delete the tournament document
+    await tourRef.delete();
   }
 
   // Club Request Logic
@@ -840,6 +932,289 @@ class AuthService {
 
   Future<void> deleteClubRequest(String requestId) async {
     await _db.collection('club_requests').doc(requestId).delete();
+  }
+
+  // --- Tournament Request Logic ---
+
+  Future<void> inviteMemberToTournament({
+    required String clubId,
+    required String tournamentId,
+    required String tournamentName,
+    required String targetUid,
+    required String targetUsername,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final doc = await docRef.get();
+    if (!doc.exists) throw 'Tournament not found.';
+
+    final data = doc.data() as Map<String, dynamic>;
+    final List participantUids = List.from(data['participantUids'] ?? []);
+    if (participantUids.contains(targetUid)) {
+      throw 'This member is already in the tournament.';
+    }
+
+    // Check if invitation already pending
+    final existing = await _db
+        .collection('tournament_requests')
+        .where('tournamentId', isEqualTo: tournamentId)
+        .where('toUid', isEqualTo: targetUid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    if (existing.docs.isNotEmpty) {
+      throw 'Invitation already sent to this user for this tournament.';
+    }
+
+    await _db.collection('tournament_requests').add({
+      'clubId': clubId,
+      'tournamentId': tournamentId,
+      'tournamentName': tournamentName,
+      'fromUid': user.uid,
+      'toUid': targetUid,
+      'toUsername': targetUsername,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<QuerySnapshot> get incomingTournamentRequests {
+    return _auth.userChanges().asyncExpand((user) {
+      if (user == null) {
+        return const Stream.empty();
+      }
+      return _db
+          .collection('tournament_requests')
+          .where('toUid', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots();
+    });
+  }
+
+  Future<void> acceptTournamentRequest(String requestId, String clubId, String tournamentId) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final tournamentRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final tourDoc = await tournamentRef.get();
+    if (!tourDoc.exists) throw 'Tournament no longer exists.';
+
+    final tourData = tourDoc.data() as Map<String, dynamic>;
+    final List participantUids = List.from(tourData['participantUids'] ?? []);
+
+    if (!participantUids.contains(user.uid)) {
+      final participantEntry = {
+        'uid': user.uid,
+        'username': user.displayName ?? 'Member',
+        'joinedAt': DateTime.now().toIso8601String(),
+      };
+
+      await tournamentRef.update({
+        'participants': FieldValue.arrayUnion([participantEntry]),
+        'participantUids': FieldValue.arrayUnion([user.uid]),
+      });
+    }
+
+    await _db.collection('tournament_requests').doc(requestId).update({
+      'status': 'accepted',
+    });
+  }
+
+  Future<void> declineTournamentRequest(String requestId) async {
+    await _db.collection('tournament_requests').doc(requestId).update({
+      'status': 'declined',
+    });
+  }
+
+  Future<void> retractTournamentInvitation({
+    required String tournamentId,
+    required String targetUid,
+  }) async {
+    final reqs = await _db
+        .collection('tournament_requests')
+        .where('tournamentId', isEqualTo: tournamentId)
+        .where('toUid', isEqualTo: targetUid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    for (var doc in reqs.docs) {
+      await doc.reference.delete();
+    }
+  }
+
+  Future<void> deleteTournamentRequest(String requestId) async {
+    await _db.collection('tournament_requests').doc(requestId).delete();
+  }
+
+  // --- Doubles Partner Request Logic ---
+
+  Future<void> requestDoublesPartner({
+    required String clubId,
+    required String tournamentId,
+    required String eventType, // 'mixed', 'mens_doubles', 'womens_doubles'
+    required String partnerUid,
+    required String partnerUsername,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+    if (user.uid == partnerUid) throw 'You cannot partner with yourself.';
+
+    // Fetch user and partner gender
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    final partnerDoc = await _db.collection('users').doc(partnerUid).get();
+
+    final userGender = userDoc.data()?['gender'] ?? 'Not set';
+    final partnerGender = partnerDoc.data()?['gender'] ?? 'Not set';
+
+    if (userGender == 'Not set' || partnerGender == 'Not set') {
+      throw 'Both players must have their gender set in Settings before pairing in doubles.';
+    }
+
+    if (eventType == 'mixed') {
+      if (userGender == partnerGender) {
+        throw 'Mixed Doubles requires one Male and one Female partner.';
+      }
+    } else if (eventType == 'mens_doubles') {
+      if (userGender != 'Male' || partnerGender != 'Male') {
+        throw "Men's Doubles requires both partners to be Male.";
+      }
+    } else if (eventType == 'womens_doubles') {
+      if (userGender != 'Female' || partnerGender != 'Female') {
+        throw "Women's Doubles requires both partners to be Female.";
+      }
+    } else if (eventType == 'open_doubles') {
+      // Gender does not matter for open doubles
+    }
+
+    final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
+
+    final existing = await tourRef.collection('doubles_requests')
+        .where('eventType', isEqualTo: eventType)
+        .where('status', whereIn: ['pending', 'accepted'])
+        .get();
+
+    for (var doc in existing.docs) {
+      final data = doc.data();
+      if (data['fromUid'] == user.uid || data['toUid'] == user.uid ||
+          data['fromUid'] == partnerUid || data['toUid'] == partnerUid) {
+        throw 'You or your requested partner are already in a pair or have a pending request for this event.';
+      }
+    }
+
+    await tourRef.collection('doubles_requests').add({
+      'eventType': eventType,
+      'fromUid': user.uid,
+      'fromUsername': user.displayName ?? 'Player',
+      'toUid': partnerUid,
+      'toUsername': partnerUsername,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> acceptDoublesPartner({
+    required String clubId,
+    required String tournamentId,
+    required String requestId,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
+    final reqRef = tourRef.collection('doubles_requests').doc(requestId);
+    final reqDoc = await reqRef.get();
+    if (!reqDoc.exists) throw 'Request not found.';
+
+    final reqData = reqDoc.data() as Map<String, dynamic>;
+    final eventType = reqData['eventType'];
+    final fromUid = reqData['fromUid'];
+    final toUid = reqData['toUid'];
+
+    final accepted = await tourRef.collection('doubles_requests')
+        .where('eventType', isEqualTo: eventType)
+        .where('status', isEqualTo: 'accepted')
+        .get();
+
+    for (var doc in accepted.docs) {
+      final data = doc.data();
+      if (data['fromUid'] == fromUid || data['toUid'] == fromUid ||
+          data['fromUid'] == toUid || data['toUid'] == toUid) {
+        throw 'One of the participants is already in a confirmed doubles pair for this event.';
+      }
+    }
+
+    await reqRef.update({'status': 'accepted'});
+  }
+
+  Future<void> declineDoublesPartner({
+    required String clubId,
+    required String tournamentId,
+    required String requestId,
+  }) async {
+    final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
+    await tourRef.collection('doubles_requests').doc(requestId).delete();
+  }
+
+  Future<void> deleteDoublesPartnerRequest({
+    required String clubId,
+    required String tournamentId,
+    required String requestId,
+  }) async {
+    final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
+    await tourRef.collection('doubles_requests').doc(requestId).delete();
+  }
+
+  Future<void> updateUserGender(String gender) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _db.collection('users').doc(user.uid).update({
+      'gender': gender,
+    });
+  }
+
+  Future<void> setSamkitsGenderToMale() async {
+    final query = await _db
+        .collection('users')
+        .where('username_search', isEqualTo: 'samkits')
+        .get();
+    for (var doc in query.docs) {
+      await doc.reference.update({'gender': 'Male'});
+    }
+  }
+
+  Future<void> updateMemberRole({
+    required String clubId,
+    required String memberUid,
+    required String newRole,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final clubDoc = await _db.collection('clubs').doc(clubId).get();
+    if (!clubDoc.exists || clubDoc.data()?['ownerUid'] != user.uid) {
+      throw 'Only the club owner can update member roles.';
+    }
+
+    await _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('members')
+        .doc(memberUid)
+        .update({
+      'role': newRole,
+    });
   }
 
   // --- Match Request Logic ---
@@ -1086,5 +1461,127 @@ class AuthService {
         .get();
 
     return pendingRequest.docs.isNotEmpty;
+  }
+
+  // --- Tournament Match Result & Rating Adjustments ---
+
+  Future<void> recordTournamentMatchResult({
+    required String clubId,
+    required String tournamentId,
+    required String matchId,
+    required String winnerUid,
+    required String loserUid,
+    required String scoreText,
+    String rankingCategory = 'points_open_singles',
+    int pointsAwarded = 100,
+  }) async {
+    final matchRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('matches')
+        .doc(matchId);
+
+    await matchRef.set({
+      'winnerUid': winnerUid,
+      'loserUid': loserUid,
+      'scoreText': scoreText,
+      'status': 'completed',
+      'completedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final winnerRef = _db.collection('users').doc(winnerUid);
+    final loserRef = _db.collection('users').doc(loserUid);
+
+    final winnerDoc = await winnerRef.get();
+    final loserDoc = await loserRef.get();
+
+    final winnerData = winnerDoc.data() ?? {};
+    final loserData = loserDoc.data() ?? {};
+
+    final bool isBye = winnerUid == 'BYE' || loserUid == 'BYE' || winnerUid.isEmpty || loserUid.isEmpty;
+
+    // 1. Award Tournament Points & Wins/Losses (ITTF Rules: BYEs do not add match wins/losses)
+    if (winnerDoc.exists) {
+      await winnerRef.update({
+        rankingCategory: FieldValue.increment(pointsAwarded),
+        if (!isBye) 'wins': FieldValue.increment(1),
+      });
+    }
+    if (loserDoc.exists && !isBye) {
+      await loserRef.update({
+        'losses': FieldValue.increment(1),
+      });
+    }
+
+    // 2. Elo & Glicko Rating Adjustment (ITTF Rules: BYE matches do NOT alter Elo or Glicko ratings)
+    if (!isBye) {
+      final double wElo = ((winnerData['elo_open_singles'] ?? winnerData['eloRating'] ?? 1200) as num).toDouble();
+      final double lElo = ((loserData['elo_open_singles'] ?? loserData['eloRating'] ?? 1200) as num).toDouble();
+
+      final double expectedW = 1.0 / (1.0 + pow(10, (lElo - wElo) / 400.0));
+      final double expectedL = 1.0 / (1.0 + pow(10, (wElo - lElo) / 400.0));
+
+      final int newWElo = (wElo + 32 * (1.0 - expectedW)).round();
+      final int newLElo = (lElo + 32 * (0.0 - expectedL)).round();
+
+      if (winnerDoc.exists) await winnerRef.update({'elo_open_singles': newWElo, 'eloRating': newWElo});
+      if (loserDoc.exists) await loserRef.update({'elo_open_singles': newLElo, 'eloRating': newLElo});
+
+      final double wGlicko = ((winnerData['glicko_open_singles'] ?? winnerData['glickoRating'] ?? 1500) as num).toDouble();
+      final double lGlicko = ((loserData['glicko_open_singles'] ?? loserData['glickoRating'] ?? 1500) as num).toDouble();
+
+      final int newWGlicko = (wGlicko + 25 * (1.0 - expectedW)).round();
+      final int newLGlicko = (lGlicko + 25 * (0.0 - expectedL)).round();
+
+      if (winnerDoc.exists) await winnerRef.update({'glicko_open_singles': newWGlicko, 'glickoRating': newWGlicko});
+      if (loserDoc.exists) await loserRef.update({'glicko_open_singles': newLGlicko, 'glickoRating': newLGlicko});
+    }
+
+    // 2. Elo Rating Adjustment (K = 32)
+    final double wElo = ((winnerData['elo_open_singles'] ?? winnerData['eloRating'] ?? 1200) as num).toDouble();
+    final double lElo = ((loserData['elo_open_singles'] ?? loserData['eloRating'] ?? 1200) as num).toDouble();
+
+    final double expectedW = 1.0 / (1.0 + pow(10, (lElo - wElo) / 400.0));
+    final double expectedL = 1.0 / (1.0 + pow(10, (wElo - lElo) / 400.0));
+
+    final int newWElo = (wElo + 32 * (1.0 - expectedW)).round();
+    final int newLElo = (lElo + 32 * (0.0 - expectedL)).round();
+
+    if (winnerDoc.exists) await winnerRef.update({'elo_open_singles': newWElo, 'eloRating': newWElo});
+    if (loserDoc.exists) await loserRef.update({'elo_open_singles': newLElo, 'eloRating': newLElo});
+
+    // 3. Glicko Rating Adjustment (Glicko-1 RD adjustment)
+    final double wGlicko = ((winnerData['glicko_open_singles'] ?? winnerData['glickoRating'] ?? 1500) as num).toDouble();
+    final double lGlicko = ((loserData['glicko_open_singles'] ?? loserData['glickoRating'] ?? 1500) as num).toDouble();
+
+    final int newWGlicko = (wGlicko + 25 * (1.0 - expectedW)).round();
+    final int newLGlicko = (lGlicko + 25 * (0.0 - expectedL)).round();
+
+    if (winnerDoc.exists) await winnerRef.update({'glicko_open_singles': newWGlicko, 'glickoRating': newWGlicko});
+    if (loserDoc.exists) await loserRef.update({'glicko_open_singles': newLGlicko, 'glickoRating': newLGlicko});
+
+    // Automatically complete tournament if all matches are completed
+    final allMatches = await _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('matches')
+        .get();
+
+    bool allDone = allMatches.docs.isNotEmpty && allMatches.docs.every((d) => (d.data()['status'] ?? '') == 'completed');
+    if (allDone) {
+      await _db
+          .collection('clubs')
+          .doc(clubId)
+          .collection('tournaments')
+          .doc(tournamentId)
+          .update({
+        'isCompleted': true,
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+    }
   }
 }

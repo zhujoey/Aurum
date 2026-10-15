@@ -27,11 +27,25 @@ class ClubRequestsPage extends StatelessWidget {
             final bool inAClub = ownedClubId != null || joinedClubId != null;
             final bool isOwner = ownedClubId != null;
 
-            return Scaffold(
-              appBar: AppBar(
-                title: Text(isOwner ? 'Outgoing Invitations' : 'Club Invitations'),
+            return DefaultTabController(
+              length: 2,
+              child: Scaffold(
+                appBar: AppBar(
+                  title: Text(isOwner ? 'Invitations & Requests' : 'Invitations'),
+                  bottom: const TabBar(
+                    tabs: [
+                      Tab(text: 'Clubs'),
+                      Tab(text: 'Tournaments'),
+                    ],
+                  ),
+                ),
+                body: TabBarView(
+                  children: [
+                    _buildClubList(authService, inAClub, isOwner, ownedClubId),
+                    _buildTournamentList(authService, isOwner, user.uid),
+                  ],
+                ),
               ),
-              body: _buildList(authService, inAClub, isOwner, ownedClubId),
             );
           },
         );
@@ -39,7 +53,7 @@ class ClubRequestsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildList(AuthService authService, bool inAClub, bool isOwner, String? ownedClubId) {
+  Widget _buildClubList(AuthService authService, bool inAClub, bool isOwner, String? ownedClubId) {
     // 1. If User is a Club Owner: Show invitations they sent
     if (isOwner) {
       return StreamBuilder<QuerySnapshot>(
@@ -49,7 +63,7 @@ class ClubRequestsPage extends StatelessWidget {
           final requests = snapshot.data!.docs;
 
           if (requests.isEmpty) {
-            return const Center(child: Text('No outgoing invitations.'));
+            return const Center(child: Text('No outgoing club invitations.'));
           }
 
           return ListView.builder(
@@ -135,11 +149,106 @@ class ClubRequestsPage extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.all(32.0),
         child: Text(
-          'You are already a member of a club. You must leave it to see new invitations.',
+          'You are already a member of a club. You must leave it to see new club invitations.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey),
         ),
       ),
+    );
+  }
+
+  Widget _buildTournamentList(AuthService authService, bool isOwner, String uid) {
+    if (isOwner) {
+      return StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('tournament_requests').where('fromUid', isEqualTo: uid).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final requests = snapshot.data!.docs;
+
+          if (requests.isEmpty) {
+            return const Center(child: Text('No outgoing tournament invitations.'));
+          }
+
+          return ListView.builder(
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final req = requests[index];
+              final data = req.data() as Map<String, dynamic>;
+              final tournamentName = data['tournamentName'] ?? 'Tournament';
+              final toUsername = data['toUsername'] ?? 'User';
+              final status = data['status'] ?? 'pending';
+
+              return ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.emoji_events)),
+                title: Text(tournamentName),
+                subtitle: Text('Invited: $toUsername • Status: $status'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                  onPressed: () => authService.deleteTournamentRequest(req.id),
+                  tooltip: 'Discard record',
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: authService.incomingTournamentRequests,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final requests = snapshot.data!.docs;
+
+        if (requests.isEmpty) {
+          return const Center(child: Text('No tournament invitations.'));
+        }
+
+        return ListView.builder(
+          itemCount: requests.length,
+          itemBuilder: (context, index) {
+            final req = requests[index];
+            final data = req.data() as Map<String, dynamic>;
+            final tournamentName = data['tournamentName'] ?? 'Tournament';
+            final clubId = data['clubId'];
+            final tournamentId = data['tournamentId'];
+
+            return ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.emoji_events, color: Colors.amber)),
+              title: Text(tournamentName),
+              subtitle: const Text('Invited you to join tournament'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.check, color: Colors.green),
+                    onPressed: () async {
+                      try {
+                        await authService.acceptTournamentRequest(req.id, clubId, tournamentId);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Accepted tournament invitation!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red),
+                    onPressed: () => authService.declineTournamentRequest(req.id),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

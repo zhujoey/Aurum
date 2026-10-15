@@ -15,6 +15,7 @@ class _SignUpState extends State<SignUp> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  String _selectedGender = 'Male';
   final _authService = AuthService();
 
   bool _isLoading = false;
@@ -61,6 +62,7 @@ class _SignUpState extends State<SignUp> {
         final username = _usernameController.text.trim();
         await user.updateDisplayName(username);
         await _authService.syncUserData(user, username: username, isLogin: true);
+        await _authService.updateUserGender(_selectedGender);
         await user.reload();
         
         if (!mounted) return;
@@ -161,6 +163,21 @@ class _SignUpState extends State<SignUp> {
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) => value!.isEmpty ? 'Confirm your password' : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  value: _selectedGender,
+                  decoration: const InputDecoration(
+                    labelText: 'Gender',
+                    prefixIcon: Icon(Icons.wc),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Male', child: Text('Male')),
+                    DropdownMenuItem(value: 'Female', child: Text('Female')),
+                  ],
+                  onChanged: (val) => setState(() => _selectedGender = val!),
                 ),
                 const SizedBox(height: 24),
                 _isLoading 

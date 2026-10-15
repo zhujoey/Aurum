@@ -209,14 +209,27 @@ class _ClubsPageState extends State<ClubsPage> {
                   final t = tDoc.data() as Map<String, dynamic>;
                   return Card(
                     child: InkWell(
-                      onTap: () {
+                      onTap: () async {
+                        final user = _authService.currentUser;
+                        bool isManager = false;
+                        if (user != null) {
+                          final memberDoc = await FirebaseFirestore.instance
+                              .collection('clubs')
+                              .doc(clubDoc.id)
+                              .collection('members')
+                              .doc(user.uid)
+                              .get();
+                          final role = memberDoc.data()?['role'] ?? 'member';
+                          isManager = role == 'owner' || role == 'manager';
+                        }
+                        if (!context.mounted) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => TournamentDetailsPage(
                               clubId: clubDoc.id,
                               tournamentId: tDoc.id,
-                              isOwnerOrManager: true,
+                              isOwnerOrManager: isManager,
                             ),
                           ),
                         );
@@ -259,12 +272,14 @@ class _ClubsPageState extends State<ClubsPage> {
                 itemCount: members.length,
                 itemBuilder: (context, index) {
                   final m = members[index].data() as Map<String, dynamic>;
-                  final bool isOwner = m['role'] == 'owner';
+                  final String role = m['role'] ?? 'member';
+                  final bool isOwner = role == 'owner';
+                  final bool isManager = role == 'manager';
 
                   return ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.person)),
                     title: Text(m['username'] ?? 'Unknown'),
-                    subtitle: Text(isOwner ? 'Owner' : 'Member'),
+                    subtitle: Text(isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')),
                   );
                 },
               );
@@ -363,14 +378,27 @@ class _ClubsPageState extends State<ClubsPage> {
                   final data = tDoc.data() as Map<String, dynamic>;
                   return Card(
                     child: InkWell(
-                      onTap: () {
+                      onTap: () async {
+                        final user = _authService.currentUser;
+                        bool isManager = false;
+                        if (user != null) {
+                          final memberDoc = await FirebaseFirestore.instance
+                              .collection('clubs')
+                              .doc(clubDoc.id)
+                              .collection('members')
+                              .doc(user.uid)
+                              .get();
+                          final role = memberDoc.data()?['role'] ?? 'member';
+                          isManager = role == 'owner' || role == 'manager';
+                        }
+                        if (!context.mounted) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => TournamentDetailsPage(
                               clubId: clubDoc.id,
                               tournamentId: tDoc.id,
-                              isOwnerOrManager: false,
+                              isOwnerOrManager: isManager,
                             ),
                           ),
                         );
@@ -423,17 +451,52 @@ class _ClubsPageState extends State<ClubsPage> {
                 itemCount: members.length,
                 itemBuilder: (context, index) {
                   final m = members[index].data() as Map<String, dynamic>;
-                  final bool isOwner = m['role'] == 'owner';
+                  final String role = m['role'] ?? 'member';
+                  final bool isOwner = role == 'owner';
+                  final bool isManager = role == 'manager';
 
                   return ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.person)),
                     title: Text(m['username'] ?? 'Unknown'),
-                    subtitle: Text(isOwner ? 'Owner' : 'Member'),
+                    subtitle: Text(isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')),
                     trailing: isOwner
                         ? null
-                        : IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                            onPressed: () => _showKickMemberDialog(clubDoc.id, m['uid'], m['username'] ?? 'Unknown'),
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PopupMenuButton<String>(
+                                onSelected: (val) async {
+                                  try {
+                                    if (val == 'promote') {
+                                      await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: m['uid'], newRole: 'manager');
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Promoted to Manager!')));
+                                      }
+                                    } else if (val == 'demote') {
+                                      await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: m['uid'], newRole: 'member');
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demoted to Member')));
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                                    }
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: isManager ? 'demote' : 'promote',
+                                    child: Text(isManager ? 'Demote to Member' : 'Promote to Manager'),
+                                  ),
+                                ],
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                onPressed: () => _showKickMemberDialog(clubDoc.id, m['uid'], m['username'] ?? 'Unknown'),
+                                tooltip: 'Remove from Club',
+                              ),
+                            ],
                           ),
                   );
                 },

@@ -143,7 +143,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(context, rootNavigator: true).pop();
               _startSessionMonitor(); // Re-start monitoring for the next login
             },
             child: const Text('OK'),

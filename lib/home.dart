@@ -5,6 +5,7 @@ import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/new_match.dart';
 import 'package:sportspro/clubs.dart';
 import 'package:sportspro/tournaments.dart';
+import 'package:sportspro/rankings.dart';
 import 'package:sportspro/widgets/active_match_banner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -101,7 +102,12 @@ class _HomeState extends State<Home> {
                       'Rankings',
                       Icons.leaderboard,
                       Colors.orange,
-                      () {},
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const RankingsPage()),
+                        );
+                      },
                     ),
                     _buildActionButton(
                       context,

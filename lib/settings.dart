@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/theme_service.dart';
 
@@ -90,6 +91,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: Text(_authService.currentUser?.displayName ?? 'Not set'),
                 leading: const Icon(Icons.person_outline),
                 onTap: _showChangeUsernameDialog,
+              ),
+              ListTile(
+                title: const Text('Gender'),
+                subtitle: FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance.collection('users').doc(_authService.currentUser?.uid).get(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const Text('Loading...');
+                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                    return Text(data?['gender'] ?? 'Not set');
+                  },
+                ),
+                leading: const Icon(Icons.wc),
+                onTap: _showSelectGenderDialog,
               ),
               const Divider(),
               _buildSectionHeader('Appearance'),
@@ -245,6 +259,66 @@ class _SettingsPageState extends State<SettingsPage> {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSelectGenderDialog() {
+    String selectedGender = 'Male';
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Select Gender'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Male'),
+                trailing: Icon(
+                  selectedGender == 'Male' ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  color: selectedGender == 'Male' ? Theme.of(context).colorScheme.primary : Colors.grey,
+                ),
+                onTap: () => setDialogState(() => selectedGender = 'Male'),
+              ),
+              ListTile(
+                title: const Text('Female'),
+                trailing: Icon(
+                  selectedGender == 'Female' ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  color: selectedGender == 'Female' ? Theme.of(context).colorScheme.primary : Colors.grey,
+                ),
+                onTap: () => setDialogState(() => selectedGender = 'Female'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                setState(() => _isLoading = true);
+                try {
+                  await _authService.updateUserGender(selectedGender);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Gender updated successfully')),
+                    );
+                    setState(() {});
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error updating gender: $e')),
+                    );
+                  }
+                } finally {
+                  if (mounted) setState(() => _isLoading = false);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
