@@ -229,7 +229,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         // Document was deleted (match ended or discarded by host)
         if (!_isHost && mounted) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(
             const SnackBar(content: Text('Match ended by host.')),
           );
         }
@@ -290,7 +290,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       if (!_isHost && matchProgressed) {
         // 1. Towel break (every 6 points)
         if (cloudTotal % 6 == 0 && !isSetOver && cloudTotal > 0) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
             content: Text('Towel Break Reminder! 🧻'), 
             duration: Duration(minutes: 30), 
             backgroundColor: Colors.blueGrey
@@ -299,7 +299,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         
         // 2. Side switch in Decider (at 5 points)
         if (_isDecider && (player1Score == 5 || player2Score == 5)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
             content: Text('Decider: Switch Sides! ↔️'), 
             backgroundColor: Colors.orange, 
             duration: Duration(minutes: 30)
@@ -308,7 +308,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
         // 3. Side switch at end of set
         if (isSetOver && !isFinished) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
             content: Text('Switch Sides! ↔️'), 
             backgroundColor: Colors.orange, 
             duration: Duration(minutes: 30)
@@ -563,7 +563,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     int tossWinnerTeam = Random().nextBool() ? 1 : 2;
     String winnerDisplay = widget.isDoubles 
         ? "Team $tossWinnerTeam" 
-        : (tossWinnerTeam == 1 ? widget.p1Name : widget.p3Name);
+        : (tossWinnerTeam == 1 ? widget.p1Name : widget.p2Name);
     
     await showDialog(
       context: context,
@@ -583,11 +583,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     if (isFinished || _isAnySuspended) return;
     String winnerDisplay = widget.isDoubles 
         ? "Team $tossWinnerTeam" 
-        : (tossWinnerTeam == 1 ? widget.p1Name : widget.p3Name);
+        : (tossWinnerTeam == 1 ? widget.p1Name : widget.p2Name);
     
     String loserDisplay = widget.isDoubles
         ? "Team ${3 - tossWinnerTeam}"
-        : (tossWinnerTeam == 1 ? widget.p3Name : widget.p1Name);
+        : (tossWinnerTeam == 1 ? widget.p2Name : widget.p1Name);
 
     int? winnerAction = await showDialog<int>(
       context: context,
@@ -795,7 +795,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       }
       if (delta > 0) {
         if (_isDecider && (player1Score == 5 || player2Score == 5)) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
             content: Text('Decider: Switch Ends! ↔️'), 
             backgroundColor: Colors.orange, 
             duration: Duration(minutes: 30)
@@ -804,7 +804,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         _checkSetWinner();
         int totalPoints = player1Score + player2Score;
         if (totalPoints > 0 && totalPoints % 6 == 0 && !isSetOver) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
             content: Text('Towel Break Reminder! 🧻'), 
             duration: Duration(minutes: 30), 
             backgroundColor: Colors.blueGrey
@@ -915,7 +915,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       if (!isFinished) {
          _startMatchTimer('Set Break', 60);
          WidgetsBinding.instance.addPostFrameCallback((_) { 
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+           ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
              content: Text('Switch Sides! ↔️'), 
              backgroundColor: Colors.orange, 
              duration: Duration(minutes: 30)
@@ -925,7 +925,47 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     }
   }
 
-  void _checkMatchWinner() { setState(() { isFinished = (player1Sets >= widget.setsToWin || player2Sets >= widget.setsToWin); }); }
+  void _checkMatchWinner() {
+    setState(() {
+      isFinished = (player1Sets >= widget.setsToWin || player2Sets >= widget.setsToWin);
+    });
+
+    if (isFinished && widget.matchId.startsWith('tour_')) {
+      final parts = widget.matchId.split('_');
+      if (parts.length >= 4) {
+        final cId = parts[1];
+        final tId = parts[2];
+        final mId = parts.sublist(3).join('_');
+
+        List<SetSummary> finalSets = List.from(setSummaries);
+        if (pointHistory.isNotEmpty || player1Score > 0 || player2Score > 0) {
+          finalSets.add(SetSummary(
+            p1Score: player1Score,
+            p2Score: player2Score,
+            pointSequence: List<int>.from(pointHistory),
+            isExpediteSet: expediteActive,
+            firstServer: firstServerOfSet,
+            firstReceiver: firstReceiverOfSet,
+          ));
+        }
+
+        final winnerName = player1Sets > player2Sets ? widget.p1Name : widget.p2Name;
+        final loserName = player1Sets > player2Sets ? widget.p2Name : widget.p1Name;
+        final scoreText = '$player1Sets-$player2Sets';
+
+        _authService.recordTournamentMatchResult(
+          clubId: cId,
+          tournamentId: tId,
+          matchId: mId,
+          winnerUid: winnerName,
+          loserUid: loserName,
+          scoreText: scoreText,
+          logs: logs.map((l) => l.toMap()).toList(),
+          setSummaries: finalSets.map((s) => s.toMap()).toList(),
+        );
+      }
+    }
+  }
 
   bool get _isAnySuspended => logs.any((p) => p.type == 'penalty' && p.cardType == 'red-suspension');
 
@@ -1195,7 +1235,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                 await _clearPersistedMatch(); 
                 if (!context.mounted) return; 
                 Navigator.pop(context); 
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isAnySuspended ? 'Match concluded and data cleared.' : 'Match finished and data cleared.')));
+                ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(_isAnySuspended ? 'Match concluded and data cleared.' : 'Match finished and data cleared.')));
               } : null,
               style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(55), backgroundColor: (isFinished || _isAnySuspended) ? Colors.amber : Colors.grey.withValues(alpha: 0.1), disabledBackgroundColor: Colors.grey.withValues(alpha: 0.1), foregroundColor: Colors.white, disabledForegroundColor: Colors.white.withValues(alpha: 0.3), elevation: (isFinished || _isAnySuspended) ? 8 : 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               child: Text((isFinished || _isAnySuspended) ? 'CONCLUDE MATCH' : 'Finish Match', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: (isFinished || _isAnySuspended) ? 1.2 : 0)),
@@ -1257,8 +1297,15 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   Widget _buildTeamCol(int teamNum, bool hasWon, bool timeoutUsed) {
     int p1Num = teamNum == 1 ? 1 : (widget.isDoubles ? 3 : 2);
     final teamPenalties = logs.where((p) => p.type == 'penalty' && ((teamNum == 1 && (widget.isDoubles ? (p.playerNum == 1 || p.playerNum == 2) : p.playerNum == 1)) || (teamNum == 2 && (widget.isDoubles ? (p.playerNum == 3 || p.playerNum == 4) : p.playerNum == 2)))).toList();
+    final String displayName1 = widget.isDoubles
+        ? (teamNum == 1 ? widget.p1Name : widget.p3Name)
+        : (teamNum == 1 ? widget.p1Name : widget.p2Name);
+    final String displayName2 = widget.isDoubles
+        ? (teamNum == 1 ? widget.p2Name : widget.p4Name)
+        : '';
+
     return TeamColumn(
-      teamNum: teamNum, score: teamNum == 1 ? player1Score : player2Score, sets: teamNum == 1 ? player1Sets : player2Sets, name1: teamNum == 1 ? widget.p1Name : widget.p3Name, name2: teamNum == 1 ? widget.p2Name : widget.p4Name, isDoubles: widget.isDoubles, hasWon: hasWon, timeoutUsed: timeoutUsed, isTimerRunning: _activeTimerSeconds > 0, isFinished: isFinished, isAnySuspended: _isAnySuspended, teamServing: widget.isDoubles ? (teamNum == 1 ? (_currentServer <= 2) : (_currentServer >= 3)) : (_currentServer == teamNum), playerSide: _getPlayerSide(p1Num), hasYellow: teamPenalties.isNotEmpty, hasRed: teamPenalties.length >= 2, isSuspended: teamPenalties.length >= 4, 
+      teamNum: teamNum, score: teamNum == 1 ? player1Score : player2Score, sets: teamNum == 1 ? player1Sets : player2Sets, name1: displayName1, name2: displayName2, isDoubles: widget.isDoubles, hasWon: hasWon, timeoutUsed: timeoutUsed, isTimerRunning: _activeTimerSeconds > 0, isFinished: isFinished, isAnySuspended: _isAnySuspended, teamServing: widget.isDoubles ? (teamNum == 1 ? (_currentServer <= 2) : (_currentServer >= 3)) : (_currentServer == teamNum), playerSide: _getPlayerSide(p1Num), hasYellow: teamPenalties.isNotEmpty, hasRed: teamPenalties.length >= 2, isSuspended: teamPenalties.length >= 4, 
       onScoreTap: () => _updateScore(teamNum, 1), onTimeoutTap: () => _useTimeout(p1Num), onYellowTap: () => _issuePenalty(p1Num, 'yellow'), onRedTap: () => _issuePenalty(p1Num, 'red'),
       isHost: _isHost,
       playerNameBuilder: (name, pNum, won) {

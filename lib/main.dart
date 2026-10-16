@@ -21,6 +21,7 @@ void main() async {
   // Initialize services
   await AuthService().init();
   await ThemeService().init();
+  unawaited(AuthService().deleteAllTestUsers());
 
   runApp(const MyApp());
 }

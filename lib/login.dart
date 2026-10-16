@@ -4,6 +4,28 @@ import 'package:sportspro/home.dart';
 import 'package:sportspro/signup.dart';
 import 'package:sportspro/auth_service.dart';
 
+void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBar.backgroundColor,
+      duration: snackBar.duration,
+      behavior: SnackBarBehavior.floating,
+      content: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => messenger.hideCurrentSnackBar(),
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: snackBar.content,
+        ),
+      ),
+    ),
+  );
+}
+
 class Login extends StatefulWidget {
   const Login({super.key});
 
@@ -76,7 +98,7 @@ class _LoginState extends State<Login> {
       } else {
         if (!mounted) return;
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Login failed. Check your email/password.')),
         );
       }
@@ -100,14 +122,14 @@ class _LoginState extends State<Login> {
       } else {
         if (!mounted) return;
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Google Sign-In was cancelled or failed.')),
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showAppSnackBar(context, 
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
     }
@@ -146,11 +168,11 @@ class _LoginState extends State<Login> {
                   await _authService.sendPasswordReset(email);
                   if (!context.mounted) return;
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  _showAppSnackBar(context, 
                     const SnackBar(content: Text('Reset link sent! Check your email.')),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  _showAppSnackBar(context, 
                     SnackBar(content: Text('Error: ${e.toString()}')),
                   );
                 }

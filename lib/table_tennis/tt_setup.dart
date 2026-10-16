@@ -33,10 +33,31 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
   // index 0: P1, index 1: P2, index 2: P3, index 3: P4
   final List<bool> _isInviteMode = [false, false, false, false];
 
+  void _loadMyUsername() {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final String initialName = (user.displayName != null && user.displayName!.isNotEmpty)
+        ? user.displayName!
+        : 'Player 1';
+    _p1Controller.text = initialName;
+
+    FirebaseFirestore.instance.collection('users').doc(user.uid).get().then((doc) {
+      if (doc.exists && mounted) {
+        final username = doc.data()?['username'] as String?;
+        if (username != null && username.isNotEmpty) {
+          setState(() {
+            _p1Controller.text = username;
+          });
+        }
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    _p1Controller.text = _authService.currentUser?.displayName ?? 'Me';
+    _loadMyUsername();
     _p2Controller.text = 'Guest 2';
     _p3Controller.text = 'Guest 2'; // Default for Singles Opponent
     _p4Controller.text = 'Guest 4';
@@ -760,9 +781,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         if (_isDoubles != value) {
           setState(() {
             _isDoubles = value;
-            // Reset all names to unique defaults when switching modes 
-            // to prevent "ghost" name conflicts between Singles and Doubles.
-            _p1Controller.text = _authService.currentUser?.displayName ?? 'Me';
+            _loadMyUsername();
             if (_isDoubles) {
               _p2Controller.text = 'Guest 2';
               _p3Controller.text = 'Guest 3';
@@ -786,12 +805,11 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
 
   Widget _buildDynamicPlayerSection(int index, TextEditingController controller, String label, IconData icon) {
     bool isInvite = _isInviteMode[index];
-    bool isMe = index == 0 && !isInvite && controller.text == (_authService.currentUser?.displayName ?? 'Me');
+    bool isMe = index == 0 && !isInvite;
     
     // Get currently selected friends or typed names in other active slots to avoid duplicates
     List<String> otherSelectedNames = [];
     for (int i = 0; i < 4; i++) {
-      // Only consider indices relevant to the current mode to prevent "ghost" filtering
       bool isRelevant = _isDoubles || (i == 0 || i == 2);
       if (isRelevant && i != index) {
         final ctrl = i == 0 ? _p1Controller : (i == 1 ? _p2Controller : (i == 2 ? _p3Controller : _p4Controller));
@@ -813,7 +831,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   _isInviteMode[index] = i == 1;
                   if (i == 0) {
                     if (index == 0) {
-                      controller.text = _authService.currentUser?.displayName ?? 'Me';
+                      _loadMyUsername();
                     } else if (index == 2) {
                       controller.text = _isDoubles ? 'Guest 3' : 'Guest 2';
                     } else if (index == 1) {
@@ -873,8 +891,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 prefixIcon: Icon(icon),
                 hintText: 'e.g. Guest',
               ),
-              readOnly: isMe, // Prevent editing 'Me' to keep it as the account name
-              onTap: isMe ? () => setState(() => controller.text = 'Guest 1') : null, // If they tap it, switch back to guest mode
+              readOnly: isMe,
             ),
       ],
     );

@@ -31,10 +31,31 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
 
   final List<bool> _isInviteMode = [false, false, false, false];
 
+  void _loadMyUsername() {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final String initialName = (user.displayName != null && user.displayName!.isNotEmpty)
+        ? user.displayName!
+        : 'Player 1';
+    _p1Controller.text = initialName;
+
+    FirebaseFirestore.instance.collection('users').doc(user.uid).get().then((doc) {
+      if (doc.exists && mounted) {
+        final username = doc.data()?['username'] as String?;
+        if (username != null && username.isNotEmpty) {
+          setState(() {
+            _p1Controller.text = username;
+          });
+        }
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    _p1Controller.text = _authService.currentUser?.displayName ?? 'Me';
+    _loadMyUsername();
     _p2Controller.text = 'Guest 2';
     _p3Controller.text = 'Guest 2'; 
     _p4Controller.text = 'Guest 4';
@@ -410,8 +431,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
         if (_isDoubles != value) {
           setState(() {
             _isDoubles = value;
-            // Reset all names to unique defaults when switching modes 
-            _p1Controller.text = _authService.currentUser?.displayName ?? 'Me';
+            _loadMyUsername();
             if (_isDoubles) {
               _p2Controller.text = 'Guest 2';
               _p3Controller.text = 'Guest 3';

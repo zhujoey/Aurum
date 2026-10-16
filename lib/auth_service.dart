@@ -191,6 +191,22 @@ class AuthService {
     await _auth.signOut();
   }
 
+  // Send email verification to current user
+  Future<void> sendEmailVerification() async {
+    final user = currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
+  }
+
+  // Reload current user profile to refresh emailVerified status
+  Future<void> reloadUser() async {
+    final user = currentUser;
+    if (user != null) {
+      await user.reload();
+    }
+  }
+
   // Get current user
   User? get currentUser => _auth.currentUser;
 
@@ -239,41 +255,20 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Check if already friends
-    final friendDoc = await _db
-        .collection('users')
-        .doc(user.uid)
-        .collection('friends')
-        .doc(targetUid)
-        .get();
-    
-    if (friendDoc.exists) {
-      throw 'You are already friends with this user.';
-    }
+    // Parallelize all checks
+    final results = await Future.wait([
+      _db.collection('users').doc(user.uid).collection('friends').doc(targetUid).get(),
+      _db.collection('friend_requests').where('fromUid', isEqualTo: user.uid).where('toUid', isEqualTo: targetUid).where('status', isEqualTo: 'pending').get(),
+      _db.collection('friend_requests').where('fromUid', isEqualTo: targetUid).where('toUid', isEqualTo: user.uid).where('status', isEqualTo: 'pending').get(),
+    ]);
 
-    // 2. Check if I already sent a request to them
-    final sentRequest = await _db
-        .collection('friend_requests')
-        .where('fromUid', isEqualTo: user.uid)
-        .where('toUid', isEqualTo: targetUid)
-        .where('status', isEqualTo: 'pending')
-        .get();
+    final friendDoc = results[0] as DocumentSnapshot;
+    final sentRequest = results[1] as QuerySnapshot;
+    final receivedRequest = results[2] as QuerySnapshot;
 
-    if (sentRequest.docs.isNotEmpty) {
-      throw 'Friend request already sent.';
-    }
-
-    // 3. Check if they already sent a request to me
-    final receivedRequest = await _db
-        .collection('friend_requests')
-        .where('fromUid', isEqualTo: targetUid)
-        .where('toUid', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'pending')
-        .get();
-
-    if (receivedRequest.docs.isNotEmpty) {
-      throw 'This user has already sent you a friend request. Check your notifications.';
-    }
+    if (friendDoc.exists) throw 'You are already friends with this user.';
+    if (sentRequest.docs.isNotEmpty) throw 'Friend request already sent.';
+    if (receivedRequest.docs.isNotEmpty) throw 'This user has already sent you a friend request. Check your notifications.';
 
     await _db.collection('friend_requests').add({
       'fromUid': user.uid,
@@ -296,22 +291,19 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Add to current user's friends
-    await _db.collection('users').doc(user.uid).collection('friends').doc(fromUid).set({
+    final batch = _db.batch();
+    batch.set(_db.collection('users').doc(user.uid).collection('friends').doc(fromUid), {
       'uid': fromUid,
       'username': fromUsername,
       'addedAt': FieldValue.serverTimestamp(),
     });
-
-    // 2. Add current user to sender's friends
-    await _db.collection('users').doc(fromUid).collection('friends').doc(user.uid).set({
+    batch.set(_db.collection('users').doc(fromUid).collection('friends').doc(user.uid), {
       'uid': user.uid,
       'username': user.displayName ?? 'Unknown',
       'addedAt': FieldValue.serverTimestamp(),
     });
-
-    // 3. Delete the request
-    await _db.collection('friend_requests').doc(requestId).delete();
+    batch.delete(_db.collection('friend_requests').doc(requestId));
+    await batch.commit();
   }
 
   Future<void> declineFriendRequest(String requestId) async {
@@ -322,21 +314,10 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Remove from current user's friends
-    await _db
-        .collection('users')
-        .doc(user.uid)
-        .collection('friends')
-        .doc(targetUid)
-        .delete();
-
-    // 2. Remove current user from target's friends
-    await _db
-        .collection('users')
-        .doc(targetUid)
-        .collection('friends')
-        .doc(user.uid)
-        .delete();
+    final batch = _db.batch();
+    batch.delete(_db.collection('users').doc(user.uid).collection('friends').doc(targetUid));
+    batch.delete(_db.collection('users').doc(targetUid).collection('friends').doc(user.uid));
+    await batch.commit();
   }
 
   // --- Club Logic ---
@@ -394,26 +375,24 @@ class AuthService {
   }
 
   Future<void> removeMemberFromClub(String clubId, String userUid) async {
-    // 1. Remove from club
-    await _db.collection('clubs').doc(clubId).collection('members').doc(userUid).delete();
-    
-    // 2. Clear from user's record
-    await _db.collection('users').doc(userUid).update({
+    final batch = _db.batch();
+    batch.delete(_db.collection('clubs').doc(clubId).collection('members').doc(userUid));
+    batch.update(_db.collection('users').doc(userUid), {
       'joinedClubId': FieldValue.delete(),
     });
+    await batch.commit();
   }
 
   Future<void> leaveClub(String clubId) async {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Remove self from club members
-    await _db.collection('clubs').doc(clubId).collection('members').doc(user.uid).delete();
-
-    // 2. Clear joinedClubId from profile
-    await _db.collection('users').doc(user.uid).update({
+    final batch = _db.batch();
+    batch.delete(_db.collection('clubs').doc(clubId).collection('members').doc(user.uid));
+    batch.update(_db.collection('users').doc(user.uid), {
       'joinedClubId': FieldValue.delete(),
     });
+    await batch.commit();
   }
 
   Future<void> deleteClub(String clubId) async {
@@ -461,8 +440,6 @@ class AuthService {
     return _db.collection('clubs').doc(clubId).collection('members').snapshots();
   }
 
-  // --- Tournament Logic ---
-
   Future<void> createTournament({
     required String clubId,
     required String name,
@@ -475,7 +452,8 @@ class AuthService {
     bool hasThirdPlacePlayoff = true,
     String singlesType = 'everyone',
     String doublesType = 'none',
-    bool hasMixedDoubles = false,
+    bool keepRunningTimers = true,
+    Map<String, dynamic>? pointsBreakdown,
   }) async {
     final user = currentUser;
     if (user == null) return;
@@ -501,6 +479,14 @@ class AuthService {
     final bool resolvedGenderDoubles = doublesType == 'gendered' || doublesType == 'all';
     final bool resolvedMixedDoubles = doublesType == 'mixed_only' || doublesType == 'all';
 
+    final breakdown = pointsBreakdown ?? {
+      'winner': rankingPoints,
+      'finalist': (rankingPoints * 0.7).round(),
+      'semifinalist': (rankingPoints * 0.35).round(),
+      'quarterfinalist': (rankingPoints * 0.175).round(),
+      'roundOf16': (rankingPoints * 0.0875).round(),
+    };
+
     await _db.collection('clubs').doc(clubId).collection('tournaments').add({
       'name': name,
       'description': description,
@@ -513,6 +499,8 @@ class AuthService {
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
       'singlesType': singlesType,
       'doublesType': doublesType,
+      'keepRunningTimers': keepRunningTimers,
+      'pointsBreakdown': breakdown,
       'hasMixedDoubles': resolvedMixedDoubles,
       'hasGenderDoubles': resolvedGenderDoubles,
       'hasOpenDoubles': resolvedOpenDoubles,
@@ -554,6 +542,8 @@ class AuthService {
     required bool hasThirdPlacePlayoff,
     required String singlesType,
     required String doublesType,
+    bool keepRunningTimers = true,
+    Map<String, dynamic>? pointsBreakdown,
   }) async {
     final docRef = _db
         .collection('clubs')
@@ -564,6 +554,14 @@ class AuthService {
     final bool resolvedOpenDoubles = doublesType == 'open';
     final bool resolvedGenderDoubles = doublesType == 'gendered' || doublesType == 'all';
     final bool resolvedMixedDoubles = doublesType == 'mixed_only' || doublesType == 'all';
+
+    final breakdown = pointsBreakdown ?? {
+      'winner': rankingPoints,
+      'finalist': (rankingPoints * 0.7).round(),
+      'semifinalist': (rankingPoints * 0.35).round(),
+      'quarterfinalist': (rankingPoints * 0.175).round(),
+      'roundOf16': (rankingPoints * 0.0875).round(),
+    };
 
     await docRef.update({
       'name': name,
@@ -576,6 +574,8 @@ class AuthService {
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
       'singlesType': singlesType,
       'doublesType': doublesType,
+      'keepRunningTimers': keepRunningTimers,
+      'pointsBreakdown': breakdown,
       'hasMixedDoubles': resolvedMixedDoubles,
       'hasGenderDoubles': resolvedGenderDoubles,
       'hasOpenDoubles': resolvedOpenDoubles,
@@ -607,13 +607,95 @@ class AuthService {
       participants.shuffle();
     }
 
-    await docRef.update({
+    // Calculate ITTF Bracket Size M (next power of 2)
+    int m = 2;
+    while (m < participants.length) {
+      m *= 2;
+    }
+    final int numByes = m - participants.length;
+
+    // Calculate total rounds (log2(M))
+    int totalRounds = 0;
+    int tempM = m;
+    while (tempM > 1) {
+      tempM ~/= 2;
+      totalRounds++;
+    }
+
+    final batch = _db.batch();
+
+    batch.update(docRef, {
       'isStarted': true,
       'seedingMethod': seedingMethod,
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
       'participants': participants,
+      'bracketSize': m,
+      'totalRounds': totalRounds,
       'startedAt': FieldValue.serverTimestamp(),
     });
+
+    // Generate Round 1 Match Documents & Auto-Advance BYEs
+    for (int i = 0; i < m / 2; i++) {
+      Map<String, dynamic> p1;
+      Map<String, dynamic> p2;
+
+      if (i < numByes) {
+        // Top seeds get BYE
+        p1 = Map<String, dynamic>.from(participants[i]);
+        p2 = {'username': 'BYE', 'uid': ''};
+      } else {
+        final int realIdx1 = numByes + (i - numByes) * 2;
+        final int realIdx2 = realIdx1 + 1;
+        p1 = realIdx1 < participants.length ? Map<String, dynamic>.from(participants[realIdx1]) : {'username': 'BYE', 'uid': ''};
+        p2 = realIdx2 < participants.length ? Map<String, dynamic>.from(participants[realIdx2]) : {'username': 'BYE', 'uid': ''};
+      }
+
+      final int matchNum = i + 1;
+      final String matchId = 'match_r1_m$matchNum';
+      final bool isByeMatch = p2['username'] == 'BYE';
+      final matchRef = docRef.collection('matches').doc(matchId);
+
+      batch.set(matchRef, {
+        'roundNum': 1,
+        'matchNum': matchNum,
+        'p1Uid': p1['uid'] ?? '',
+        'p1Name': p1['username'] ?? 'TBD',
+        'p2Uid': p2['uid'] ?? '',
+        'p2Name': p2['username'] ?? 'BYE',
+        'status': isByeMatch ? 'completed' : 'scheduled',
+        'winnerUid': isByeMatch ? p1['uid'] : '',
+        'winnerName': isByeMatch ? p1['username'] : '',
+        'scoreText': isByeMatch ? 'BYE' : '',
+      });
+
+      // If BYE match, auto-advance winner to Round 2!
+      if (isByeMatch) {
+        final int nextMatchNum = (matchNum + 1) ~/ 2;
+        final String nextMatchId = 'match_r2_m$nextMatchNum';
+        final bool isP1 = matchNum % 2 != 0;
+        final nextRef = docRef.collection('matches').doc(nextMatchId);
+
+        if (isP1) {
+          batch.set(nextRef, {
+            'roundNum': 2,
+            'matchNum': nextMatchNum,
+            'p1Uid': p1['uid'],
+            'p1Name': p1['username'],
+            'status': 'scheduled',
+          }, SetOptions(merge: true));
+        } else {
+          batch.set(nextRef, {
+            'roundNum': 2,
+            'matchNum': nextMatchNum,
+            'p2Uid': p1['uid'],
+            'p2Name': p1['username'],
+            'status': 'scheduled',
+          }, SetOptions(merge: true));
+        }
+      }
+    }
+
+    await batch.commit();
   }
 
   Future<void> joinTournament({
@@ -622,6 +704,9 @@ class AuthService {
   }) async {
     final user = currentUser;
     if (user == null) return;
+
+    final clubDoc = await _db.collection('clubs').doc(clubId).get();
+    final String clubOwnerUid = clubDoc.data()?['ownerUid'] ?? '';
 
     final docRef = _db
         .collection('clubs')
@@ -634,12 +719,27 @@ class AuthService {
 
     final data = doc.data() as Map<String, dynamic>;
     final bool isOpen = data['isOpen'] ?? false;
-    if (!isOpen) {
+    final String tournamentOwnerUid = data['ownerUid'] ?? '';
+
+    // Check if current user is club owner, tournament owner, or manager
+    bool isOwnerOrManager = (user.uid == clubOwnerUid || user.uid == tournamentOwnerUid);
+    if (!isOwnerOrManager) {
+      final memberDoc = await _db
+          .collection('clubs')
+          .doc(clubId)
+          .collection('members')
+          .doc(user.uid)
+          .get();
+      final role = memberDoc.data()?['role'] ?? 'member';
+      isOwnerOrManager = role == 'owner' || role == 'manager';
+    }
+
+    if (!isOpen && !isOwnerOrManager) {
       throw 'This tournament is closed. An owner or manager must invite you.';
     }
 
     final userDoc = await _db.collection('users').doc(user.uid).get();
-    final userData = userDoc.data() as Map<String, dynamic>?;
+    final userData = userDoc.data();
     final String gender = userData?['gender'] ?? 'Not set';
     if (gender == 'Not set') {
       throw 'Please set your gender in Settings before joining tournaments.';
@@ -675,7 +775,7 @@ class AuthService {
     if (!doc.exists) return;
 
     final data = doc.data() as Map<String, dynamic>;
-    final List participants = data['participants'] as List? ?? [];
+    final List participants = List.from(data['participants'] ?? []);
     final matchingEntry = participants.firstWhere(
       (p) => (p as Map)['uid'] == user.uid,
       orElse: () => null,
@@ -714,17 +814,26 @@ class AuthService {
     if (!doc.exists) return;
 
     final data = doc.data() as Map<String, dynamic>;
-    final List participants = data['participants'] as List? ?? [];
+    final List participants = List.from(data['participants'] ?? []);
     final matchingEntry = participants.firstWhere(
       (p) => (p as Map)['uid'] == targetUid,
       orElse: () => null,
     );
 
     if (matchingEntry != null) {
-      await docRef.update({
+      final batch = _db.batch();
+      batch.update(docRef, {
         'participants': FieldValue.arrayRemove([matchingEntry]),
         'participantUids': FieldValue.arrayRemove([targetUid]),
       });
+
+      // If target is a test bot player, delete their entire user profile and rankings
+      final bool isBot = targetUid.contains('test_bot') || ((matchingEntry as Map)['isBot'] == true);
+      if (isBot) {
+        batch.delete(_db.collection('users').doc(targetUid));
+      }
+
+      await batch.commit();
 
       // Clean up tournament requests
       final reqs = await _db
@@ -735,6 +844,60 @@ class AuthService {
       for (var req in reqs.docs) {
         await req.reference.delete();
       }
+    }
+  }
+
+  Future<void> deleteAllTestUsers() async {
+    try {
+      final botUsersSnap = await _db
+          .collection('users')
+          .where('isBot', isEqualTo: true)
+          .get();
+
+      final batch = _db.batch();
+
+      for (var doc in botUsersSnap.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Clean up test_bot users that might not have isBot flag set
+      final allUsers = await _db.collection('users').get();
+      for (var userDoc in allUsers.docs) {
+        if (userDoc.id.contains('test_bot')) {
+          batch.delete(userDoc.reference);
+        }
+      }
+
+      final clubsSnap = await _db.collection('clubs').get();
+      for (var clubDoc in clubsSnap.docs) {
+        final toursSnap = await _db.collection('clubs').doc(clubDoc.id).collection('tournaments').get();
+        for (var tourDoc in toursSnap.docs) {
+          final data = tourDoc.data();
+          final List participants = List.from(data['participants'] ?? []);
+          final List participantUids = List.from(data['participantUids'] ?? []);
+
+          List filteredParticipants = participants.where((p) {
+            final uid = (p as Map)['uid'] as String? ?? '';
+            return !uid.contains('test_bot') && (p['isBot'] != true);
+          }).toList();
+
+          List filteredUids = participantUids.where((u) {
+            final uid = u as String;
+            return !uid.contains('test_bot');
+          }).toList();
+
+          if (filteredParticipants.length != participants.length || filteredUids.length != participantUids.length) {
+            batch.update(tourDoc.reference, {
+              'participants': filteredParticipants,
+              'participantUids': filteredUids,
+            });
+          }
+        }
+      }
+
+      await batch.commit();
+    } catch (e) {
+      debugPrint("Error purging test users: $e");
     }
   }
 
@@ -757,6 +920,7 @@ class AuthService {
     final List participantUids = List.from(data['participantUids'] ?? []);
 
     final String singlesType = data['singlesType'] ?? 'everyone';
+    final batch = _db.batch();
 
     for (int i = 1; i <= count; i++) {
       final String botUid = 'test_bot_${tournamentId}_$i';
@@ -774,7 +938,8 @@ class AuthService {
         });
 
         // Ensure test user document exists in 'users' collection so gender & ratings work
-        await _db.collection('users').doc(botUid).set({
+        final userDocRef = _db.collection('users').doc(botUid);
+        batch.set(userDocRef, {
           'username': botName,
           'displayName': botName,
           'gender': gender,
@@ -788,10 +953,12 @@ class AuthService {
       }
     }
 
-    await tourRef.update({
+    batch.update(tourRef, {
       'participants': participants,
       'participantUids': participantUids,
     });
+
+    await batch.commit();
   }
 
   Future<void> deleteTournament(String clubId, String tournamentId) async {
@@ -1474,6 +1641,8 @@ class AuthService {
     required String scoreText,
     String rankingCategory = 'points_open_singles',
     int pointsAwarded = 100,
+    List<Map<String, dynamic>>? logs,
+    List<Map<String, dynamic>>? setSummaries,
   }) async {
     final matchRef = _db
         .collection('clubs')
@@ -1483,40 +1652,52 @@ class AuthService {
         .collection('matches')
         .doc(matchId);
 
-    await matchRef.set({
+    final winnerRef = _db.collection('users').doc(winnerUid);
+    final loserRef = _db.collection('users').doc(loserUid);
+    final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
+
+    // 1. Parallelize ALL network reads simultaneously
+    final results = await Future.wait([
+      winnerRef.get(),
+      loserRef.get(),
+      tourRef.get(),
+      tourRef.collection('matches').where('winnerUid', isEqualTo: loserUid).get(),
+    ]);
+
+    final DocumentSnapshot winnerDoc = results[0] as DocumentSnapshot;
+    final DocumentSnapshot loserDoc = results[1] as DocumentSnapshot;
+    final DocumentSnapshot tourDoc = results[2] as DocumentSnapshot;
+    final QuerySnapshot loserPriorWins = results[3] as QuerySnapshot;
+
+    final winnerData = (winnerDoc.data() as Map<String, dynamic>?) ?? {};
+    final loserData = (loserDoc.data() as Map<String, dynamic>?) ?? {};
+    final tourData = (tourDoc.data() as Map<String, dynamic>?) ?? {};
+
+    final bool isBye = winnerUid == 'BYE' || loserUid == 'BYE' || winnerUid.isEmpty || loserUid.isEmpty;
+
+    final batch = _db.batch();
+
+    // Batch set match completed
+    batch.set(matchRef, {
       'winnerUid': winnerUid,
       'loserUid': loserUid,
       'scoreText': scoreText,
       'status': 'completed',
       'completedAt': FieldValue.serverTimestamp(),
+      'logs':? logs,
+      'setSummaries':? setSummaries,
     }, SetOptions(merge: true));
 
-    final winnerRef = _db.collection('users').doc(winnerUid);
-    final loserRef = _db.collection('users').doc(loserUid);
-
-    final winnerDoc = await winnerRef.get();
-    final loserDoc = await loserRef.get();
-
-    final winnerData = winnerDoc.data() ?? {};
-    final loserData = loserDoc.data() ?? {};
-
-    final bool isBye = winnerUid == 'BYE' || loserUid == 'BYE' || winnerUid.isEmpty || loserUid.isEmpty;
-
-    // 1. Award Tournament Points & Wins/Losses (ITTF Rules: BYEs do not add match wins/losses)
-    if (winnerDoc.exists) {
-      await winnerRef.update({
-        rankingCategory: FieldValue.increment(pointsAwarded),
-        if (!isBye) 'wins': FieldValue.increment(1),
-      });
-    }
-    if (loserDoc.exists && !isBye) {
-      await loserRef.update({
-        'losses': FieldValue.increment(1),
-      });
-    }
-
-    // 2. Elo & Glicko Rating Adjustment (ITTF Rules: BYE matches do NOT alter Elo or Glicko ratings)
     if (!isBye) {
+      final breakdown = (tourData['pointsBreakdown'] as Map<String, dynamic>?) ?? {};
+      final int winnerPoints = (breakdown['winner'] as num?)?.toInt() ?? pointsAwarded;
+      final int sfPoints = (breakdown['semifinalist'] as num?)?.toInt() ?? (winnerPoints * 0.35).round();
+      final int qfPoints = (breakdown['quarterfinalist'] as num?)?.toInt() ?? (winnerPoints * 0.175).round();
+
+      final bool loserWonPriorMatch = loserPriorWins.docs.isNotEmpty;
+      int loserPointsAwarded = loserWonPriorMatch ? sfPoints : qfPoints;
+
+      // Rating calculations
       final double wElo = ((winnerData['elo_open_singles'] ?? winnerData['eloRating'] ?? 1200) as num).toDouble();
       final double lElo = ((loserData['elo_open_singles'] ?? loserData['eloRating'] ?? 1200) as num).toDouble();
 
@@ -1526,62 +1707,110 @@ class AuthService {
       final int newWElo = (wElo + 32 * (1.0 - expectedW)).round();
       final int newLElo = (lElo + 32 * (0.0 - expectedL)).round();
 
-      if (winnerDoc.exists) await winnerRef.update({'elo_open_singles': newWElo, 'eloRating': newWElo});
-      if (loserDoc.exists) await loserRef.update({'elo_open_singles': newLElo, 'eloRating': newLElo});
-
       final double wGlicko = ((winnerData['glicko_open_singles'] ?? winnerData['glickoRating'] ?? 1500) as num).toDouble();
       final double lGlicko = ((loserData['glicko_open_singles'] ?? loserData['glickoRating'] ?? 1500) as num).toDouble();
 
       final int newWGlicko = (wGlicko + 25 * (1.0 - expectedW)).round();
       final int newLGlicko = (lGlicko + 25 * (0.0 - expectedL)).round();
 
-      if (winnerDoc.exists) await winnerRef.update({'glicko_open_singles': newWGlicko, 'glickoRating': newWGlicko});
-      if (loserDoc.exists) await loserRef.update({'glicko_open_singles': newLGlicko, 'glickoRating': newLGlicko});
+      if (winnerDoc.exists) {
+        batch.update(winnerRef, {
+          rankingCategory: FieldValue.increment(winnerPoints),
+          'wins': FieldValue.increment(1),
+          'elo_open_singles': newWElo,
+          'eloRating': newWElo,
+          'glicko_open_singles': newWGlicko,
+          'glickoRating': newWGlicko,
+        });
+      }
+
+      if (loserDoc.exists) {
+        batch.update(loserRef, {
+          rankingCategory: FieldValue.increment(loserPointsAwarded),
+          'losses': FieldValue.increment(1),
+          'elo_open_singles': newLElo,
+          'eloRating': newLElo,
+          'glicko_open_singles': newLGlicko,
+          'glickoRating': newLGlicko,
+        });
+      }
+
+      // Automatic Bracket Advancement
+      if (matchId.startsWith('match_r')) {
+        final parts = matchId.split('_');
+        if (parts.length >= 3) {
+          final int roundNum = int.tryParse(parts[1].replaceAll('r', '')) ?? 1;
+          final int matchNum = int.tryParse(parts[2].replaceAll('m', '')) ?? 1;
+          final int totalRounds = (tourData['totalRounds'] as num?)?.toInt() ?? 3;
+
+          final String winnerName = winnerData['username'] ?? 'Winner';
+          final String loserName = loserData['username'] ?? 'Loser';
+
+          if (roundNum >= totalRounds) {
+            batch.update(tourRef, {
+              'isCompleted': true,
+              'championUid': winnerUid,
+              'championName': winnerName,
+              'runnerUpUid': loserUid,
+              'runnerUpName': loserName,
+              'completedAt': FieldValue.serverTimestamp(),
+            });
+          } else {
+            final int nextRound = roundNum + 1;
+            final int nextMatch = (matchNum + 1) ~/ 2;
+            final String nextMatchId = 'match_r${nextRound}_m$nextMatch';
+            final bool isP1 = matchNum % 2 != 0;
+
+            final nextRef = tourRef.collection('matches').doc(nextMatchId);
+
+            if (isP1) {
+              batch.set(nextRef, {
+                'roundNum': nextRound,
+                'matchNum': nextMatch,
+                'p1Uid': winnerUid,
+                'p1Name': winnerName,
+                'status': 'scheduled',
+              }, SetOptions(merge: true));
+            } else {
+              batch.set(nextRef, {
+                'roundNum': nextRound,
+                'matchNum': nextMatch,
+                'p2Uid': winnerUid,
+                'p2Name': winnerName,
+                'status': 'scheduled',
+              }, SetOptions(merge: true));
+            }
+
+            if (nextRound == totalRounds) {
+              final String bronzeId = 'match_bronze';
+              final bronzeRef = tourRef.collection('matches').doc(bronzeId);
+              if (isP1) {
+                batch.set(bronzeRef, {
+                  'p1Uid': loserUid,
+                  'p1Name': loserName,
+                  'status': 'scheduled',
+                }, SetOptions(merge: true));
+              } else {
+                batch.set(bronzeRef, {
+                  'p2Uid': loserUid,
+                  'p2Name': loserName,
+                  'status': 'scheduled',
+                }, SetOptions(merge: true));
+              }
+            }
+          }
+        }
+      }
+
+      if (matchId == 'match_bronze') {
+        final String winnerName = winnerData['username'] ?? '3rd Place Winner';
+        batch.update(tourRef, {
+          'thirdPlaceUid': winnerUid,
+          'thirdPlaceName': winnerName,
+        });
+      }
     }
 
-    // 2. Elo Rating Adjustment (K = 32)
-    final double wElo = ((winnerData['elo_open_singles'] ?? winnerData['eloRating'] ?? 1200) as num).toDouble();
-    final double lElo = ((loserData['elo_open_singles'] ?? loserData['eloRating'] ?? 1200) as num).toDouble();
-
-    final double expectedW = 1.0 / (1.0 + pow(10, (lElo - wElo) / 400.0));
-    final double expectedL = 1.0 / (1.0 + pow(10, (wElo - lElo) / 400.0));
-
-    final int newWElo = (wElo + 32 * (1.0 - expectedW)).round();
-    final int newLElo = (lElo + 32 * (0.0 - expectedL)).round();
-
-    if (winnerDoc.exists) await winnerRef.update({'elo_open_singles': newWElo, 'eloRating': newWElo});
-    if (loserDoc.exists) await loserRef.update({'elo_open_singles': newLElo, 'eloRating': newLElo});
-
-    // 3. Glicko Rating Adjustment (Glicko-1 RD adjustment)
-    final double wGlicko = ((winnerData['glicko_open_singles'] ?? winnerData['glickoRating'] ?? 1500) as num).toDouble();
-    final double lGlicko = ((loserData['glicko_open_singles'] ?? loserData['glickoRating'] ?? 1500) as num).toDouble();
-
-    final int newWGlicko = (wGlicko + 25 * (1.0 - expectedW)).round();
-    final int newLGlicko = (lGlicko + 25 * (0.0 - expectedL)).round();
-
-    if (winnerDoc.exists) await winnerRef.update({'glicko_open_singles': newWGlicko, 'glickoRating': newWGlicko});
-    if (loserDoc.exists) await loserRef.update({'glicko_open_singles': newLGlicko, 'glickoRating': newLGlicko});
-
-    // Automatically complete tournament if all matches are completed
-    final allMatches = await _db
-        .collection('clubs')
-        .doc(clubId)
-        .collection('tournaments')
-        .doc(tournamentId)
-        .collection('matches')
-        .get();
-
-    bool allDone = allMatches.docs.isNotEmpty && allMatches.docs.every((d) => (d.data()['status'] ?? '') == 'completed');
-    if (allDone) {
-      await _db
-          .collection('clubs')
-          .doc(clubId)
-          .collection('tournaments')
-          .doc(tournamentId)
-          .update({
-        'isCompleted': true,
-        'completedAt': FieldValue.serverTimestamp(),
-      });
-    }
+    await batch.commit();
   }
 }

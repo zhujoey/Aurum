@@ -1,10 +1,95 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/club_requests.dart';
 import 'package:sportspro/table_tennis/tt_scoreboard.dart';
+import 'package:sportspro/table_tennis/tt_models.dart';
+import 'package:sportspro/table_tennis/widgets/tt_history.dart';
 import 'package:sportspro/badminton/badminton_scoreboard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBar.backgroundColor,
+      duration: snackBar.duration,
+      behavior: SnackBarBehavior.floating,
+      content: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => messenger.hideCurrentSnackBar(),
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: snackBar.content,
+        ),
+      ),
+    ),
+  );
+}
+
+void _showCompletedMatchHistoryModal(
+  BuildContext context,
+  Map<String, dynamic> matchData,
+  String defaultP1Name,
+  String defaultP2Name,
+) {
+  final rawSets = matchData['setSummaries'] as List?;
+  final rawLogs = matchData['logs'] as List?;
+
+  final String p1Name = matchData['p1Name'] ?? defaultP1Name;
+  final String p2Name = matchData['p2Name'] ?? defaultP2Name;
+
+  if (rawSets != null && rawSets.isNotEmpty) {
+    final List<SetSummary> allSets = rawSets
+        .map((s) => SetSummary.fromMap(Map<String, dynamic>.from(s as Map)))
+        .toList();
+    final List<MatchLogEntry> logs = (rawLogs ?? [])
+        .map((l) => MatchLogEntry.fromMap(Map<String, dynamic>.from(l as Map)))
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => MatchHistoryBottomSheet(
+        allSets: allSets,
+        logs: logs,
+        p1Name: p1Name,
+        p2Name: p2Name,
+        p3Name: '',
+        p4Name: '',
+      ),
+    );
+  } else {
+    final String winner = matchData['winnerName'] ?? matchData['pendingWinnerName'] ?? 'Completed';
+    final String score = matchData['scoreText'] ?? 'Completed';
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Completed Match Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Divider(height: 24),
+            Text('$p1Name vs $p2Name', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Text('Winner: $winner', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 4),
+            Text('Score: $score', style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class TournamentsPage extends StatelessWidget {
   const TournamentsPage({super.key});
@@ -219,10 +304,19 @@ class _ClubTournamentsView extends StatelessWidget {
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     final pointsController = TextEditingController(text: '1000');
+    final winnerPointsController = TextEditingController(text: '1000');
+    final finalistPointsController = TextEditingController(text: '700');
+    final sfPointsController = TextEditingController(text: '350');
+    final qfPointsController = TextEditingController(text: '175');
+    final r16PointsController = TextEditingController(text: '90');
+    final r32PointsController = TextEditingController(text: '45');
+    final r64PointsController = TextEditingController(text: '15');
+    String selectedPreset = 'WTT Champions (1000 Pts)';
     String selectedStyle = 'Single Elimination';
     String selectedSinglesType = 'everyone';
     String selectedDoublesType = 'none';
     bool isOpen = false;
+    bool keepRunningTimers = true;
     final authService = AuthService();
 
     showDialog(
@@ -252,14 +346,141 @@ class _ClubTournamentsView extends StatelessWidget {
                   maxLines: 2,
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: pointsController,
-                  keyboardType: TextInputType.number,
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: selectedPreset,
                   decoration: const InputDecoration(
-                    labelText: 'Ranking Points Value (ITTF System)',
-                    hintText: 'e.g. 2000, 1000, 500, 250',
+                    labelText: 'Points Template / Preset',
                     border: OutlineInputBorder(),
                   ),
+                  items: const [
+                    DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Grand Smash (2000 Pts)', child: Text('WTT Grand Smash (2000 Pts)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Champions (1000 Pts)', child: Text('WTT Champions (1000 Pts)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Star Contender (600 Pts)', child: Text('WTT Star Contender (600 Pts)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Contender (400 Pts)', child: Text('WTT Contender (400 Pts)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Club Local Championship (250 Pts)', child: Text('Club Local Championship (250 Pts)', overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setDialogState(() {
+                      selectedPreset = val;
+                      if (val == 'WTT Grand Smash (2000 Pts)') {
+                        pointsController.text = '2000';
+                        winnerPointsController.text = '2000';
+                        finalistPointsController.text = '1400';
+                        sfPointsController.text = '700';
+                        qfPointsController.text = '350';
+                        r16PointsController.text = '175';
+                        r32PointsController.text = '90';
+                        r64PointsController.text = '20';
+                      } else if (val == 'WTT Champions (1000 Pts)') {
+                        pointsController.text = '1000';
+                        winnerPointsController.text = '1000';
+                        finalistPointsController.text = '700';
+                        sfPointsController.text = '350';
+                        qfPointsController.text = '175';
+                        r16PointsController.text = '90';
+                        r32PointsController.text = '45';
+                        r64PointsController.text = '15';
+                      } else if (val == 'WTT Star Contender (600 Pts)') {
+                        pointsController.text = '600';
+                        winnerPointsController.text = '600';
+                        finalistPointsController.text = '420';
+                        sfPointsController.text = '210';
+                        qfPointsController.text = '105';
+                        r16PointsController.text = '55';
+                        r32PointsController.text = '25';
+                        r64PointsController.text = '10';
+                      } else if (val == 'WTT Contender (400 Pts)') {
+                        pointsController.text = '400';
+                        winnerPointsController.text = '400';
+                        finalistPointsController.text = '280';
+                        sfPointsController.text = '140';
+                        qfPointsController.text = '70';
+                        r16PointsController.text = '35';
+                        r32PointsController.text = '15';
+                        r64PointsController.text = '5';
+                      } else if (val == 'Club Local Championship (250 Pts)') {
+                        pointsController.text = '250';
+                        winnerPointsController.text = '250';
+                        finalistPointsController.text = '175';
+                        sfPointsController.text = '90';
+                        qfPointsController.text = '45';
+                        r16PointsController.text = '20';
+                        r32PointsController.text = '10';
+                        r64PointsController.text = '5';
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: winnerPointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Winner Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: finalistPointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Finalist Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: sfPointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Semifinal Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: qfPointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Quarterfinal Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: r16PointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'R16 Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: r32PointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'R32 Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: r64PointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'R64 Pts', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -334,6 +555,24 @@ class _ClubTournamentsView extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Keep Timers Running in Background', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Timers continue running when match screen is closed', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: keepRunningTimers,
+                      onChanged: (val) => setDialogState(() => keepRunningTimers = val),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -346,6 +585,16 @@ class _ClubTournamentsView extends StatelessWidget {
                 final points = int.tryParse(pointsController.text.trim()) ?? 1000;
                 if (name.isEmpty) return;
                 try {
+                  final Map<String, dynamic> breakdown = {
+                    'winner': int.tryParse(winnerPointsController.text.trim()) ?? points,
+                    'finalist': int.tryParse(finalistPointsController.text.trim()) ?? (points * 0.7).round(),
+                    'semifinalist': int.tryParse(sfPointsController.text.trim()) ?? (points * 0.35).round(),
+                    'quarterfinalist': int.tryParse(qfPointsController.text.trim()) ?? (points * 0.175).round(),
+                    'roundOf16': int.tryParse(r16PointsController.text.trim()) ?? (points * 0.0875).round(),
+                    'roundOf32': int.tryParse(r32PointsController.text.trim()) ?? (points * 0.045).round(),
+                    'roundOf64': int.tryParse(r64PointsController.text.trim()) ?? (points * 0.015).round(),
+                  };
+
                   await authService.createTournament(
                     clubId: clubId,
                     name: name,
@@ -356,11 +605,13 @@ class _ClubTournamentsView extends StatelessWidget {
                     tournamentStyle: selectedStyle,
                     singlesType: selectedSinglesType,
                     doublesType: selectedDoublesType,
+                    keepRunningTimers: keepRunningTimers,
+                    pointsBreakdown: breakdown,
                   );
                   if (context.mounted) Navigator.pop(context);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
                   }
                 }
               },
@@ -546,144 +797,137 @@ class TournamentDetailsPage extends StatelessWidget {
                       );
                     },
                   ),
-                ] else if (isOwnerOrManager) ...[
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start Tournament', style: TextStyle(fontSize: 16)),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () => _showStartTournamentDialog(context, authService, data, participantUids.length),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Invite Members', style: TextStyle(fontSize: 16)),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () => _showInviteMembersModal(context, authService, participantUids, name),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.smart_toy, color: Colors.purple),
-                    label: const Text('Add Test Players (Testing Tool)', style: TextStyle(color: Colors.purple, fontSize: 15)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Colors.purple),
-                    ),
-                    onPressed: () => _showAddTestPlayersDialog(context, authService),
-                  ),
                 ] else ...[
-                  if (isOpen) ...[
-                    if (isJoined) ...[
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.check_circle, color: Colors.green),
-                        label: const Text('Joined (Tap to Leave)', style: TextStyle(color: Colors.redAccent)),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Colors.redAccent),
-                        ),
-                        onPressed: () => _confirmLeaveTournament(context, authService),
+                  // Join or Leave Button (Applies to Everyone, including Owners/Managers for Closed & Open Tournaments)
+                  if (isJoined) ...[
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.check_circle, color: Colors.green),
+                      label: const Text('Joined (Tap to Leave)', style: TextStyle(color: Colors.redAccent)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.redAccent),
                       ),
-                    ] else ...[
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add),
-                        label: const Text('Join Tournament', style: TextStyle(fontSize: 16)),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () async {
-                          try {
-                            await authService.joinTournament(clubId: clubId, tournamentId: tournamentId);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Successfully joined the tournament!')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                            }
-                          }
-                        },
+                      onPressed: () => _confirmLeaveTournament(context, authService),
+                    ),
+                    const SizedBox(height: 12),
+                  ] else if (isOpen || isOwnerOrManager) ...[
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Join Tournament', style: TextStyle(fontSize: 16)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
                       ),
-                    ],
-                  ] else ...[
-                    if (isJoined) ...[
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.check_circle, color: Colors.green),
-                        label: const Text('Joined (Tap to Leave)', style: TextStyle(color: Colors.redAccent)),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Colors.redAccent),
-                        ),
-                        onPressed: () => _confirmLeaveTournament(context, authService),
-                      ),
-                    ] else ...[
-                      StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('tournament_requests')
-                            .where('tournamentId', isEqualTo: tournamentId)
-                            .where('toUid', isEqualTo: currentUid)
-                            .where('status', isEqualTo: 'pending')
-                            .snapshots(),
-                        builder: (context, reqSnapshot) {
-                          final hasInvite = reqSnapshot.hasData && reqSnapshot.data!.docs.isNotEmpty;
-                          if (hasInvite) {
-                            final reqDoc = reqSnapshot.data!.docs.first;
-                            return ElevatedButton.icon(
-                              icon: const Icon(Icons.check, color: Colors.white),
-                              label: const Text('Accept Tournament Invitation', style: TextStyle(fontSize: 16)),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                              ),
-                              onPressed: () async {
-                                try {
-                                  await authService.acceptTournamentRequest(reqDoc.id, clubId, tournamentId);
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Accepted tournament invitation!')),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                                  }
-                                }
-                              },
+                      onPressed: () async {
+                        try {
+                          await authService.joinTournament(clubId: clubId, tournamentId: tournamentId);
+                          if (context.mounted) {
+                            _showAppSnackBar(context, 
+                              const SnackBar(content: Text('Successfully joined the tournament!')),
                             );
                           }
-
-                          return Card(
-                            color: Colors.orange.withValues(alpha: 0.1),
-                            child: const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.lock_outline, color: Colors.orange),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'This tournament is closed. Only an owner or manager can invite you.',
-                                      style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        } catch (e) {
+                          if (context.mounted) {
+                            _showAppSnackBar(context, SnackBar(content: Text('$e')));
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('tournament_requests')
+                          .where('tournamentId', isEqualTo: tournamentId)
+                          .where('toUid', isEqualTo: currentUid)
+                          .where('status', isEqualTo: 'pending')
+                          .snapshots(),
+                      builder: (context, reqSnapshot) {
+                        final hasInvite = reqSnapshot.hasData && reqSnapshot.data!.docs.isNotEmpty;
+                        if (hasInvite) {
+                          final reqDoc = reqSnapshot.data!.docs.first;
+                          return ElevatedButton.icon(
+                            icon: const Icon(Icons.check, color: Colors.white),
+                            label: const Text('Accept Tournament Invitation', style: TextStyle(fontSize: 16)),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
                             ),
+                            onPressed: () async {
+                              try {
+                                await authService.acceptTournamentRequest(reqDoc.id, clubId, tournamentId);
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, 
+                                    const SnackBar(content: Text('Accepted tournament invitation!')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
+                                }
+                              }
+                            },
                           );
-                        },
+                        }
+
+                        return Card(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          child: const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lock_outline, color: Colors.orange),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'This tournament is closed. Only an owner or manager can invite you.',
+                                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Administrative Controls for Owners and Managers
+                  if (isOwnerOrManager) ...[
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Start Tournament', style: TextStyle(fontSize: 16)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
                       ),
-                    ],
+                      onPressed: () => _showStartTournamentDialog(context, authService, data, participantUids.length),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.person_add),
+                      label: const Text('Invite Members', style: TextStyle(fontSize: 16)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => _showInviteMembersModal(context, authService, participantUids, name),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.smart_toy, color: Colors.purple),
+                      label: const Text('Add Test Players (Testing Tool)', style: TextStyle(color: Colors.purple, fontSize: 15)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.purple),
+                      ),
+                      onPressed: () => _showAddTestPlayersDialog(context, authService),
+                    ),
                   ],
                 ],
 
@@ -723,13 +967,31 @@ class TournamentDetailsPage extends StatelessWidget {
                       final pUid = p['uid'] as String? ?? '';
                       final pName = p['username'] as String? ?? 'Member';
 
+                      final bool isBot = (p['isBot'] == true) || pUid.contains('test_bot');
+
                       return ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        leading: CircleAvatar(
+                          backgroundColor: isBot ? Colors.purple.withValues(alpha: 0.15) : null,
+                          child: Icon(isBot ? Icons.smart_toy : Icons.person, color: isBot ? Colors.purple : null),
+                        ),
                         title: Text(pName, maxLines: 1, overflow: TextOverflow.ellipsis),
                         trailing: (isOwnerOrManager && pUid != currentUid)
                             ? IconButton(
                                 icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                onPressed: () => _confirmKickParticipant(context, authService, pUid, pName),
+                                onPressed: () {
+                                  if (isBot) {
+                                    authService.removeParticipantFromTournament(
+                                      clubId: clubId,
+                                      tournamentId: tournamentId,
+                                      targetUid: pUid,
+                                    );
+                                    _showAppSnackBar(context, 
+                                      SnackBar(content: Text('Removed $pName from tournament.')),
+                                    );
+                                  } else {
+                                    _confirmKickParticipant(context, authService, pUid, pName);
+                                  }
+                                },
                                 tooltip: 'Remove from tournament',
                               )
                             : null,
@@ -765,13 +1027,13 @@ class TournamentDetailsPage extends StatelessWidget {
                 await authService.leaveTournament(clubId: clubId, tournamentId: tournamentId);
                 if (context.mounted) {
                   Navigator.pop(context); // Close dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  _showAppSnackBar(context, 
                     const SnackBar(content: Text('Left tournament.')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
                 }
               }
             },
@@ -807,13 +1069,13 @@ class TournamentDetailsPage extends StatelessWidget {
                 );
                 if (context.mounted) {
                   Navigator.pop(context); // Close dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  _showAppSnackBar(context, 
                     SnackBar(content: Text('Removed $pName from tournament.')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
                 }
               }
             },
@@ -887,6 +1149,7 @@ class TournamentDetailsPage extends StatelessWidget {
                             title: Text('$winnerName vs $loserName', style: const TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text('Winner: $winnerName • Score: $scoreText'),
                             trailing: const Icon(Icons.check_circle_outline, color: Colors.green),
+                            onTap: () => _showCompletedMatchHistoryModal(context, data, winnerName, loserName),
                           ),
                         );
                       },
@@ -920,13 +1183,13 @@ class TournamentDetailsPage extends StatelessWidget {
                 );
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  _showAppSnackBar(context, 
                     const SnackBar(content: Text('Doubles pair removed.')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
                 }
               }
             },
@@ -1051,13 +1314,13 @@ class TournamentDetailsPage extends StatelessWidget {
                                       requestId: req.id,
                                     );
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      _showAppSnackBar(context, 
                                         const SnackBar(content: Text('Doubles partnership accepted!')),
                                       );
                                     }
                                   } catch (e) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      _showAppSnackBar(context, 
                                         SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
                                       );
                                     }
@@ -1207,13 +1470,13 @@ class TournamentDetailsPage extends StatelessWidget {
 
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    _showAppSnackBar(context, 
                       SnackBar(content: Text('Doubles partner request sent to $selectedPartnerUsername!')),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    _showAppSnackBar(context, 
                       SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
                     );
                   }
@@ -1247,8 +1510,8 @@ class TournamentDetailsPage extends StatelessWidget {
               Slider(
                 value: botCount.toDouble(),
                 min: 1,
-                max: 15,
-                divisions: 14,
+                max: 63,
+                divisions: 62,
                 label: '$botCount Players',
                 onChanged: (val) => setDialogState(() => botCount = val.toInt()),
               ),
@@ -1267,13 +1530,13 @@ class TournamentDetailsPage extends StatelessWidget {
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    _showAppSnackBar(context, 
                       SnackBar(content: Text('Added $botCount test players to the tournament!')),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    _showAppSnackBar(context, 
                       SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
                     );
                   }
@@ -1371,13 +1634,13 @@ class TournamentDetailsPage extends StatelessWidget {
                     );
                     if (context.mounted) {
                       Navigator.pop(context); // Close dialog
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      _showAppSnackBar(context, 
                         const SnackBar(content: Text('Tournament started successfully!')),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                      _showAppSnackBar(context, SnackBar(content: Text('$e')));
                     }
                   }
                 }
@@ -1459,13 +1722,13 @@ class TournamentDetailsPage extends StatelessWidget {
                                         targetUid: mUid,
                                       );
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        _showAppSnackBar(context, 
                                           const SnackBar(content: Text('Invitation retracted.')),
                                         );
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                                        _showAppSnackBar(context, SnackBar(content: Text('$e')));
                                       }
                                     }
                                   },
@@ -1483,13 +1746,13 @@ class TournamentDetailsPage extends StatelessWidget {
                                         targetUsername: mName,
                                       );
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        _showAppSnackBar(context, 
                                           SnackBar(content: Text('Invitation sent to $mName!')),
                                         );
                                       }
                                     } catch (e) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                                        _showAppSnackBar(context, SnackBar(content: Text('$e')));
                                       }
                                     }
                                   },
@@ -1538,6 +1801,14 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
   late TextEditingController _pointsController;
+  late TextEditingController _winnerPointsController;
+  late TextEditingController _finalistPointsController;
+  late TextEditingController _sfPointsController;
+  late TextEditingController _qfPointsController;
+  late TextEditingController _r16PointsController;
+  late TextEditingController _r32PointsController;
+  late TextEditingController _r64PointsController;
+  String _selectedPreset = 'Custom';
   late String _tournamentStyle;
   late String _seedingMethod;
   late bool _hasThirdPlacePlayoff;
@@ -1551,7 +1822,18 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
     super.initState();
     _nameController = TextEditingController(text: widget.currentData['name'] ?? '');
     _descriptionController = TextEditingController(text: widget.currentData['description'] ?? '');
-    _pointsController = TextEditingController(text: (widget.currentData['rankingPoints'] ?? 1000).toString());
+    final int basePts = widget.currentData['rankingPoints'] ?? 1000;
+    _pointsController = TextEditingController(text: basePts.toString());
+
+    final breakdown = (widget.currentData['pointsBreakdown'] as Map<String, dynamic>?) ?? {};
+    _winnerPointsController = TextEditingController(text: (breakdown['winner'] ?? basePts).toString());
+    _finalistPointsController = TextEditingController(text: (breakdown['finalist'] ?? (basePts * 0.7).round()).toString());
+    _sfPointsController = TextEditingController(text: (breakdown['semifinalist'] ?? (basePts * 0.35).round()).toString());
+    _qfPointsController = TextEditingController(text: (breakdown['quarterfinalist'] ?? (basePts * 0.175).round()).toString());
+    _r16PointsController = TextEditingController(text: (breakdown['roundOf16'] ?? (basePts * 0.0875).round()).toString());
+    _r32PointsController = TextEditingController(text: (breakdown['roundOf32'] ?? (basePts * 0.045).round()).toString());
+    _r64PointsController = TextEditingController(text: (breakdown['roundOf64'] ?? (basePts * 0.015).round()).toString());
+
     _tournamentStyle = widget.currentData['tournamentStyle'] ?? 'Single Elimination';
     _seedingMethod = widget.currentData['seedingMethod'] ?? 'ITTF Seeded';
     _hasThirdPlacePlayoff = widget.currentData['hasThirdPlacePlayoff'] ?? true;
@@ -1565,13 +1847,20 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
     _nameController.dispose();
     _descriptionController.dispose();
     _pointsController.dispose();
+    _winnerPointsController.dispose();
+    _finalistPointsController.dispose();
+    _sfPointsController.dispose();
+    _qfPointsController.dispose();
+    _r16PointsController.dispose();
+    _r32PointsController.dispose();
+    _r64PointsController.dispose();
     super.dispose();
   }
 
   Future<void> _saveSettings() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showAppSnackBar(context, 
         const SnackBar(content: Text('Tournament name cannot be empty.')),
       );
       return;
@@ -1644,6 +1933,16 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
     final authService = AuthService();
 
     try {
+      final Map<String, dynamic> breakdown = {
+        'winner': int.tryParse(_winnerPointsController.text.trim()) ?? points,
+        'finalist': int.tryParse(_finalistPointsController.text.trim()) ?? (points * 0.7).round(),
+        'semifinalist': int.tryParse(_sfPointsController.text.trim()) ?? (points * 0.35).round(),
+        'quarterfinalist': int.tryParse(_qfPointsController.text.trim()) ?? (points * 0.175).round(),
+        'roundOf16': int.tryParse(_r16PointsController.text.trim()) ?? (points * 0.0875).round(),
+        'roundOf32': int.tryParse(_r32PointsController.text.trim()) ?? (points * 0.045).round(),
+        'roundOf64': int.tryParse(_r64PointsController.text.trim()) ?? (points * 0.015).round(),
+      };
+
       await authService.updateTournamentSettings(
         clubId: widget.clubId,
         tournamentId: widget.tournamentId,
@@ -1656,9 +1955,10 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
         hasThirdPlacePlayoff: _hasThirdPlacePlayoff,
         singlesType: _singlesType,
         doublesType: _doublesType,
+        pointsBreakdown: breakdown,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Settings saved successfully!')),
         );
         Navigator.pop(context);
@@ -1666,7 +1966,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        _showAppSnackBar(context, SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1729,13 +2029,13 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                       Navigator.pop(context); // Close dialog
                       Navigator.pop(context); // Pop settings page
                       Navigator.pop(context); // Pop details page
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      _showAppSnackBar(context, 
                         const SnackBar(content: Text('Tournament deleted permanently.')),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                      _showAppSnackBar(context, SnackBar(content: Text('$e')));
                     }
                   }
                 }
@@ -1788,14 +2088,141 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               maxLines: 3,
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _pointsController,
-              keyboardType: TextInputType.number,
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _selectedPreset,
               decoration: const InputDecoration(
-                labelText: 'Ranking Points Value (ITTF System)',
-                hintText: 'Points awarded for this tournament',
+                labelText: 'Points Template / Preset',
                 border: OutlineInputBorder(),
               ),
+              items: const [
+                DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'WTT Grand Smash (2000 Pts)', child: Text('WTT Grand Smash (2000 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'WTT Champions (1000 Pts)', child: Text('WTT Champions (1000 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'WTT Star Contender (600 Pts)', child: Text('WTT Star Contender (600 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'WTT Contender (400 Pts)', child: Text('WTT Contender (400 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Club Local Championship (250 Pts)', child: Text('Club Local Championship (250 Pts)', overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: (val) {
+                if (val == null) return;
+                setState(() {
+                  _selectedPreset = val;
+                  if (val == 'WTT Grand Smash (2000 Pts)') {
+                    _pointsController.text = '2000';
+                    _winnerPointsController.text = '2000';
+                    _finalistPointsController.text = '1400';
+                    _sfPointsController.text = '700';
+                    _qfPointsController.text = '350';
+                    _r16PointsController.text = '175';
+                    _r32PointsController.text = '90';
+                    _r64PointsController.text = '20';
+                  } else if (val == 'WTT Champions (1000 Pts)') {
+                    _pointsController.text = '1000';
+                    _winnerPointsController.text = '1000';
+                    _finalistPointsController.text = '700';
+                    _sfPointsController.text = '350';
+                    _qfPointsController.text = '175';
+                    _r16PointsController.text = '90';
+                    _r32PointsController.text = '45';
+                    _r64PointsController.text = '15';
+                  } else if (val == 'WTT Star Contender (600 Pts)') {
+                    _pointsController.text = '600';
+                    _winnerPointsController.text = '600';
+                    _finalistPointsController.text = '420';
+                    _sfPointsController.text = '210';
+                    _qfPointsController.text = '105';
+                    _r16PointsController.text = '55';
+                    _r32PointsController.text = '25';
+                    _r64PointsController.text = '10';
+                  } else if (val == 'WTT Contender (400 Pts)') {
+                    _pointsController.text = '400';
+                    _winnerPointsController.text = '400';
+                    _finalistPointsController.text = '280';
+                    _sfPointsController.text = '140';
+                    _qfPointsController.text = '70';
+                    _r16PointsController.text = '35';
+                    _r32PointsController.text = '15';
+                    _r64PointsController.text = '5';
+                  } else if (val == 'Club Local Championship (250 Pts)') {
+                    _pointsController.text = '250';
+                    _winnerPointsController.text = '250';
+                    _finalistPointsController.text = '175';
+                    _sfPointsController.text = '90';
+                    _qfPointsController.text = '45';
+                    _r16PointsController.text = '20';
+                    _r32PointsController.text = '10';
+                    _r64PointsController.text = '5';
+                  }
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _winnerPointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Winner Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _finalistPointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Finalist Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _sfPointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Semifinal Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _qfPointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Quarterfinal Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _r16PointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'R16 Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _r32PointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'R32 Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _r64PointsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'R64 Pts', border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -2045,6 +2472,7 @@ class RoundRobinPage extends StatelessWidget {
                   p2Name: p2,
                   sport: sport,
                   isOwnerOrManager: true,
+                  tournamentData: tournamentData,
                 );
               },
             ),
@@ -2241,157 +2669,435 @@ class TournamentBracketPage extends StatelessWidget {
     final String seedingMethod = tournamentData['seedingMethod'] ?? 'ITTF Seeded';
     final bool hasThirdPlace = tournamentData['hasThirdPlacePlayoff'] ?? true;
     final String style = tournamentData['tournamentStyle'] ?? 'Single Elimination';
-
-    List matchedParticipants = List.from(participants);
-    if (seedingMethod == 'Random') {
-      matchedParticipants.shuffle();
-    }
+    final bool isCompleted = tournamentData['isCompleted'] ?? false;
+    final String championName = tournamentData['championName'] ?? 'Champion';
+    final String runnerUpName = tournamentData['runnerUpName'] ?? 'Runner-up';
 
     // Calculate bracket size M = next power of 2
     int m = 2;
-    while (m < matchedParticipants.length) {
+    while (m < participants.length) {
       m *= 2;
     }
-    final int numByes = m - matchedParticipants.length;
-    final String roundTitle = _getRoundTitle(m);
+    final int numByes = m - participants.length;
+
+    int totalRounds = 0;
+    int tempM = m;
+    while (tempM > 1) {
+      tempM ~/= 2;
+      totalRounds++;
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: Text('$name - Bracket'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              color: Colors.blue.withValues(alpha: 0.1),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Format: $style', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('Seeding Method: $seedingMethod'),
-                    Text('3rd Place Playoff: ${hasThirdPlace ? "Enabled" : "Disabled"}'),
-                    Text('Total Participants: ${participants.length} ($numByes BYE${numByes == 1 ? "" : "s"})'),
-                  ],
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('clubs')
+            .doc(clubId)
+            .collection('tournaments')
+            .doc(tournamentId)
+            .collection('matches')
+            .snapshots(),
+        builder: (context, snapshot) {
+          final Map<String, Map<String, dynamic>> liveMatches = {};
+          if (snapshot.hasData) {
+            for (var doc in snapshot.data!.docs) {
+              liveMatches[doc.id] = doc.data() as Map<String, dynamic>;
+            }
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (isCompleted) ...[
+                  Card(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.emoji_events, color: Colors.amber, size: 48),
+                          const SizedBox(height: 8),
+                          const Text('Tournament Podium', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Column(
+                                children: [
+                                  const Text('🥇 1st Place', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13)),
+                                  const SizedBox(height: 2),
+                                  Text(championName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                ],
+                              ),
+                              if (runnerUpName.isNotEmpty)
+                                Column(
+                                  children: [
+                                    const Text('🥈 2nd Place', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13)),
+                                    const SizedBox(height: 2),
+                                    Text(runnerUpName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                  ],
+                                ),
+                              if ((tournamentData['thirdPlaceName'] as String? ?? '').isNotEmpty)
+                                Column(
+                                  children: [
+                                    const Text('🥉 3rd Place', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown, fontSize: 13)),
+                                    const SizedBox(height: 2),
+                                    Text(tournamentData['thirdPlaceName'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Card(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Format: $style', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('Seeding Method: $seedingMethod'),
+                        Text('3rd Place Playoff: ${hasThirdPlace ? "Enabled" : "Disabled"}'),
+                        Text('Total Participants: ${participants.length} ($numByes BYE${numByes == 1 ? "" : "s"})'),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 20),
+                ..._buildAllRounds(context, participants, m, totalRounds, liveMatches),
+                if (hasThirdPlace && participants.length >= 4) ...[
+                  const SizedBox(height: 24),
+                  const Text('3rd Place Playoff (Bronze Match)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
+                  const SizedBox(height: 8),
+                  _buildBronzeCard(context, liveMatches['match_bronze']),
+                ],
+              ],
             ),
-            const SizedBox(height: 20),
-            Text(roundTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            if (numByes > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0, bottom: 8.0),
-                child: Text(
-                  'ITTF Guidelines Applied: Top $numByes seed(s) received a Round 1 BYE.',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-                ),
-              )
-            else
-              const SizedBox(height: 12),
-            ..._buildMatchups(context, matchedParticipants, m),
-            if (hasThirdPlace && participants.length >= 4) ...[
-              const SizedBox(height: 24),
-              const Text('3rd Place Playoff (Bronze Match)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
-              const SizedBox(height: 8),
-              const Card(
-                child: ListTile(
-                  leading: Icon(Icons.military_tech, color: Colors.amber),
-                  title: Text('Bronze Medal Match'),
-                  subtitle: Text('Loser of Semi-Final 1 vs Loser of Semi-Final 2'),
-                ),
-              ),
-            ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  List<Widget> _buildMatchups(BuildContext context, List participants, int m) {
-    List<Widget> widgets = [];
-    int matchNum = 1;
-    final sport = tournamentData['sport'] ?? 'Table Tennis';
+  List<Widget> _buildAllRounds(
+    BuildContext context,
+    List participants,
+    int initialM,
+    int totalRounds,
+    Map<String, Map<String, dynamic>> liveMatches,
+  ) {
+    List<Widget> roundWidgets = [];
+    final authService = AuthService();
+    final bool isOwnerOrManager = (authService.currentUser?.uid == tournamentData['ownerUid']);
 
-    List<Map<String, dynamic>> slots = List.generate(m, (i) => {});
-    for (int i = 0; i < participants.length; i++) {
-      slots[i] = Map<String, dynamic>.from(participants[i]);
-    }
+    int currentM = initialM;
+    for (int r = 1; r <= totalRounds; r++) {
+      final String roundTitle = _getRoundTitle(currentM);
 
-    for (int i = 0; i < m; i += 2) {
-      final p1 = slots[i];
-      final p2 = slots[i + 1];
+      roundWidgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+          child: Text(roundTitle, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: r == totalRounds ? Colors.amber : Colors.blue)),
+        ),
+      );
 
-      final String p1Name = p1['username'] ?? 'BYE';
-      final String p2Name = p2['username'] ?? 'BYE';
-      final String p1Uid = p1['uid'] ?? '';
-      final String p2Uid = p2['uid'] ?? '';
+      final int matchesInRound = currentM ~/ 2;
+      for (int mNum = 1; mNum <= matchesInRound; mNum++) {
+        final String mId = 'match_r${r}_m$mNum';
+        final matchData = liveMatches[mId] ?? {};
 
-      final bool isByeMatch = p1Name == 'BYE' || p2Name == 'BYE';
-      final String mId = 'ko_match_$matchNum';
+        final String p1Name = matchData['p1Name'] ?? 'TBD';
+        final String p2Name = matchData['p2Name'] ?? 'TBD';
+        final String p1Uid = matchData['p1Uid'] ?? '';
+        final String p2Uid = matchData['p2Uid'] ?? '';
+        final String status = matchData['status'] ?? 'scheduled';
+        final String winnerUid = matchData['winnerUid'] ?? '';
+        final String scoreText = matchData['scoreText'] ?? '';
 
-      widgets.add(
-        Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: InkWell(
-            onTap: isByeMatch
-                ? null
-                : () {
-                    showMatchActionModal(
-                      context: context,
-                      clubId: clubId,
-                      tournamentId: tournamentId,
-                      matchId: mId,
-                      p1Uid: p1Uid,
-                      p1Name: p1Name,
-                      p2Uid: p2Uid,
-                      p2Name: p2Name,
-                      sport: sport,
-                      isOwnerOrManager: true,
-                    );
-                  },
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Match $matchNum', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(p1Name, style: TextStyle(fontSize: 16, fontWeight: p1Name != 'BYE' ? FontWeight.bold : FontWeight.normal)),
-                            if (p1Name != 'BYE' && p2Name == 'BYE')
-                              const Text(' (Advances via BYE)', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        const Divider(),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(p2Name, style: TextStyle(fontSize: 16, fontWeight: p2Name != 'BYE' ? FontWeight.bold : FontWeight.normal)),
-                            if (p2Name != 'BYE' && p1Name == 'BYE')
-                              const Text(' (Advances via BYE)', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ],
+        final bool isByeMatch = p1Name == 'BYE' || p2Name == 'BYE';
+        final bool isCompletedMatch = status == 'completed';
+        final bool isReady = p1Name != 'TBD' && p2Name != 'TBD' && !isByeMatch;
+
+        roundWidgets.add(
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: !isReady
+                  ? null
+                  : () {
+                      if (isCompletedMatch) {
+                        _showCompletedMatchHistoryModal(context, matchData, p1Name, p2Name);
+                      } else {
+                        showMatchActionModal(
+                          context: context,
+                          clubId: clubId,
+                          tournamentId: tournamentId,
+                          matchId: mId,
+                          p1Uid: p1Uid,
+                          p1Name: p1Name,
+                          p2Uid: p2Uid,
+                          p2Name: p2Name,
+                          sport: tournamentData['sport'] ?? 'Table Tennis',
+                          isOwnerOrManager: true,
+                          tournamentData: tournamentData,
+                          roundName: roundTitle,
+                        );
+                      }
+                    },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 60,
+                      child: Text('Match $mNum', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13)),
                     ),
-                  ),
-                  if (!isByeMatch) const Icon(Icons.chevron_right, color: Colors.grey),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  p1Name,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: (winnerUid == p1Uid && p1Uid.isNotEmpty) ? FontWeight.bold : FontWeight.normal,
+                                    color: (winnerUid == p1Uid && p1Uid.isNotEmpty) ? Colors.green : null,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (p1Name != 'BYE' && p2Name == 'BYE') ...[
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                                  child: const Text('BYE', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  p2Name,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: (winnerUid == p2Uid && p2Uid.isNotEmpty) ? FontWeight.bold : FontWeight.normal,
+                                    color: (winnerUid == p2Uid && p2Uid.isNotEmpty) ? Colors.green : null,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (p2Name != 'BYE' && p1Name == 'BYE') ...[
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                                  child: const Text('BYE', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (status == 'completed' && scoreText.isNotEmpty && scoreText != 'BYE') ...[
+                            const SizedBox(height: 4),
+                            Text('Score: $scoreText', style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold)),
+                          ],
+                          if (status == 'pending_approval') ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Pending Approval: ${matchData['pendingWinnerName'] ?? 'Winner'} won (${matchData['pendingScoreText'] ?? 'Score'})',
+                                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  if ((authService.currentUser?.uid == p1Uid || authService.currentUser?.uid == p2Uid) || isOwnerOrManager) ...[
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.check, size: 16),
+                                          label: const Text('Approve'),
+                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+                                          onPressed: () async {
+                                            final String pendingWinUid = matchData['pendingWinnerUid'] ?? p1Uid;
+                                            final String pendingLoseUid = matchData['pendingLoserUid'] ?? (pendingWinUid == p1Uid ? p2Uid : p1Uid);
+                                            final String pendingScore = matchData['pendingScoreText'] ?? 'Completed';
+                                            final String pendingWinName = matchData['pendingWinnerName'] ?? 'Winner';
+
+                                            final bool? confirmApprove = await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text('Approve Match Result'),
+                                                content: Text(
+                                                  'Are you sure you want to approve and finalize this match result?\n\nWinner: $pendingWinName\nScore: $pendingScore',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context, false),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                                    onPressed: () => Navigator.pop(context, true),
+                                                    child: const Text('Approve'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+
+                                            if (confirmApprove != true) return;
+
+                                            await authService.recordTournamentMatchResult(
+                                              clubId: clubId,
+                                              tournamentId: tournamentId,
+                                              matchId: mId,
+                                              winnerUid: pendingWinUid,
+                                              loserUid: pendingLoseUid,
+                                              scoreText: pendingScore,
+                                            );
+                                            if (context.mounted) {
+                                              _showAppSnackBar(context, 
+                                                const SnackBar(content: Text('Match result approved & saved!')),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                        const SizedBox(width: 8),
+                                        OutlinedButton.icon(
+                                          icon: const Icon(Icons.close, size: 16),
+                                          label: const Text('Reject'),
+                                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+                                          onPressed: () async {
+                                            await FirebaseFirestore.instance
+                                                .collection('clubs')
+                                                .doc(clubId)
+                                                .collection('tournaments')
+                                                .doc(tournamentId)
+                                                .collection('matches')
+                                                .doc(mId)
+                                                .update({'status': 'scheduled'});
+                                            if (context.mounted) {
+                                              _showAppSnackBar(context, 
+                                                const SnackBar(content: Text('Result rejected. Match reset to scheduled.')),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (isReady) const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-      matchNum++;
+        );
+      }
+
+      currentM ~/= 2;
     }
-    return widgets;
+
+    return roundWidgets;
+  }
+
+  Widget _buildBronzeCard(BuildContext context, Map<String, dynamic>? matchData) {
+    final data = matchData ?? {};
+    final p1Name = data['p1Name'] ?? 'Loser SF1';
+    final p2Name = data['p2Name'] ?? 'Loser SF2';
+    final p1Uid = data['p1Uid'] ?? '';
+    final p2Uid = data['p2Uid'] ?? '';
+    final status = data['status'] ?? 'scheduled';
+    final winnerUid = data['winnerUid'] ?? '';
+    final scoreText = data['scoreText'] ?? '';
+
+    final bool isCompletedMatch = status == 'completed';
+    final bool isReady = p1Name != 'Loser SF1' && p2Name != 'Loser SF2';
+
+    return Card(
+      child: InkWell(
+        onTap: !isReady
+            ? null
+            : () {
+                if (isCompletedMatch) {
+                  _showCompletedMatchHistoryModal(context, data, p1Name, p2Name);
+                } else {
+                  showMatchActionModal(
+                    context: context,
+                    clubId: clubId,
+                    tournamentId: tournamentId,
+                    matchId: 'match_bronze',
+                    p1Uid: p1Uid,
+                    p1Name: p1Name,
+                    p2Uid: p2Uid,
+                    p2Name: p2Name,
+                    sport: tournamentData['sport'] ?? 'Table Tennis',
+                    isOwnerOrManager: true,
+                    tournamentData: tournamentData,
+                    roundName: 'Bronze Match',
+                  );
+                }
+              },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: Colors.orange,
+                child: Icon(Icons.military_tech, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$p1Name vs $p2Name', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    if (status == 'completed' && scoreText.isNotEmpty)
+                      Text('Bronze Winner: ${(winnerUid == p1Uid) ? p1Name : p2Name} • Score: $scoreText', style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold))
+                    else
+                      const Text('3rd Place Playoff Match', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+              if (isReady) const Icon(Icons.chevron_right, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2406,11 +3112,21 @@ void showMatchActionModal({
   required String p2Name,
   required String sport,
   required bool isOwnerOrManager,
+  required Map<String, dynamic> tournamentData,
+  String roundName = 'Round 1',
 }) {
   final authService = AuthService();
-  final scoreController = TextEditingController(text: '3-0');
-  String selectedWinnerUid = p1Uid;
-  String selectedWinnerName = p1Name;
+  final bool isSemiOrFinal = roundName == 'Semifinals' || roundName == 'Finals' || roundName == 'Bronze Match';
+  final int setsToWin = isSemiOrFinal ? 4 : 3; // ITTF Regulations: Semis/Finals/Bronze best-of-7 (first to 4), others best-of-5 (first to 3)
+
+  final p1SetsController = TextEditingController(text: '');
+  final p2SetsController = TextEditingController(text: '');
+
+  final List<TextEditingController> p1SetScoreControllers = List.generate(7, (_) => TextEditingController());
+  final List<TextEditingController> p2SetScoreControllers = List.generate(7, (_) => TextEditingController());
+
+  String selectedWinnerUid = '';
+  String selectedWinnerName = '';
 
   showModalBottomSheet(
     context: context,
@@ -2432,18 +3148,18 @@ void showMatchActionModal({
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('$p1Name vs $p2Name', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text('Sport: $sport • Tournament Match', style: const TextStyle(color: Colors.grey)),
-                  const Divider(height: 24),
-                  const Text('Record Result (Quick Input)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Sport: $sport • $roundName (${isSemiOrFinal ? "ITTF Best of 7 - First to 4" : "ITTF Best of 5 - First to 3"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Divider(height: 20),
+                  const Text('Record Result (Optional Input Boxes)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  const Text('Select Winner:'),
+                  const Text('Select Winner:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(p1Name),
+                          label: Text(p1Name, overflow: TextOverflow.ellipsis),
                           selected: selectedWinnerUid == p1Uid,
                           onSelected: (selected) {
                             if (selected) {
@@ -2458,7 +3174,7 @@ void showMatchActionModal({
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(p2Name),
+                          label: Text(p2Name, overflow: TextOverflow.ellipsis),
                           selected: selectedWinnerUid == p2Uid,
                           onSelected: (selected) {
                             if (selected) {
@@ -2472,15 +3188,74 @@ void showMatchActionModal({
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: scoreController,
-                    decoration: const InputDecoration(
-                      labelText: 'Score Summary / Set Score',
-                      hintText: 'e.g. 3-1 or 11-9, 9-11, 11-8',
-                      border: OutlineInputBorder(),
-                    ),
+                  const SizedBox(height: 16),
+                  const Text('Optional Sets / Games Won', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: p1SetsController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: '$p1Name Sets',
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: p2SetsController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: '$p2Name Sets',
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  const Text('Optional Set-by-Set Points (Each Set Breakdown)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  ...List.generate(isSemiOrFinal ? 7 : 5, (idx) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 50, child: Text('Set ${idx + 1}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                          Expanded(
+                            child: TextField(
+                              controller: p1SetScoreControllers[idx],
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: InputDecoration(
+                                hintText: '$p1Name Pts',
+                                isDense: true,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: p2SetScoreControllers[idx],
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: InputDecoration(
+                                hintText: '$p2Name Pts',
+                                isDense: true,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -2489,25 +3264,160 @@ void showMatchActionModal({
                       label: const Text('Confirm & Save Result'),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
                       onPressed: () async {
-                        final String loserUid = selectedWinnerUid == p1Uid ? p2Uid : p1Uid;
+                        final String s1Str = p1SetsController.text.trim();
+                        final String s2Str = p2SetsController.text.trim();
+                        final int? s1 = int.tryParse(s1Str);
+                        final int? s2 = int.tryParse(s2Str);
+
+                        List<String> setBreakdowns = [];
+                        int calcP1Sets = 0;
+                        int calcP2Sets = 0;
+                        String validationError = '';
+
+                        for (int k = 0; k < (isSemiOrFinal ? 7 : 5); k++) {
+                          final p1PtsStr = p1SetScoreControllers[k].text.trim();
+                          final p2PtsStr = p2SetScoreControllers[k].text.trim();
+                          if (p1PtsStr.isEmpty && p2PtsStr.isEmpty) continue;
+
+                          final int? p1Pts = int.tryParse(p1PtsStr);
+                          final int? p2Pts = int.tryParse(p2PtsStr);
+
+                          if (p1Pts == null || p2Pts == null) {
+                            validationError = 'Set ${k + 1} score is incomplete.';
+                            break;
+                          }
+
+                          if (sport == 'Table Tennis') {
+                            if (p1Pts < 11 && p2Pts < 11) {
+                              validationError = 'Set ${k + 1} score ($p1Pts-$p2Pts) is invalid. A set must reach at least 11 points.';
+                              break;
+                            }
+                            final int diff = (p1Pts - p2Pts).abs();
+                            if (diff < 2) {
+                              validationError = 'Set ${k + 1} score ($p1Pts-$p2Pts) is invalid. Must win by at least 2 points.';
+                              break;
+                            }
+                            if ((p1Pts > 11 || p2Pts > 11) && diff != 2) {
+                              validationError = 'Set ${k + 1} score ($p1Pts-$p2Pts) is invalid deuce score (must win by 2 points).';
+                              break;
+                            }
+                          }
+
+                          setBreakdowns.add('$p1Pts-$p2Pts');
+                          if (p1Pts > p2Pts) calcP1Sets++;
+                          if (p2Pts > p1Pts) calcP2Sets++;
+                        }
+
+                        if (validationError.isNotEmpty) {
+                          _showAppSnackBar(context, SnackBar(content: Text(validationError), backgroundColor: Colors.redAccent));
+                          return;
+                        }
+
+                        // Determine sets won
+                        int finalP1Sets = s1 ?? calcP1Sets;
+                        int finalP2Sets = s2 ?? calcP2Sets;
+
+                        // Check for contradictions between entered sets won and calculated set points
+                        if (s1 != null && s2 != null && setBreakdowns.isNotEmpty) {
+                          if (s1 != calcP1Sets || s2 != calcP2Sets) {
+                            _showAppSnackBar(context, SnackBar(content: Text('Entered set score ($s1-$s2) contradicts set points ($calcP1Sets-$calcP2Sets).'), backgroundColor: Colors.redAccent));
+                            return;
+                          }
+                        }
+
+                        // Automatically deduce winner if not manually selected
+                        String computedWinnerUid = selectedWinnerUid;
+                        String computedWinnerName = selectedWinnerName;
+
+                        if (finalP1Sets > finalP2Sets) {
+                          computedWinnerUid = p1Uid;
+                          computedWinnerName = p1Name;
+                        } else if (finalP2Sets > finalP1Sets) {
+                          computedWinnerUid = p2Uid;
+                          computedWinnerName = p2Name;
+                        } else if (s1 != null && s2 != null && s1 == s2) {
+                          _showAppSnackBar(context, SnackBar(content: Text('Match cannot end in a tie ($s1-$s2). One player must win more sets.'), backgroundColor: Colors.redAccent));
+                          return;
+                        }
+
+                        if (computedWinnerUid.isEmpty) {
+                          _showAppSnackBar(context, const SnackBar(content: Text('Please select a winner or enter set scores to deduce the winner.'), backgroundColor: Colors.redAccent));
+                          return;
+                        }
+
+                        final String loserUid = computedWinnerUid == p1Uid ? p2Uid : p1Uid;
+                        String finalScoreText = '$finalP1Sets-$finalP2Sets';
+                        if (setBreakdowns.isNotEmpty) {
+                          finalScoreText += ' (${setBreakdowns.join(", ")})';
+                        }
+
+                        final bool? confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Confirm Match Result'),
+                            content: Text(
+                              'Are you sure you want to submit this match result?\n\nWinner: $computedWinnerName\nScore: $finalScoreText',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Confirm'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm != true) return;
+
                         try {
-                          await authService.recordTournamentMatchResult(
-                            clubId: clubId,
-                            tournamentId: tournamentId,
-                            matchId: matchId,
-                            winnerUid: selectedWinnerUid,
-                            loserUid: loserUid,
-                            scoreText: scoreController.text.trim(),
-                          );
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Match result saved! Winner: $selectedWinnerName')),
+                          if (isOwnerOrManager) {
+                            await authService.recordTournamentMatchResult(
+                              clubId: clubId,
+                              tournamentId: tournamentId,
+                              matchId: matchId,
+                              winnerUid: computedWinnerUid,
+                              loserUid: loserUid,
+                              scoreText: finalScoreText,
                             );
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              _showAppSnackBar(context, 
+                                SnackBar(content: Text('Match result saved! Winner: $computedWinnerName')),
+                              );
+                            }
+                          } else {
+                            final currentUid = authService.currentUser?.uid ?? '';
+                            await FirebaseFirestore.instance
+                                .collection('clubs')
+                                .doc(clubId)
+                                .collection('tournaments')
+                                .doc(tournamentId)
+                                .collection('matches')
+                                .doc(matchId)
+                                .set({
+                              'status': 'pending_approval',
+                              'pendingWinnerUid': computedWinnerUid,
+                              'pendingWinnerName': computedWinnerName,
+                              'pendingLoserUid': loserUid,
+                              'pendingScoreText': finalScoreText,
+                              'submittedByUid': currentUid,
+                            }, SetOptions(merge: true));
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              _showAppSnackBar(context, 
+                                const SnackBar(content: Text('Result submitted! Awaiting opponent approval.')),
+                              );
+                            }
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+                            _showAppSnackBar(context, SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
                           }
                         }
                       },
@@ -2518,7 +3428,7 @@ void showMatchActionModal({
                   const SizedBox(height: 8),
                   const Text('Live Match Option', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
-                  const Text('Start an interactive live scoreboard for this match.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text('Start an interactive live scoreboard for this match (${isSemiOrFinal ? "Best of 7" : "Best of 5"}).', style: const TextStyle(color: Colors.grey, fontSize: 13)),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -2528,6 +3438,9 @@ void showMatchActionModal({
                       style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
                       onPressed: () {
                         Navigator.pop(context);
+                        final bool keepTimers = tournamentData['keepRunningTimers'] ?? true;
+                        final String liveMatchId = 'tour_${tournamentId}_$matchId';
+
                         if (sport == 'Table Tennis') {
                           Navigator.push(
                             context,
@@ -2538,7 +3451,9 @@ void showMatchActionModal({
                                 p3Name: '',
                                 p4Name: '',
                                 isDoubles: false,
-                                setsToWin: 3,
+                                setsToWin: setsToWin,
+                                matchId: liveMatchId,
+                                initialKeepRunningTimers: keepTimers,
                               ),
                             ),
                           );
@@ -2552,7 +3467,8 @@ void showMatchActionModal({
                                 p3Name: '',
                                 p4Name: '',
                                 isDoubles: false,
-                                gamesToWin: 2,
+                                gamesToWin: isSemiOrFinal ? 3 : 2,
+                                matchId: liveMatchId,
                               ),
                             ),
                           );

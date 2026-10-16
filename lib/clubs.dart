@@ -6,6 +6,28 @@ import 'package:sportspro/main.dart';
 import 'package:sportspro/club_requests.dart';
 import 'package:sportspro/tournaments.dart';
 
+void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBar.backgroundColor,
+      duration: snackBar.duration,
+      behavior: SnackBarBehavior.floating,
+      content: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => messenger.hideCurrentSnackBar(),
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: snackBar.content,
+        ),
+      ),
+    ),
+  );
+}
+
 
 class ClubsPage extends StatefulWidget {
   const ClubsPage({super.key});
@@ -50,7 +72,7 @@ class _ClubsPageState extends State<ClubsPage> {
       // If they were in a club and now they aren't, exit the page
       if (_wasInAClub && !currentlyInAClub) {
         Navigator.of(context).popUntil((route) => route.isFirst);
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('You are no longer part of that organization.')),
         );
       }
@@ -470,17 +492,17 @@ class _ClubsPageState extends State<ClubsPage> {
                                     if (val == 'promote') {
                                       await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: m['uid'], newRole: 'manager');
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Promoted to Manager!')));
+                                        _showAppSnackBar(context, const SnackBar(content: Text('Promoted to Manager!')));
                                       }
                                     } else if (val == 'demote') {
                                       await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: m['uid'], newRole: 'member');
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demoted to Member')));
+                                        _showAppSnackBar(context, const SnackBar(content: Text('Demoted to Member')));
                                       }
                                     }
                                   } catch (e) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                                      _showAppSnackBar(context, SnackBar(content: Text('$e')));
                                     }
                                   }
                                 },
@@ -551,7 +573,7 @@ class _ClubsPageState extends State<ClubsPage> {
                   if (context.mounted) Navigator.pop(context);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
                   }
                 }
               },
@@ -578,7 +600,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 await _authService.leaveClub(clubId);
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
                 }
               }
             },
@@ -604,7 +626,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 if (context.mounted) Navigator.pop(context);
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
                 }
               }
             },
@@ -644,7 +666,7 @@ class _ClubsPageState extends State<ClubsPage> {
           ElevatedButton(
             onPressed: () async {
               if (confirmController.text.trim() != clubName) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                _showAppSnackBar(context, 
                   const SnackBar(content: Text('Club name does not match.')),
                 );
                 return;
@@ -672,7 +694,7 @@ class _ClubsPageState extends State<ClubsPage> {
                   await _authService.deleteClub(clubId);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
                   }
                 }
               }
@@ -793,7 +815,7 @@ class _ClubsPageState extends State<ClubsPage> {
                                   );
                                 } catch (e) {
                                   if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
                                 }
                               },
                             ),

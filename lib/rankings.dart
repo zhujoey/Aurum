@@ -101,6 +101,7 @@ class _RankingList extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
+          .limit(100)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -168,9 +169,13 @@ class _RankingList extends StatelessWidget {
             final wins = data['wins'] ?? 0;
 
             Color? rankColor;
-            if (rank == 1) rankColor = Colors.amber;
-            else if (rank == 2) rankColor = Colors.grey.shade400;
-            else if (rank == 3) rankColor = Colors.brown.shade300;
+            if (rank == 1) {
+              rankColor = Colors.amber;
+            } else if (rank == 2) {
+              rankColor = Colors.grey.shade400;
+            } else if (rank == 3) {
+              rankColor = Colors.brown.shade300;
+            }
 
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
@@ -282,9 +287,13 @@ class _PairsRankingList extends StatelessWidget {
             final rank = item['rank'];
 
             Color? rankColor;
-            if (rank == 1) rankColor = Colors.amber;
-            else if (rank == 2) rankColor = Colors.grey.shade400;
-            else if (rank == 3) rankColor = Colors.brown.shade300;
+            if (rank == 1) {
+              rankColor = Colors.amber;
+            } else if (rank == 2) {
+              rankColor = Colors.grey.shade400;
+            } else if (rank == 3) {
+              rankColor = Colors.brown.shade300;
+            }
 
             return Card(
               margin: const EdgeInsets.only(bottom: 8),

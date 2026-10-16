@@ -58,7 +58,7 @@ class Profile extends StatelessWidget {
                   onTap: () async {
                     await authService.syncUserData(authService.currentUser);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(
                         const SnackBar(content: Text('Account data synced with cloud.')),
                       );
                     }

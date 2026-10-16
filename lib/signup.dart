@@ -2,6 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:sportspro/home.dart';
 import 'package:sportspro/auth_service.dart';
 
+void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBar.backgroundColor,
+      duration: snackBar.duration,
+      behavior: SnackBarBehavior.floating,
+      content: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => messenger.hideCurrentSnackBar(),
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: snackBar.content,
+        ),
+      ),
+    ),
+  );
+}
+
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
 
@@ -32,7 +54,7 @@ class _SignUpState extends State<SignUp> {
   void _handleSignUp() async {
     if (_formKey.currentState!.validate()) {
       if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Passwords do not match')),
         );
         return;
@@ -46,7 +68,7 @@ class _SignUpState extends State<SignUp> {
       if (isTaken) {
         setState(() => _isLoading = false);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Username is already taken. Please choose another.')),
         );
         return;
@@ -63,16 +85,20 @@ class _SignUpState extends State<SignUp> {
         await user.updateDisplayName(username);
         await _authService.syncUserData(user, username: username, isLogin: true);
         await _authService.updateUserGender(_selectedGender);
+        await _authService.sendEmailVerification();
         await user.reload();
         
         if (!mounted) return;
+        _showAppSnackBar(context, 
+          SnackBar(content: Text('Account created! Verification email sent to ${user.email}.')),
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Home()),
         );
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Sign up failed. Check your connection or email format.')),
         );
       }
@@ -94,7 +120,7 @@ class _SignUpState extends State<SignUp> {
     } else {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showAppSnackBar(context, 
         const SnackBar(content: Text('Google Sign-In failed.')),
       );
     }
@@ -167,7 +193,7 @@ class _SignUpState extends State<SignUp> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
-                  value: _selectedGender,
+                  initialValue: _selectedGender,
                   decoration: const InputDecoration(
                     labelText: 'Gender',
                     prefixIcon: Icon(Icons.wc),

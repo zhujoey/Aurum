@@ -158,7 +158,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
            // Standard reminder, though BWF doesn't have 6-point towel rule like ITTF
          }
          if (_isDecider && (p1Score == 11 || p2Score == 11)) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Decider: Switch Ends! ↔️'), backgroundColor: Colors.orange, duration: Duration(minutes: 5)));
+           ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(content: Text('Decider: Switch Ends! ↔️'), backgroundColor: Colors.orange, duration: Duration(minutes: 5)));
          }
       }
     });
@@ -256,8 +256,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     if (!widget.isHost) return;
 
     int winnerTeam = Random().nextBool() ? 1 : 2;
-    String winnerName = winnerTeam == 1 ? widget.p1Name : widget.p3Name;
-    if (widget.isDoubles) winnerName = "Team $winnerTeam";
+    String winnerName = widget.isDoubles ? "Team $winnerTeam" : (winnerTeam == 1 ? widget.p1Name : widget.p2Name);
 
     await showDialog(
       context: context,
@@ -295,8 +294,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     if (choice == 3) {
       // Defer choice to loser
       int loserTeam = 3 - winnerTeam;
-      String loserName = (loserTeam == 1) ? widget.p1Name : widget.p3Name;
-      if (widget.isDoubles) loserName = "Team $loserTeam";
+      String loserName = widget.isDoubles ? "Team $loserTeam" : (loserTeam == 1 ? widget.p1Name : widget.p2Name);
 
       int? loserChoice = await showDialog<int>(
         context: context,
@@ -529,7 +527,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           _startTimer('Interval', 60);
           if (_isDecider) {
             p1OnLeft = !p1OnLeft; 
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(const SnackBar(
               content: Text('Decider: Switch Ends! ↔️'), 
               backgroundColor: Colors.orange, 
               duration: Duration(minutes: 30)
@@ -642,7 +640,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
+    ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
   }
 
   void _startTimer(String title, int seconds) {
@@ -788,7 +786,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         const SizedBox(height: 10),
         Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
           BadmintonTeamColumn(
-            team: 1, score: p1Score, games: p1Games, names: [widget.p1Name, widget.p2Name],
+            team: 1, score: p1Score, games: p1Games, names: widget.isDoubles ? [widget.p1Name, widget.p2Name] : [widget.p1Name, ''],
             isDoubles: widget.isDoubles, isServing: res.server <= 2, serverNum: res.server, receiverNum: res.receiver,
             side: p1OnLeft ? 'HOME' : 'AWAY', isHost: widget.isHost, isTimerRunning: timerEndTime != null,
             onScore: () => _updateScore(1, 1),
@@ -800,7 +798,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             pointHistory: pointHistory, firstServer: firstServerOfGame,
           ),
           BadmintonTeamColumn(
-            team: 2, score: p2Score, games: p2Games, names: [widget.p3Name, widget.p4Name],
+            team: 2, score: p2Score, games: p2Games, names: widget.isDoubles ? [widget.p3Name, widget.p4Name] : [widget.p2Name, ''],
             isDoubles: widget.isDoubles, isServing: res.server >= 3, serverNum: res.server, receiverNum: res.receiver,
             side: p1OnLeft ? 'AWAY' : 'HOME', isHost: widget.isHost, isTimerRunning: timerEndTime != null,
             onScore: () => _updateScore(2, 1),
@@ -825,7 +823,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             await _clearPersistedMatch(); 
             if (!context.mounted) return; 
             Navigator.pop(context); 
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isBlackedMatch ? 'Match concluded and data cleared (Disqualification).' : 'Match finished and data cleared.')));
+            ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(isBlackedMatch ? 'Match concluded and data cleared (Disqualification).' : 'Match finished and data cleared.')));
           } : null,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(55), 

@@ -5,6 +5,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportspro/auth_service.dart';
 import 'package:sportspro/theme_service.dart';
 
+void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBar.backgroundColor,
+      duration: snackBar.duration,
+      behavior: SnackBarBehavior.floating,
+      content: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => messenger.hideCurrentSnackBar(),
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: snackBar.content,
+        ),
+      ),
+    ),
+  );
+}
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -33,14 +55,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateUsername() async {
     final newUsername = _usernameController.text.trim();
     if (newUsername.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showAppSnackBar(context, 
         const SnackBar(content: Text('Username cannot be empty')),
       );
       return;
     }
 
     if (newUsername == _authService.currentUser?.displayName) {
-       ScaffoldMessenger.of(context).showSnackBar(
+       _showAppSnackBar(context, 
         const SnackBar(content: Text('Username is same as current')),
       );
       return;
@@ -51,7 +73,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final isTaken = await _authService.isUsernameTaken(newUsername);
       if (isTaken) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           const SnackBar(content: Text('Username is already taken')),
         );
         return;
@@ -62,12 +84,12 @@ class _SettingsPageState extends State<SettingsPage> {
       await _authService.currentUser?.reload();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showAppSnackBar(context, 
         const SnackBar(content: Text('Username updated successfully')),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showAppSnackBar(context, 
         SnackBar(content: Text('Error updating username: $e')),
       );
     } finally {
@@ -104,6 +126,27 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 leading: const Icon(Icons.wc),
                 onTap: _showSelectGenderDialog,
+              ),
+              ListTile(
+                title: const Text('Email Verification Status'),
+                subtitle: Text(_authService.currentUser?.email ?? 'Not set'),
+                leading: const Icon(Icons.verified_user_outlined),
+                trailing: Chip(
+                  avatar: Icon(
+                    (_authService.currentUser?.emailVerified ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
+                    color: (_authService.currentUser?.emailVerified ?? false) ? Colors.green : Colors.orange,
+                    size: 16,
+                  ),
+                  label: Text(
+                    (_authService.currentUser?.emailVerified ?? false) ? 'Verified' : 'Unverified',
+                    style: TextStyle(
+                      color: (_authService.currentUser?.emailVerified ?? false) ? Colors.green : Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                onTap: _showAccountVerificationDialog,
               ),
               const Divider(),
               _buildSectionHeader('Appearance'),
@@ -299,15 +342,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() => _isLoading = true);
                 try {
                   await _authService.updateUserGender(selectedGender);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (context.mounted) {
+                    _showAppSnackBar(context, 
                       const SnackBar(content: Text('Gender updated successfully')),
                     );
                     setState(() {});
                   }
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (context.mounted) {
+                    _showAppSnackBar(context, 
                       SnackBar(content: Text('Error updating gender: $e')),
                     );
                   }
@@ -319,6 +362,72 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAccountVerificationDialog() async {
+    await _authService.reloadUser();
+    final user = _authService.currentUser;
+    final bool isVerified = user?.emailVerified ?? false;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Email Verification'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Account Email: ${user?.email ?? "Unknown"}'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  isVerified ? 'Verified ✓' : 'Unverified ⚠️',
+                  style: TextStyle(
+                    color: isVerified ? Colors.green : Colors.orange,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isVerified
+                  ? 'Your email address is verified. You have full account access.'
+                  : 'Your email address is not verified yet. Click below to send a verification link to your email.',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          if (!isVerified)
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await _authService.sendEmailVerification();
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _showAppSnackBar(context, 
+                      SnackBar(content: Text('Verification email sent to ${user?.email}! Please check your inbox.')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    _showAppSnackBar(context, 
+                      SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
+              child: const Text('Send Verification Email'),
+            ),
+        ],
       ),
     );
   }

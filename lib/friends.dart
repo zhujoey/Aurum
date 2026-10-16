@@ -3,6 +3,28 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sportspro/auth_service.dart';
 
+void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBar.backgroundColor,
+      duration: snackBar.duration,
+      behavior: SnackBarBehavior.floating,
+      content: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => messenger.hideCurrentSnackBar(),
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: snackBar.content,
+        ),
+      ),
+    ),
+  );
+}
+
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});
 
@@ -85,7 +107,7 @@ class _FriendsPageState extends State<FriendsPage> {
     try {
       await _authService.sendFriendRequest(targetUid);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           SnackBar(
             content: Text('Friend request sent to $friendName!'),
             backgroundColor: Colors.green,
@@ -94,7 +116,7 @@ class _FriendsPageState extends State<FriendsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAppSnackBar(context, 
           SnackBar(
             content: Text(e.toString()),
             backgroundColor: Colors.redAccent,
@@ -127,13 +149,13 @@ class _FriendsPageState extends State<FriendsPage> {
       try {
         await _authService.removeFriend(targetUid);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showAppSnackBar(context, 
             SnackBar(content: Text('$friendName removed from friends.')),
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _showAppSnackBar(context, 
             SnackBar(content: Text('Error: $e')),
           );
         }
