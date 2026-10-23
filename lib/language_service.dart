@@ -15,9 +15,26 @@ class LanguageService {
 
   final Map<String, Map<String, String>> _autoCache = {};
   final Set<String> _pending = {};
+  final Set<String> _encounteredStrings = {};
 
-  static const Map<String, Map<String, String>> supportedLanguages = AppTranslations.supportedLanguages;
-  static Map<String, Map<String, String>> get translations => AppTranslations.translations;
+  static const Map<String, Map<String, String>> supportedLanguages = {
+    'en': {'name': 'English', 'native': 'English', 'flag': '🇺🇸'},
+    'fr': {'name': 'French', 'native': 'Français', 'flag': '🇫🇷'},
+    'es': {'name': 'Spanish', 'native': 'Español', 'flag': '🇪🇸'},
+    'ar': {'name': 'Arabic', 'native': 'العربية', 'flag': '🇸🇦'},
+    'zh': {'name': 'Chinese (Simplified)', 'native': '简体中文', 'flag': '🇨🇳'},
+    'zh-TW': {'name': 'Chinese (Traditional)', 'native': '繁體中文', 'flag': '🇹🇼'},
+    'ru': {'name': 'Russian', 'native': 'Русский', 'flag': '🇷🇺'},
+    'id': {'name': 'Indonesian', 'native': 'Bahasa Indonesia', 'flag': '🇮🇩'},
+    'bn': {'name': 'Bengali', 'native': 'বাংলা', 'flag': '🇧🇩'},
+    'de': {'name': 'German', 'native': 'Deutsch', 'flag': '🇩🇪'},
+    'it': {'name': 'Italian', 'native': 'Italiano', 'flag': '🇮🇹'},
+    'tr': {'name': 'Turkish', 'native': 'Türkçe', 'flag': '🇹🇷'},
+    'ja': {'name': 'Japanese', 'native': '日本語', 'flag': '🇯🇵'},
+    'ko': {'name': 'Korean', 'native': '한국어', 'flag': '🇰🇷'},
+    'pt': {'name': 'Portuguese', 'native': 'Português', 'flag': '🇧🇷'},
+    'hi': {'name': 'Hindi', 'native': 'हिन्दी', 'flag': '🇮🇳'},
+  };
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -26,34 +43,52 @@ class LanguageService {
       currentLocale.value = Locale(langCode);
     }
 
-    final String? cacheJson = prefs.getString('auto_translations_cache');
-    if (cacheJson != null) {
+    // Defer heavy cache loading and network pre-warming to background after app launch
+    Future.microtask(() async {
       try {
-        final Map<String, dynamic> decoded = jsonDecode(cacheJson);
-        decoded.forEach((lang, map) {
-          if (map is Map) {
-            _autoCache[lang] = map.map((k, v) => MapEntry(k.toString(), v.toString()));
-          }
-        });
-      } catch (e) {
-        debugPrint("Error loading auto translations cache: $e");
-      }
-    }
+        final String? cacheJson = prefs.getString('auto_translations_cache');
+        if (cacheJson != null) {
+          final Map<String, dynamic> decoded = jsonDecode(cacheJson);
+          decoded.forEach((lang, map) {
+            if (map is Map) {
+              _autoCache[lang] = map.map((k, v) => MapEntry(k.toString(), v.toString()));
+            }
+          });
+        }
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-          final String? savedLang = doc.data()?['selectedLanguage'] as String?;
-          if (savedLang != null && savedLang.isNotEmpty && supportedLanguages.containsKey(savedLang)) {
-            currentLocale.value = Locale(savedLang);
-            await prefs.setString('selected_language_code', savedLang);
-          }
+        final String? encounteredJson = prefs.getString('encountered_strings');
+        if (encounteredJson != null) {
+          final List<dynamic> list = jsonDecode(encounteredJson);
+          _encounteredStrings.addAll(list.map((e) => e.toString()));
+        }
+
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          _loadCloudLanguage(user.uid);
+        }
+
+        if (currentLocale.value.languageCode != 'en') {
+          _prewarmCache(currentLocale.value.languageCode);
         }
       } catch (e) {
-        debugPrint("LanguageService init: Error loading firestore language: $e");
+        debugPrint("Error in background LanguageService init: $e");
       }
+    });
+  }
+
+  void _loadCloudLanguage(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists) {
+        final String? savedLang = doc.data()?['selectedLanguage'] as String?;
+        if (savedLang != null && savedLang.isNotEmpty && supportedLanguages.containsKey(savedLang)) {
+          currentLocale.value = Locale(savedLang);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('selected_language_code', savedLang);
+        }
+      }
+    } catch (e) {
+      debugPrint("LanguageService init: Error loading firestore language: $e");
     }
   }
 
@@ -63,6 +98,15 @@ class LanguageService {
       await prefs.setString('auto_translations_cache', jsonEncode(_autoCache));
     } catch (e) {
       debugPrint("Error saving auto translation cache: $e");
+    }
+  }
+
+  Future<void> _saveEncounteredStrings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('encountered_strings', jsonEncode(_encounteredStrings.toList()));
+    } catch (e) {
+      debugPrint("Error saving encountered strings: $e");
     }
   }
 
@@ -76,6 +120,10 @@ class LanguageService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_language_code', langCode);
+
+    if (langCode != 'en') {
+      _prewarmCache(langCode);
+    }
 
     if (updateFirestore) {
       final user = FirebaseAuth.instance.currentUser;
@@ -96,26 +144,54 @@ class LanguageService {
 
   static String tr(String text) {
     if (text.isEmpty) return text;
+
+    // Normalize abbreviations so translation APIs translate them correctly (e.g. Indiv. -> Individual)
+    String queryText = text;
+    if (queryText.contains('(Indiv.)')) {
+      queryText = queryText.replaceAll('(Indiv.)', '(Individual)');
+    } else if (queryText.contains('Indiv.')) {
+      queryText = queryText.replaceAll('Indiv.', 'Individual');
+    }
+
     final service = LanguageService();
     final langCode = service.currentLocale.value.languageCode;
     if (langCode == 'en') return text;
 
-    // 1. Check static translation dictionary
-    final langMap = translations[langCode];
-    if (langMap != null && langMap.containsKey(text)) {
-      return langMap[text]!;
+    // Automatically track encountered UI strings
+    if (!service._encounteredStrings.contains(text)) {
+      service._encounteredStrings.add(text);
+      service._saveEncounteredStrings();
     }
 
-    // 2. Check auto-translation cache
+    // 1. Check auto-translation cache (instant O(1) lookup for original and queryText)
     final autoMap = service._autoCache[langCode];
-    if (autoMap != null && autoMap.containsKey(text)) {
-      return autoMap[text]!;
+    if (autoMap != null) {
+      if (autoMap.containsKey(text)) {
+        return autoMap[text]!;
+      }
+      if (autoMap.containsKey(queryText)) {
+        return autoMap[queryText]!;
+      }
     }
 
-    // 3. Trigger background auto-translation fetch
-    service._fetchAutoTranslation(text, langCode);
+    // 2. Trigger silent background auto-translation fetch (no screen flashing)
+    service._fetchAutoTranslation(queryText, langCode);
 
+    // Return original text immediately so UI never blocks or lags
     return text;
+  }
+
+  Future<void> _prewarmCache(String targetLang) async {
+    if (_encounteredStrings.isEmpty) return;
+    final cached = _autoCache[targetLang] ?? {};
+    final untranslated = _encounteredStrings.where((s) => !cached.containsKey(s)).toList();
+    if (untranslated.isEmpty) return;
+
+    // Concurrent batch pre-fetching (5 items at a time) for blazing fast translation
+    for (int i = 0; i < untranslated.length; i += 5) {
+      final batch = untranslated.skip(i).take(5);
+      await Future.wait(batch.map((text) => _fetchAutoTranslation(text, targetLang)));
+    }
   }
 
   Future<void> _fetchAutoTranslation(String text, String targetLang) async {
@@ -124,8 +200,15 @@ class LanguageService {
     _pending.add(key);
 
     try {
+      String apiLang = targetLang;
+      if (targetLang == 'zh') {
+        apiLang = 'zh-CN';
+      } else if (targetLang == 'zh-TW') {
+        apiLang = 'zh-TW';
+      }
+
       final Uri uri = Uri.parse(
-        'https://api.mymemory.translated.net/get?q=${Uri.encodeComponent(text)}&langpair=en|$targetLang',
+        'https://api.mymemory.translated.net/get?q=${Uri.encodeComponent(text)}&langpair=en|$apiLang',
       );
       final client = HttpClient();
       final request = await client.getUrl(uri);
@@ -139,7 +222,6 @@ class LanguageService {
         if (translated != null && translated.isNotEmpty && translated.toLowerCase() != text.toLowerCase()) {
           _autoCache.putIfAbsent(targetLang, () => {})[text] = translated;
           await _saveAutoCache();
-          appLanguageVersion.value++;
         }
       }
     } catch (e) {
@@ -152,789 +234,4 @@ class LanguageService {
 
 extension StringTranslationExtension on String {
   String get tr => LanguageService.tr(this);
-}
-
-class AppTranslations {
-  static const Map<String, Map<String, String>> supportedLanguages = {
-    'en': {'name': 'English', 'native': 'English', 'flag': '🇺🇸'},
-    'fr': {'name': 'French', 'native': 'Français', 'flag': '🇫🇷'},
-    'es': {'name': 'Spanish', 'native': 'Español', 'flag': '🇪🇸'},
-    'ar': {'name': 'Arabic', 'native': 'العربية', 'flag': '🇸🇦'},
-    'zh': {'name': 'Chinese', 'native': '简体中文', 'flag': '🇨🇳'},
-    'ru': {'name': 'Russian', 'native': 'Русский', 'flag': '🇷🇺'},
-    'id': {'name': 'Indonesian', 'native': 'Bahasa Indonesia', 'flag': '🇮🇩'},
-    'bn': {'name': 'Bengali', 'native': 'বাংলা', 'flag': '🇧🇩'},
-    'de': {'name': 'German', 'native': 'Deutsch', 'flag': '🇩🇪'},
-    'it': {'name': 'Italian', 'native': 'Italiano', 'flag': '🇮🇹'},
-    'tr': {'name': 'Turkish', 'native': 'Türkçe', 'flag': '🇹🇷'},
-    'ja': {'name': 'Japanese', 'native': '日本語', 'flag': '🇯🇵'},
-    'ko': {'name': 'Korean', 'native': '한국어', 'flag': '🇰🇷'},
-    'pt': {'name': 'Portuguese', 'native': 'Português', 'flag': '🇧🇷'},
-    'hi': {'name': 'Hindi', 'native': 'हिन्दी', 'flag': '🇮🇳'},
-  };
-
-  static const Map<String, Map<String, String>> translations = {
-    'fr': {
-      'Welcome': 'Bienvenue',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Paramètres',
-      'Profile': 'Profil',
-      'Profile Picture Customization': 'Personnalisation de la photo de profil',
-      'Upload From Device:': 'Télécharger depuis l\'appareil :',
-      'Gallery': 'Galerie',
-      'Camera': 'Appareil photo',
-      'Preset Sports Avatars:': 'Avatars de sport prédéfinis :',
-      'Or Enter Image URL:': 'Ou entrez l\'URL de l\'image :',
-      'Image URL': 'URL de l\'image',
-      'Profile picture updated!': 'Photo de profil mise à jour !',
-      'Rankings': 'Classements',
-      'Club Rankings': 'Classements de Club',
-      'Clubs': 'Clubs',
-      'My Clubs': 'Mes Clubs',
-      'Establish Your Club': 'Créer Votre Club',
-      'Create': 'Créer',
-      'Owner': 'Propriétaire',
-      'Member': 'Membre',
-      'Tournament Details': 'Détails du Tournoi',
-      'Tournament Category': 'Catégorie de Tournoi',
-      'Individual': 'Individuel',
-      'Individual Tournament': 'Tournoi Individuel',
-      'Team Tournament': 'Tournoi par Équipe',
-      'Points Expiration / Validity': 'Expiration / Validité des Points',
-      '1 Year (Default - ITTF Standard)': '1 An (Par défaut - Norme ITTF)',
-      '6 Months': '6 Mois',
-      '2 Years': '2 Ans',
-      'Never Expire': 'N\'expire Jamais',
-      'Points': 'Points',
-      'Quick Match': 'Match Rapide',
-      'Tournament': 'Tournoi',
-      'Tournaments': 'Tournois',
-      'Friends': 'Amis',
-      'Account': 'Compte',
-      'Gender': 'Genre',
-      'Male': 'Homme',
-      'Female': 'Femme',
-      'Wins': 'Victoires',
-      'pts': 'pts',
-      'Tournament Points': 'Points de Tournoi',
-      'Elo Rating System': 'Système de Classement Elo',
-      'Glicko Rating System': 'Système de Classement Glicko',
-      'Glicko-2 Rating System': 'Système de Classement Glicko-2',
-      'Appearance': 'Apparence',
-      'Light Mode': 'Mode Clair',
-      'Dark Mode': 'Mode Sombre',
-      'System Default': 'Défaut Système',
-      'AMOLED Mode (Pure Black)': 'Mode AMOLED (Noir Pur)',
-      'Accent Color': 'Couleur d\'Accent',
-      'Language': 'Langue',
-      'Select Language': 'Sélectionner la Langue',
-      'Table Tennis': 'Tennis de Table',
-      'Tennis': 'Tennis',
-      'Badminton': 'Badminton',
-      'Cancel': 'Annuler',
-      'Save': 'Enregistrer',
-      'Close': 'Fermer',
-      'Logout': 'Déconnexion',
-    },
-    'es': {
-      'Welcome': 'Bienvenido',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Ajustes',
-      'Profile': 'Perfil',
-      'Profile Picture Customization': 'Personalización de foto de perfil',
-      'Upload From Device:': 'Subir desde el dispositivo:',
-      'Gallery': 'Galería',
-      'Camera': 'Cámara',
-      'Preset Sports Avatars:': 'Avatares de deportes predefinidos:',
-      'Or Enter Image URL:': 'O ingrese la URL de la imagen:',
-      'Image URL': 'URL de la imagen',
-      'Profile picture updated!': '¡Foto de perfil actualizada!',
-      'Rankings': 'Clasificación',
-      'Club Rankings': 'Clasificación del Club',
-      'Clubs': 'Clubes',
-      'My Clubs': 'Mis Clubes',
-      'Create': 'Crear',
-      'Owner': 'Propietario',
-      'Member': 'Miembro',
-      'Tournament Details': 'Detalles del Torneo',
-      'Tournament Category': 'Categoría del Torneo',
-      'Individual': 'Individual',
-      'Individual Tournament': 'Torneo Individual',
-      'Team Tournament': 'Torneo por Equipos',
-      'Points Expiration / Validity': 'Caducidad / Validez de Puntos',
-      '1 Year (Default - ITTF Standard)': '1 Año (Por defecto - Estándar ITTF)',
-      '6 Months': '6 Meses',
-      '2 Years': '2 Años',
-      'Never Expire': 'Nunca Caduca',
-      'Points': 'Puntos',
-      'Quick Match': 'Partido Rápido',
-      'Tournament': 'Torneo',
-      'Tournaments': 'Torneos',
-      'Friends': 'Amigos',
-      'Account': 'Cuenta',
-      'Gender': 'Género',
-      'Male': 'Masculino',
-      'Female': 'Femenino',
-      'Wins': 'Victorias',
-      'pts': 'pts',
-      'Tournament Points': 'Puntos de Torneo',
-      'Elo Rating System': 'Sistema de Clasificación Elo',
-      'Glicko Rating System': 'Sistema de Clasificación Glicko',
-      'Glicko-2 Rating System': 'Sistema de Clasificación Glicko-2',
-      'Appearance': 'Apariencia',
-      'Light Mode': 'Modo Claro',
-      'Dark Mode': 'Modo Oscuro',
-      'Language': 'Idioma',
-      'Table Tennis': 'Tenis de Mesa',
-      'Tennis': 'Tenis',
-      'Badminton': 'Bádminton',
-      'Cancel': 'Cancelar',
-      'Save': 'Guardar',
-      'Close': 'Cerrar',
-      'Logout': 'Cerrar Sesión',
-    },
-    'ar': {
-      'Welcome': 'أهلاً بك',
-      'Sports Pro': 'Aurum',
-      'Settings': 'الإعدادات',
-      'Profile': 'الملف الشخصي',
-      'Profile Picture Customization': 'تخصيص صورة الملف الشخصي',
-      'Upload From Device:': 'تحميل من الجهاز:',
-      'Gallery': 'المعرض',
-      'Camera': 'الكاميرا',
-      'Preset Sports Avatars:': 'صور رياضية جاهزة:',
-      'Or Enter Image URL:': 'أو أدخل رابط الصورة:',
-      'Image URL': 'رابط الصورة',
-      'Profile picture updated!': 'تم تحديث صورة الملف الشخصي!',
-      'Rankings': 'الترتيب',
-      'Clubs': 'الأندية',
-      'My Clubs': 'أنديتي',
-      'Create': 'إنشاء',
-      'Owner': 'المالك',
-      'Member': 'عضو',
-      'Tournament Details': 'تفاصيل البطولة',
-      'Tournament Category': 'فئة البطولة',
-      'Individual': 'فردي',
-      'Individual Tournament': 'بطولة فردية',
-      'Team Tournament': 'بطولة فرق',
-      'Points Expiration / Validity': 'انتهاء صلاحية النقاط',
-      '1 Year (Default - ITTF Standard)': 'سنة واحدة (الافتراضي - معيار ITTF)',
-      '6 Months': '6 أشهر',
-      '2 Years': 'سنتان',
-      'Never Expire': 'لا تنتهي أبداً',
-      'Points': 'نقاط',
-      'Quick Match': 'مباراة سريعة',
-      'Tournament': 'بطولة',
-      'Tournaments': 'البطولات',
-      'Friends': 'الأصدقاء',
-      'Account': 'الحساب',
-      'Gender': 'الجنس',
-      'Male': 'ذَكَر',
-      'Female': 'أنثى',
-      'Wins': 'انتصارات',
-      'pts': 'نقاط',
-      'Tournament Points': 'نقاط البطولة',
-      'Elo Rating System': 'نظام تقييم إيلو',
-      'Glicko Rating System': 'نظام تقييم جليكو',
-      'Glicko-2 Rating System': 'نظام تقييم جليكو-2',
-      'Appearance': 'المظهر',
-      'Language': 'اللغة',
-      'Table Tennis': 'كرة الطاولة',
-      'Tennis': 'التنس',
-      'Badminton': 'كرة الريشة',
-      'Cancel': 'إلغاء',
-      'Save': 'حفظ',
-      'Close': 'إغلاق',
-      'Logout': 'تسجيل الخروج',
-    },
-    'zh': {
-      'Welcome': '欢迎',
-      'Sports Pro': 'Aurum',
-      'Settings': '设置',
-      'Profile': '个人资料',
-      'Profile Picture Customization': '自定义头像',
-      'Upload From Device:': '从设备上传：',
-      'Gallery': '相册',
-      'Camera': '相机',
-      'Preset Sports Avatars:': '预设运动头像：',
-      'Or Enter Image URL:': '或输入图片链接：',
-      'Image URL': '图片 URL',
-      'Profile picture updated!': '头像已更新！',
-      'Rankings': '排行榜',
-      'Club Rankings': '俱乐部排名',
-      'Clubs': '俱乐部',
-      'My Clubs': '我的俱乐部',
-      'Establish Your Club': '创建您的俱乐部',
-      'Create': '创建',
-      'Owner': '群主',
-      'Member': '成员',
-      'Tournament Details': '赛事详情',
-      'Tournament Category': '赛事类别',
-      'Individual': '个人赛',
-      'Individual Tournament': '个人赛事 (单打/双打)',
-      'Team Tournament': '团体赛事',
-      'Points Expiration / Validity': '积分有效期 / 过期时间',
-      '1 Year (Default - ITTF Standard)': '1年 (默认 - ITTF 标准)',
-      '6 Months': '6个月',
-      '2 Years': '2年',
-      'Never Expire': '永久有效 (不过期)',
-      'Points': '积分',
-      'Quick Match': '快速比赛',
-      'Tournament': '锦标赛',
-      'Tournaments': '赛事锦标赛',
-      'Friends': '好友',
-      'Account': '账户',
-      'Gender': '性别',
-      'Male': '男',
-      'Female': '女',
-      'Wins': '胜场',
-      'pts': '分',
-      'Tournament Points': '赛事积分',
-      'Elo Rating System': 'Elo 等级分系统',
-      'Glicko Rating System': 'Glicko 等级分系统',
-      'Glicko-2 Rating System': 'Glicko-2 等级分系统',
-      'Appearance': '外观',
-      'Language': '语言',
-      'Table Tennis': '乒乓球',
-      'Tennis': '网球',
-      'Badminton': '羽毛球',
-      'Cancel': '取消',
-      'Save': '保存',
-      'Close': '关闭',
-      'Logout': '退出登录',
-    },
-    'ru': {
-      'Welcome': 'Добро пожаловать',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Настройки',
-      'Profile': 'Профиль',
-      'Profile Picture Customization': 'Настройка аватарки',
-      'Upload From Device:': 'Загрузить с устройства:',
-      'Gallery': 'Галерея',
-      'Camera': 'Камера',
-      'Preset Sports Avatars:': 'Спортивные аватарки:',
-      'Or Enter Image URL:': 'Или введите URL:',
-      'Image URL': 'URL картинки',
-      'Profile picture updated!': 'Аватарка обновлена!',
-      'Rankings': 'Рейтинги',
-      'Clubs': 'Клубы',
-      'My Clubs': 'Мои клубы',
-      'Create': 'Создать',
-      'Owner': 'Владелец',
-      'Member': 'Участник',
-      'Tournament Details': 'Детали Турнира',
-      'Tournament Category': 'Категория Турнира',
-      'Individual': 'Личный',
-      'Individual Tournament': 'Личный Турнир',
-      'Team Tournament': 'Командный Турнир',
-      'Points Expiration / Validity': 'Срок Действия Очков',
-      '1 Year (Default - ITTF Standard)': '1 Год (По умолчанию - Стандарт ITTF)',
-      '6 Months': '6 Месяцев',
-      '2 Years': '2 Года',
-      'Never Expire': 'Бессрочно',
-      'Points': 'Очков',
-      'Quick Match': 'Быстрый матч',
-      'Tournament': 'Турнир',
-      'Tournaments': 'Турниры',
-      'Friends': 'Друзья',
-      'Account': 'Аккаунт',
-      'Gender': 'Пол',
-      'Male': 'Мужской',
-      'Female': 'Женский',
-      'Wins': 'Победы',
-      'pts': 'очков',
-      'Tournament Points': 'Очки турниров',
-      'Elo Rating System': 'Рейтинг Эло',
-      'Glicko Rating System': 'Рейтинг Глико',
-      'Glicko-2 Rating System': 'Рейтинг Глико-2',
-      'Appearance': 'Внешний вид',
-      'Language': 'Язык',
-      'Table Tennis': 'Настольный теннис',
-      'Tennis': 'Теннис',
-      'Badminton': 'Бадминтон',
-      'Cancel': 'Отмена',
-      'Save': 'Сохранить',
-      'Close': 'Закрыть',
-      'Logout': 'Выйти',
-    },
-    'id': {
-      'Welcome': 'Selamat Datang',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Pengaturan',
-      'Profile': 'Profil',
-      'Profile Picture Customization': 'Kustomisasi Foto Profil',
-      'Upload From Device:': 'Unggah dari Perangkat:',
-      'Gallery': 'Galeri',
-      'Camera': 'Kamera',
-      'Preset Sports Avatars:': 'Avatar Olahraga:',
-      'Or Enter Image URL:': 'Atau Masukkan URL Gambar:',
-      'Image URL': 'URL Gambar',
-      'Profile picture updated!': 'Foto profil diperbarui!',
-      'Rankings': 'Peringkat',
-      'Clubs': 'Klub',
-      'My Clubs': 'Klub Saya',
-      'Create': 'Buat',
-      'Owner': 'Pemilik',
-      'Member': 'Anggota',
-      'Tournament Details': 'Detail Turnamen',
-      'Tournament Category': 'Kategori Turnamen',
-      'Individual': 'Individu',
-      'Individual Tournament': 'Turnamen Individu',
-      'Team Tournament': 'Turnamen Tim',
-      'Points Expiration / Validity': 'Masa Berlaku Poin',
-      '1 Year (Default - ITTF Standard)': '1 Tahun (Default - Standar ITTF)',
-      '6 Months': '6 Bulan',
-      '2 Years': '2 Tahun',
-      'Never Expire': 'Tidak Pernah Kadaluarsa',
-      'Points': 'Poin',
-      'Quick Match': 'Pertandingan Cepat',
-      'Tournament': 'Turnamen',
-      'Tournaments': 'Turnamen',
-      'Friends': 'Teman',
-      'Account': 'Akun',
-      'Gender': 'Jenis Kelamin',
-      'Male': 'Pria',
-      'Female': 'Wanita',
-      'Wins': 'Kemenangan',
-      'pts': 'poin',
-      'Tournament Points': 'Poin Turnamen',
-      'Elo Rating System': 'Sistem Peringkat Elo',
-      'Glicko Rating System': 'Sistem Peringkat Glicko',
-      'Glicko-2 Rating System': 'Sistem Peringkat Glicko-2',
-      'Appearance': 'Tampilan',
-      'Language': 'Bahasa',
-      'Table Tennis': 'Tenis Meja',
-      'Tennis': 'Tenis',
-      'Badminton': 'Bulutangkis',
-      'Cancel': 'Batal',
-      'Save': 'Simpan',
-      'Close': 'Tutup',
-      'Logout': 'Keluar',
-    },
-    'bn': {
-      'Welcome': 'স্বাগতম',
-      'Sports Pro': 'Aurum',
-      'Settings': 'সেটিংস',
-      'Profile': 'প্রোফাইল',
-      'Profile Picture Customization': 'প্রোফাইল ছবি কাস্টমাইজেশন',
-      'Upload From Device:': 'ডিভাইস থেকে আপলোড করুন:',
-      'Gallery': 'গ্যালারি',
-      'Camera': 'ক্যামেরা',
-      'Preset Sports Avatars:': 'স্পোর্টস অবতার:',
-      'Or Enter Image URL:': 'অথবা ইমেজ URL লিখুন:',
-      'Image URL': 'ইমেজ URL',
-      'Profile picture updated!': 'প্রোফাইল ছবি আপডেট করা হয়েছে!',
-      'Rankings': 'র‍্যাঙ্কিং',
-      'Clubs': 'ক্লাব',
-      'My Clubs': 'আমার ক্লাব',
-      'Create': 'তৈরি করুন',
-      'Owner': 'মালিক',
-      'Member': 'সদস্য',
-      'Tournament Details': 'টুর্নামেন্টের বিস্তারিত',
-      'Tournament Category': 'টুর্নামেন্ট বিভাগ',
-      'Individual': 'ব্যক্তিগত',
-      'Individual Tournament': 'ব্যক্তিগত টুর্নামেন্ট',
-      'Team Tournament': 'দলগত টুর্নামেন্ট',
-      'Points Expiration / Validity': 'পয়েন্টের মেয়াদ',
-      '1 Year (Default - ITTF Standard)': '১ বছর (ডিফল্ট - ITTF মান)',
-      '6 Months': '৬ মাস',
-      '2 Years': '২ বছর',
-      'Never Expire': 'কখনও মেয়াদ্দোত্তীর্ণ হবে না',
-      'Points': 'পয়েন্ট',
-      'Quick Match': 'দ্রুত ম্যাচ',
-      'Tournament': 'টুর্নামেন্ট',
-      'Friends': 'বন্ধুগণ',
-      'Account': 'অ্যাকাউন্ট',
-      'Gender': 'লিঙ্গ',
-      'Male': 'পুরুষ',
-      'Female': 'মহিলা',
-      'Wins': 'জয়',
-      'pts': 'পয়েন্ট',
-      'Tournament Points': 'টুর্নামেন্ট পয়েন্ট',
-      'Elo Rating System': 'ইলো রেটিং সিস্টেম',
-      'Glicko Rating System': 'গ্লিকোর রেটিং সিস্টেম',
-      'Glicko-2 Rating System': 'গ্লিকোর-২ রেটিং সিস্টেম',
-      'Appearance': 'চেহারা',
-      'Language': 'ভাষা',
-      'Table Tennis': 'টেবিল টেনিস',
-      'Tennis': 'টেনিস',
-      'Badminton': 'ব্যাডমিন্টন',
-      'Cancel': 'বাতিল',
-      'Save': 'সংরক্ষণ করুন',
-      'Close': 'বন্ধ করুন',
-      'Logout': 'লগ আউট',
-    },
-    'de': {
-      'Welcome': 'Willkommen',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Einstellungen',
-      'Profile': 'Profil',
-      'Profile Picture Customization': 'Profilbild anpassen',
-      'Upload From Device:': 'Vom Gerät hochladen:',
-      'Gallery': 'Galerie',
-      'Camera': 'Kamera',
-      'Preset Sports Avatars:': 'Sport-Avatare:',
-      'Or Enter Image URL:': 'Oder Bild-URL eingeben:',
-      'Image URL': 'Bild-URL',
-      'Profile picture updated!': 'Profilbild aktualisiert!',
-      'Rankings': 'Ranglisten',
-      'Clubs': 'Clubs',
-      'My Clubs': 'Meine Clubs',
-      'Create': 'Erstellen',
-      'Owner': 'Inhaber',
-      'Member': 'Mitglied',
-      'Tournament Details': 'Turnierdetails',
-      'Tournament Category': 'Turnierkategorie',
-      'Individual': 'Einzel/Doppel',
-      'Individual Tournament': 'Einzelturnier',
-      'Team Tournament': 'Mannschaftsturnier',
-      'Points Expiration / Validity': 'Punkte-Gültigkeit',
-      '1 Year (Default - ITTF Standard)': '1 Jahr (Standard - ITTF-Norm)',
-      '6 Months': '6 Monate',
-      '2 Years': '2 Jahre',
-      'Never Expire': 'Niemals ablaufen',
-      'Points': 'Punkte',
-      'Quick Match': 'Schnellspiel',
-      'Tournament': 'Turnier',
-      'Friends': 'Freunde',
-      'Account': 'Konto',
-      'Gender': 'Geschlecht',
-      'Male': 'Männlich',
-      'Female': 'Weiblich',
-      'Wins': 'Siege',
-      'pts': 'Pkt.',
-      'Tournament Points': 'Turnierpunkte',
-      'Elo Rating System': 'Elo-Wertungssystem',
-      'Glicko Rating System': 'Glicko-Wertungssystem',
-      'Glicko-2 Rating System': 'Glicko-2-Wertungssystem',
-      'Appearance': 'Erscheinungsbild',
-      'Language': 'Sprache',
-      'Table Tennis': 'Tischtennis',
-      'Tennis': 'Tennis',
-      'Badminton': 'Badminton',
-      'Cancel': 'Abbrechen',
-      'Save': 'Speichern',
-      'Close': 'Schließen',
-      'Logout': 'Abmelden',
-    },
-    'it': {
-      'Welcome': 'Benvenuto',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Impostazioni',
-      'Profile': 'Profilo',
-      'Profile Picture Customization': 'Personalizza Foto Profilo',
-      'Upload From Device:': 'Carica dal dispositivo:',
-      'Gallery': 'Galleria',
-      'Camera': 'Fotocamera',
-      'Preset Sports Avatars:': 'Avatar sportivi predefiniti:',
-      'Or Enter Image URL:': 'O inserisci URL immagine:',
-      'Image URL': 'URL Immagine',
-      'Profile picture updated!': 'Foto profilo aggiornata!',
-      'Rankings': 'Classifiche',
-      'Clubs': 'Club',
-      'My Clubs': 'I Miei Club',
-      'Create': 'Crea',
-      'Owner': 'Proprietario',
-      'Member': 'Membro',
-      'Tournament Details': 'Dettagli Torneo',
-      'Tournament Category': 'Categoria Torneo',
-      'Individual': 'Individuale',
-      'Individual Tournament': 'Torneo Individuale',
-      'Team Tournament': 'Torneo a Squadre',
-      'Points Expiration / Validity': 'Scadenza / Validità Punti',
-      '1 Year (Default - ITTF Standard)': '1 Anno (Predefinito - Standard ITTF)',
-      '6 Months': '6 Mesi',
-      '2 Years': '2 Anni',
-      'Never Expire': 'Mai Scaduto',
-      'Points': 'Punti',
-      'Quick Match': 'Partita Rapida',
-      'Tournament': 'Torneo',
-      'Tournaments': 'Tornei',
-      'Friends': 'Amici',
-      'Account': 'Account',
-      'Gender': 'Genere',
-      'Male': 'Maschio',
-      'Female': 'Femmina',
-      'Wins': 'Vittorie',
-      'pts': 'punti',
-      'Tournament Points': 'Punti Torneo',
-      'Elo Rating System': 'Sistema di Classifica Elo',
-      'Glicko Rating System': 'Sistema di Classifica Glicko',
-      'Glicko-2 Rating System': 'Sistema di Classifica Glicko-2',
-      'Appearance': 'Aspetto',
-      'Language': 'Lingua',
-      'Table Tennis': 'Tennistavolo',
-      'Tennis': 'Tennis',
-      'Badminton': 'Badminton',
-      'Cancel': 'Annulla',
-      'Save': 'Salva',
-      'Close': 'Chiudi',
-      'Logout': 'Disconnetti',
-    },
-    'tr': {
-      'Welcome': 'Hoş Geldiniz',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Ayarlar',
-      'Profile': 'Profil',
-      'Profile Picture Customization': 'Profil Resmi Özelleştirme',
-      'Upload From Device:': 'Cihazdan Yükle:',
-      'Gallery': 'Galeri',
-      'Camera': 'Kamera',
-      'Preset Sports Avatars:': 'Spor Avatarları:',
-      'Or Enter Image URL:': 'Veya Resim Bağlantısı Girin:',
-      'Image URL': 'Resim Bağlantısı',
-      'Profile picture updated!': 'Profil resmi güncellendi!',
-      'Rankings': 'Sıralamalar',
-      'Clubs': 'Kulüpler',
-      'My Clubs': 'Kulüplerim',
-      'Create': 'Oluştur',
-      'Owner': 'Sahibi',
-      'Member': 'Üye',
-      'Tournament Details': 'Turnuva Detayları',
-      'Tournament Category': 'Turnuva Kategorisi',
-      'Individual': 'Bireysel',
-      'Individual Tournament': 'Bireysel Turnuva',
-      'Team Tournament': 'Takım Turnuvası',
-      'Points Expiration / Validity': 'Puan Geçerlilik Süresi',
-      '1 Year (Default - ITTF Standard)': '1 Yıl (Varsayılan - ITTF Standardı)',
-      '6 Months': '6 Ay',
-      '2 Years': '2 Yıl',
-      'Never Expire': 'Süresiz',
-      'Points': 'Puan',
-      'Quick Match': 'Hızlı Maç',
-      'Tournament': 'Turnuva',
-      'Friends': 'Arkadaşlar',
-      'Account': 'Hesap',
-      'Gender': 'Cinsiyet',
-      'Male': 'Erkek',
-      'Female': 'Kadın',
-      'Wins': 'Galibiyet',
-      'pts': 'puan',
-      'Tournament Points': 'Turnuva Puanları',
-      'Elo Rating System': 'Elo Derecelendirme Sistemi',
-      'Glicko Rating System': 'Glicko Derecelendirme Sistemi',
-      'Glicko-2 Rating System': 'Glicko-2 Derecelendirme Sistemi',
-      'Appearance': 'Görünüm',
-      'Language': 'Dil',
-      'Table Tennis': 'Masa Tenisi',
-      'Tennis': 'Tenis',
-      'Badminton': 'Badminton',
-      'Cancel': 'İptal',
-      'Save': 'Kaydet',
-      'Close': 'Kapat',
-      'Logout': 'Çıkış Yap',
-    },
-    'ja': {
-      'Welcome': 'ようこそ',
-      'Sports Pro': 'Aurum',
-      'Settings': '設定',
-      'Profile': 'プロフィール',
-      'Profile Picture Customization': 'プロフィール画像カスタマイズ',
-      'Upload From Device:': '端末からアップロード:',
-      'Gallery': 'ギャラリー',
-      'Camera': 'カメラ',
-      'Preset Sports Avatars:': 'スポーツアバター:',
-      'Or Enter Image URL:': 'または画像URLを入力:',
-      'Image URL': '画像URL',
-      'Profile picture updated!': 'プロフィール画像を更新しました！',
-      'Rankings': 'ランキング',
-      'Clubs': 'クラブ',
-      'My Clubs': 'マイクラブ',
-      'Create': '作成',
-      'Owner': 'オーナー',
-      'Member': 'メンバー',
-      'Tournament Details': '大会詳細',
-      'Tournament Category': '大会カテゴリー',
-      'Individual': '個人戦',
-      'Individual Tournament': '個人戦 (シングルス・ダブルス)',
-      'Team Tournament': '団体戦',
-      'Points Expiration / Validity': 'ポイント有効期限',
-      '1 Year (Default - ITTF Standard)': '1年間 (デフォルト - ITTF標準)',
-      '6 Months': '6ヶ月',
-      '2 Years': '2年間',
-      'Never Expire': '無期限',
-      'Points': 'ポイント',
-      'Quick Match': 'クイックマッチ',
-      'Tournament': 'トーナメント',
-      'Friends': 'フレンド',
-      'Account': 'アカウント',
-      'Gender': '性別',
-      'Male': '男性',
-      'Female': '女性',
-      'Wins': '勝利数',
-      'pts': 'pt',
-      'Tournament Points': '大会ポイント',
-      'Elo Rating System': 'イロ・レーティング',
-      'Glicko Rating System': 'グリコ・レーティング',
-      'Glicko-2 Rating System': 'グリコ-2・レーティング',
-      'Appearance': '外観',
-      'Language': '言語',
-      'Table Tennis': '卓球',
-      'Tennis': 'テニス',
-      'Badminton': 'バドミントン',
-      'Cancel': 'キャンセル',
-      'Save': '保存',
-      'Close': '閉じる',
-      'Logout': 'ログアウト',
-    },
-    'ko': {
-      'Welcome': '환영합니다',
-      'Sports Pro': 'Aurum',
-      'Settings': '설정',
-      'Profile': '프로필',
-      'Profile Picture Customization': '프로필 사진 맞춤 설정',
-      'Upload From Device:': '기기에서 업로드:',
-      'Gallery': '갤러리',
-      'Camera': '카메라',
-      'Preset Sports Avatars:': '스포츠 아바타:',
-      'Or Enter Image URL:': '또는 이미지 URL 입력:',
-      'Image URL': '이미지 URL',
-      'Profile picture updated!': '프로필 사진이 업데이트되었습니다!',
-      'Rankings': '순위',
-      'Clubs': '클럽',
-      'My Clubs': '내 클럽',
-      'Create': '생성',
-      'Owner': '소유자',
-      'Member': '회원',
-      'Tournament Details': '토너먼트 상세 정보',
-      'Tournament Category': '대회 카테고리',
-      'Individual': '개인전',
-      'Individual Tournament': '개인전 (단식/복식)',
-      'Team Tournament': '단체전',
-      'Points Expiration / Validity': '포인트 유효 기간',
-      '1 Year (Default - ITTF Standard)': '1년 (기본값 - ITTF 표준)',
-      '6 Months': '6개월',
-      '2 Years': '2년',
-      'Never Expire': '만료 없음',
-      'Points': '포인트',
-      'Quick Match': '퀵 매치',
-      'Tournament': '토너먼트',
-      'Friends': '친구',
-      'Account': '계정',
-      'Gender': '성별',
-      'Male': '남성',
-      'Female': '여성',
-      'Wins': '승리',
-      'pts': '점',
-      'Tournament Points': '토너먼트 포인트',
-      'Elo Rating System': 'Elo 레이팅 시스템',
-      'Glicko Rating System': 'Glicko 레이팅 시스템',
-      'Glicko-2 Rating System': 'Glicko-2 레이팅 시스템',
-      'Appearance': '화면 설정',
-      'Language': '언어',
-      'Table Tennis': '탁구',
-      'Tennis': '테니스',
-      'Badminton': '배드민턴',
-      'Cancel': '취소',
-      'Save': '저장',
-      'Close': '닫기',
-      'Logout': '로그아웃',
-    },
-    'pt': {
-      'Welcome': 'Bem-vindo',
-      'Sports Pro': 'Aurum',
-      'Settings': 'Configurações',
-      'Profile': 'Perfil',
-      'Profile Picture Customization': 'Personalização da foto de perfil',
-      'Upload From Device:': 'Enviar do dispositivo:',
-      'Gallery': 'Galeria',
-      'Camera': 'Câmera',
-      'Preset Sports Avatars:': 'Avatares de esportes:',
-      'Or Enter Image URL:': 'Ou insira a URL da imagem:',
-      'Image URL': 'URL da imagem',
-      'Profile picture updated!': 'Foto de perfil atualizada!',
-      'Rankings': 'Classificação',
-      'Clubs': 'Clubes',
-      'My Clubs': 'Meus Clubes',
-      'Create': 'Criar',
-      'Owner': 'Proprietário',
-      'Member': 'Membro',
-      'Tournament Details': 'Detalhes do Torneio',
-      'Tournament Category': 'Categoria do Torneio',
-      'Individual': 'Individual',
-      'Individual Tournament': 'Torneio Individual',
-      'Team Tournament': 'Torneio por Equipes',
-      'Points Expiration / Validity': 'Validade dos Pontos',
-      '1 Year (Default - ITTF Standard)': '1 Ano (Padrão - ITTF)',
-      '6 Months': '6 Meses',
-      '2 Years': '2 Anos',
-      'Never Expire': 'Nunca Expira',
-      'Points': 'Pontos',
-      'Quick Match': 'Partida Rápida',
-      'Tournament': 'Torneio',
-      'Friends': 'Amigos',
-      'Account': 'Conta',
-      'Gender': 'Gênero',
-      'Male': 'Masculino',
-      'Female': 'Femenino',
-      'Wins': 'Vitórias',
-      'pts': 'pts',
-      'Tournament Points': 'Pontos de Torneio',
-      'Elo Rating System': 'Sistema de Classificação Elo',
-      'Glicko Rating System': 'Sistema de Classificação Glicko',
-      'Glicko-2 Rating System': 'Sistema de Classificação Glicko-2',
-      'Appearance': 'Aparência',
-      'Language': 'Idioma',
-      'Table Tennis': 'Tênis de Mesa',
-      'Tennis': 'Tênis',
-      'Badminton': 'Badminton',
-      'Cancel': 'Cancelar',
-      'Save': 'Salvar',
-      'Close': 'Fechar',
-      'Logout': 'Sair',
-    },
-    'hi': {
-      'Welcome': 'स्वागत है',
-      'Sports Pro': 'Aurum',
-      'Settings': 'सेटिंग्स',
-      'Profile': 'प्रोफ़ाइल',
-      'Profile Picture Customization': 'प्रोफ़ाइल फ़ोटो कस्टमाइज़ेशन',
-      'Upload From Device:': 'डिवाइस से अपलोड करें:',
-      'Gallery': 'गैलरी',
-      'Camera': 'कैमरा',
-      'Preset Sports Avatars:': 'स्पोर्ट्स अवतार:',
-      'Or Enter Image URL:': 'या छवि URL दर्ज करें:',
-      'Image URL': 'छवि URL',
-      'Profile picture updated!': 'प्रोफ़ाइल फ़ोटो अपडेट हो गई!',
-      'Rankings': 'रैंकिंग',
-      'Clubs': 'क्लब',
-      'My Clubs': 'मेरे क्लब',
-      'Create': 'बनाएं',
-      'Owner': 'मालिक',
-      'Member': 'सदस्य',
-      'Tournament Details': 'टूर्नामेंट का विवरण',
-      'Tournament Category': 'टूर्नामेंट श्रेणी',
-      'Individual': 'व्यक्तिगत',
-      'Individual Tournament': 'व्यक्तिगत टूर्नामेंट',
-      'Team Tournament': 'टीम टूर्नामेंट',
-      'Points Expiration / Validity': 'अंकों की वैधता',
-      '1 Year (Default - ITTF Standard)': '1 वर्ष (डिफ़ॉल्ट - ITTF मानक)',
-      '6 Months': '6 महीने',
-      '2 Years': '2 वर्ष',
-      'Never Expire': 'कभी समाप्त नहीं',
-      'Points': 'अंक',
-      'Quick Match': 'क्विक मैच',
-      'Tournament': 'टूर्नामेंट',
-      'Friends': 'मित्र',
-      'Account': 'खाता',
-      'Gender': 'लिंग',
-      'Male': 'पुरुष',
-      'Female': 'महिला',
-      'Wins': 'जीत',
-      'pts': 'अंक',
-      'Tournament Points': 'टूर्नामेंट अंक',
-      'Elo Rating System': 'एलो रेटिंग प्रणाली',
-      'Glicko Rating System': 'ग्लीко रेटिंग प्रणाली',
-      'Glicko-2 Rating System': 'ग्लीко-2 रेटिंग प्रणाली',
-      'Appearance': 'रुप-रंग',
-      'Language': 'भाषा',
-      'Table Tennis': 'टेबल टेनिस',
-      'Tennis': 'टेनिस',
-      'Badminton': 'बैडमिंटन',
-      'Cancel': 'रद्द करें',
-      'Save': 'सहेजें',
-      'Close': 'बंद करें',
-      'Logout': 'लॉग आउट',
-    },
-  };
 }

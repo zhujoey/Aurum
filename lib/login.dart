@@ -198,7 +198,7 @@ class _LoginState extends State<Login> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset('assets/logo.png', height: 100),
+                Image.asset('assets/logo.png', height: 200),
                 const SizedBox(height: 12),
                 Text(
                   'Aurum',

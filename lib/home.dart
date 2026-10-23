@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:aurum/settings.dart';
 import 'package:aurum/auth_service.dart';
@@ -20,11 +21,34 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final AuthService _authService = AuthService();
+  late final int _quoteIndex;
+
+  final List<String> _quoteTemplates = [
+    "Ready to make today count, {name}?",
+    "Small daily wins add up, {name}.",
+    "Focus on progress, not perfection.",
+    "Your next personal best starts right now.",
+    "Keep pushing your limits today, {name}.",
+    "Every match makes you sharper.",
+    "Time to put in the work, {name}.",
+    "Stay sharp, stay hungry.",
+    "Consistency is your superpower.",
+    "One step closer to your goals, {name}.",
+    "Let's make today productive, {name}.",
+    "Trust the process and play your game.",
+    "Discipline beats motivation, {name}.",
+    "Own your momentum today.",
+    "Greatness is built one step at a time, {name}.",
+    "Keep moving forward, {name}.",
+    "Chasing excellence, one day at a time.",
+    "Your potential is endless, {name}.",
+  ];
 
   @override
   void initState() {
     super.initState();
     _initialSync();
+    _quoteIndex = Random().nextInt(_quoteTemplates.length);
   }
 
   Future<void> _initialSync() async {
@@ -52,7 +76,12 @@ class _HomeState extends State<Home> {
       stream: _authService.userStream,
       builder: (context, snapshot) {
         final user = snapshot.data;
-        final String displayName = user?.displayName ?? 'Player';
+        final String displayName = user?.displayName?.isNotEmpty == true
+            ? user!.displayName!
+            : (user?.email?.split('@').first ?? 'Player');
+
+        final quoteTemplate = _quoteTemplates[_quoteIndex];
+        final quote = quoteTemplate.tr.replaceAll('{name}', displayName);
 
         return Scaffold(
           appBar: AppBar(
@@ -84,9 +113,9 @@ class _HomeState extends State<Home> {
                   }
                 ),
                 Text(
-                  '${"Welcome".tr}, $displayName!',
+                  quote,
                   style: const TextStyle(
-                    fontSize: 28,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -152,7 +181,7 @@ class _HomeState extends State<Home> {
             ),
           ),
         );
-      }
+      },
     );
   }
 

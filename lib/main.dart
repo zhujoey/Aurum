@@ -8,22 +8,30 @@ import 'package:aurum/auth_service.dart';
 import 'package:aurum/theme_service.dart';
 import 'package:aurum/language_service.dart';
 
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Initialize services
-  await AuthService().init();
-  await ThemeService().init();
-  await LanguageService().init();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  Future.wait([
+    AuthService().init(),
+    ThemeService().init(),
+    LanguageService().init(),
+  ]);
+
+  FlutterNativeSplash.remove();
   runApp(const MyApp());
 }
 
@@ -35,57 +43,41 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<Locale>(
       valueListenable: LanguageService().currentLocale,
       builder: (context, locale, child) {
-        return ValueListenableBuilder<int>(
-          valueListenable: LanguageService().appLanguageVersion,
-          builder: (context, ver, child) {
-            return ValueListenableBuilder<ThemeMode>(
-              valueListenable: ThemeService().themeMode,
-              builder: (context, mode, child) {
-                return ValueListenableBuilder<Color>(
-                  valueListenable: ThemeService().seedColor,
-                  builder: (context, color, child) {
-                    return MaterialApp(
-                      title: 'Aurum',
-                      navigatorKey: navigatorKey,
-                      debugShowCheckedModeBanner: false,
-                      locale: locale,
-                      builder: (context, child) {
-                        return ValueListenableBuilder<int>(
-                          valueListenable: LanguageService().appLanguageVersion,
-                          builder: (context, ver, _) {
-                            return KeyedSubtree(
-                              key: ValueKey('lang_ver_$ver'),
-                              child: child ?? const SizedBox.shrink(),
-                            );
-                          },
-                        );
-                      },
-                      theme: ThemeData(
-                        colorScheme: ColorScheme.fromSeed(
-                          seedColor: color,
-                          brightness: Brightness.light,
-                        ),
-                        useMaterial3: true,
-                      ),
-                      darkTheme: ThemeData(
-                        colorScheme: ColorScheme.fromSeed(
-                          seedColor: color,
-                          brightness: Brightness.dark,
-                          surface: Colors.black,
-                        ),
-                        scaffoldBackgroundColor: Colors.black,
-                        cardColor: const Color(0xFF121212),
-                        appBarTheme: const AppBarTheme(
-                          backgroundColor: Colors.black,
-                          surfaceTintColor: Colors.black,
-                        ),
-                        dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF121212)),
-                        useMaterial3: true,
-                      ),
-                      themeMode: mode,
-                      home: const AuthWrapper(),
-                    );
-                  },
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: ThemeService().themeMode,
+          builder: (context, mode, child) {
+            return ValueListenableBuilder<Color>(
+              valueListenable: ThemeService().seedColor,
+              builder: (context, color, child) {
+                return MaterialApp(
+                  title: 'Aurum',
+                  navigatorKey: navigatorKey,
+                  debugShowCheckedModeBanner: false,
+                  locale: locale,
+                  theme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: color,
+                      brightness: Brightness.light,
+                    ),
+                    useMaterial3: true,
+                  ),
+                  darkTheme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: color,
+                      brightness: Brightness.dark,
+                      surface: Colors.black,
+                    ),
+                    scaffoldBackgroundColor: Colors.black,
+                    cardColor: const Color(0xFF121212),
+                    appBarTheme: const AppBarTheme(
+                      backgroundColor: Colors.black,
+                      surfaceTintColor: Colors.black,
+                    ),
+                    dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF121212)),
+                    useMaterial3: true,
+                  ),
+                  themeMode: mode,
+                  home: const AuthWrapper(),
                 );
               },
             );
@@ -315,9 +307,10 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: _authService.userStream,
+      initialData: _authService.currentUser,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(backgroundColor: Colors.black);
         }
         if (snapshot.hasData && snapshot.data != null) {
           return const Home();

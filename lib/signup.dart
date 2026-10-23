@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:aurum/home.dart';
 import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -55,7 +56,7 @@ class _SignUpState extends State<SignUp> {
     if (_formKey.currentState!.validate()) {
       if (_passwordController.text != _confirmPasswordController.text) {
         _showAppSnackBar(context, 
-          const SnackBar(content: Text('Passwords do not match')),
+          SnackBar(content: Text('Passwords do not match'.tr)),
         );
         return;
       }
@@ -69,7 +70,7 @@ class _SignUpState extends State<SignUp> {
         setState(() => _isLoading = false);
         if (!mounted) return;
         _showAppSnackBar(context, 
-          const SnackBar(content: Text('Username is already taken. Please choose another.')),
+          SnackBar(content: Text('Username is already taken. Please choose another.'.tr)),
         );
         return;
       }
@@ -99,7 +100,7 @@ class _SignUpState extends State<SignUp> {
       } else {
         if (!mounted) return;
         _showAppSnackBar(context, 
-          const SnackBar(content: Text('Sign up failed. Check your connection or email format.')),
+          SnackBar(content: Text('Sign up failed. Check your connection or email format.'.tr)),
         );
       }
       
@@ -121,7 +122,7 @@ class _SignUpState extends State<SignUp> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       _showAppSnackBar(context, 
-        const SnackBar(content: Text('Google Sign-In failed.')),
+        SnackBar(content: Text('Google Sign-In failed.'.tr)),
       );
     }
   }
@@ -129,7 +130,7 @@ class _SignUpState extends State<SignUp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: Text('Create Account'.tr)),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -139,10 +140,10 @@ class _SignUpState extends State<SignUp> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Join Us',
+                Text(
+                  'Join Us'.tr,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -150,58 +151,58 @@ class _SignUpState extends State<SignUp> {
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: Icon(Icons.person_outline),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Username'.tr,
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value!.isEmpty ? 'Enter a username' : null,
+                  validator: (value) => value!.isEmpty ? 'Enter a username'.tr : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Email'.tr,
+                    prefixIcon: const Icon(Icons.email),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value!.isEmpty ? 'Enter email' : null,
+                  validator: (value) => value!.isEmpty ? 'Enter email'.tr : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Password'.tr,
+                    prefixIcon: const Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value!.length < 6 ? 'Password must be 6+ chars' : null,
+                  validator: (value) => value!.length < 6 ? 'Password must be 6+ chars'.tr : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm Password',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password'.tr,
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value!.isEmpty ? 'Confirm your password' : null,
+                  validator: (value) => value!.isEmpty ? 'Confirm your password'.tr : null,
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   initialValue: _selectedGender,
-                  decoration: const InputDecoration(
-                    labelText: 'Gender',
-                    prefixIcon: Icon(Icons.wc),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Gender'.tr,
+                    prefixIcon: const Icon(Icons.wc),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'Male', child: Text('Male')),
-                    DropdownMenuItem(value: 'Female', child: Text('Female')),
+                  items: [
+                    DropdownMenuItem(value: 'Male', child: Text('Male'.tr)),
+                    DropdownMenuItem(value: 'Female', child: Text('Female'.tr)),
                   ],
                   onChanged: (val) => setState(() => _selectedGender = val!),
                 ),
@@ -215,24 +216,24 @@ class _SignUpState extends State<SignUp> {
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Sign Up', style: TextStyle(fontSize: 18)),
+                      child: Text('Sign Up'.tr, style: const TextStyle(fontSize: 18)),
                     ),
                 const SizedBox(height: 16),
-                const Row(
+                Row(
                   children: [
-                    Expanded(child: Divider()),
+                    const Expanded(child: Divider()),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR', style: TextStyle(color: Colors.grey)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('OR'.tr, style: const TextStyle(color: Colors.grey)),
                     ),
-                    Expanded(child: Divider()),
+                    const Expanded(child: Divider()),
                   ],
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: _isLoading ? null : _handleGoogleSignIn,
                   icon: const Icon(Icons.login, color: Colors.red),
-                  label: const Text('Sign in with Google'),
+                  label: Text('Sign in with Google'.tr),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     side: const BorderSide(color: Colors.grey),

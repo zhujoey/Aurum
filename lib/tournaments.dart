@@ -1668,7 +1668,7 @@ class TournamentDetailsPage extends StatelessWidget {
                               return ListTile(
                                 leading: CircleAvatar(child: Text(mName.isNotEmpty ? mName[0].toUpperCase() : 'M')),
                                 title: Text(mName),
-                                subtitle: Text('Gender: $gender'),
+                                subtitle: Text('${"Gender".tr}: ${gender.tr}'),
                                 trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : const Icon(Icons.radio_button_unchecked),
                                 onTap: () => setDialogState(() {
                                   selectedPartnerUid = mUid;
@@ -1824,25 +1824,25 @@ class TournamentDetailsPage extends StatelessWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(step == 0 ? 'Start Tournament (Step 1 of 2: Review)' : 'Start Tournament (Step 2 of 2: Confirm)'),
+          title: Text(step == 0 ? 'Start Tournament (Step 1 of 2: Review)'.tr : 'Start Tournament (Step 2 of 2: Confirm)'.tr),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (step == 0) ...[
-                  Text('Participants Ready: $participantCount', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${"Participants Ready".tr}: $participantCount', style: const TextStyle(fontWeight: FontWeight.bold)),
                   if (participantCount < 2)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8.0),
-                      child: Text('Warning: At least 2 participants are required to start.', style: TextStyle(color: Colors.red, fontSize: 12)),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text('Warning: At least 2 participants are required to start.'.tr, style: const TextStyle(color: Colors.red, fontSize: 12)),
                     ),
                   const SizedBox(height: 12),
-                  Text('Style: $tournamentStyle'),
-                  Text('Seeding: $seedingMethod'),
-                  Text('3rd Place Playoff: ${hasThirdPlacePlayoff ? "Enabled" : "Disabled"}'),
+                  Text('${"Style".tr}: ${tournamentStyle.tr}'),
+                  Text('${"Seeding".tr}: ${seedingMethod.tr}'),
+                  Text('${"3rd Place Playoff".tr}: ${hasThirdPlacePlayoff ? "Enabled".tr : "Disabled".tr}'),
                   const SizedBox(height: 16),
-                  const Text('Participants:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Participants:'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   SizedBox(
                     height: 120,
