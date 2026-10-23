@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:sportspro/profile.dart';
-import 'package:sportspro/auth_service.dart';
-import 'package:sportspro/new_match.dart';
-import 'package:sportspro/clubs.dart';
-import 'package:sportspro/tournaments.dart';
-import 'package:sportspro/rankings.dart';
-import 'package:sportspro/widgets/active_match_banner.dart';
+import 'package:aurum/settings.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/new_match.dart';
+import 'package:aurum/clubs.dart';
+import 'package:aurum/tournaments.dart';
+import 'package:aurum/rankings.dart';
+import 'package:aurum/language_service.dart';
+import 'package:aurum/widgets/active_match_banner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -58,11 +59,11 @@ class _HomeState extends State<Home> {
             title: const Icon(Icons.home),
             actions: [
               IconButton(
-                icon: const Icon(Icons.account_circle),
+                icon: const Icon(Icons.settings),
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const Profile()),
+                    MaterialPageRoute(builder: (context) => const SettingsPage()),
                   );
                 },
               ),
@@ -83,7 +84,7 @@ class _HomeState extends State<Home> {
                   }
                 ),
                 Text(
-                  'Welcome, $displayName!',
+                  '${"Welcome".tr}, $displayName!',
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -99,7 +100,7 @@ class _HomeState extends State<Home> {
                   children: [
                     _buildActionButton(
                       context,
-                      'Rankings',
+                      'Rankings'.tr,
                       Icons.leaderboard,
                       Colors.orange,
                       () {
@@ -111,7 +112,7 @@ class _HomeState extends State<Home> {
                     ),
                     _buildActionButton(
                       context,
-                      'Clubs',
+                      'Clubs'.tr,
                       Icons.groups,
                       Colors.blue,
                       () {
@@ -123,7 +124,7 @@ class _HomeState extends State<Home> {
                     ),
                     _buildActionButton(
                       context,
-                      'Quick Match',
+                      'Quick Match'.tr,
                       Icons.sports_tennis,
                       Colors.green,
                       () {
@@ -135,7 +136,7 @@ class _HomeState extends State<Home> {
                     ),
                     _buildActionButton(
                       context,
-                      'Tournament',
+                      'Tournaments'.tr,
                       Icons.military_tech,
                       Colors.purple,
                       () {
@@ -160,6 +161,7 @@ class _HomeState extends State<Home> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
@@ -169,12 +171,16 @@ class _HomeState extends State<Home> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 40, color: color),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],

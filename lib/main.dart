@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:sportspro/firebase_options.dart';
-import 'package:sportspro/login.dart';
-import 'package:sportspro/home.dart';
-import 'package:sportspro/auth_service.dart';
-import 'package:sportspro/theme_service.dart';
+import 'package:aurum/firebase_options.dart';
+import 'package:aurum/login.dart';
+import 'package:aurum/home.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/theme_service.dart';
+import 'package:aurum/language_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
@@ -21,7 +22,7 @@ void main() async {
   // Initialize services
   await AuthService().init();
   await ThemeService().init();
-  unawaited(AuthService().deleteAllTestUsers());
+  await LanguageService().init();
 
   runApp(const MyApp());
 }
@@ -31,38 +32,60 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeService().themeMode,
-      builder: (context, mode, child) {
-        return ValueListenableBuilder<Color>(
-          valueListenable: ThemeService().seedColor,
-          builder: (context, color, child) {
-            return ValueListenableBuilder<bool>(
-              valueListenable: ThemeService().useTrueDark,
-              builder: (context, trueDark, child) {
-                return MaterialApp(
-                  title: 'Sports Pro',
-                  navigatorKey: navigatorKey,
-                  debugShowCheckedModeBanner: false,
-                  theme: ThemeData(
-                    colorScheme: ColorScheme.fromSeed(
-                      seedColor: color,
-                      brightness: Brightness.light,
-                    ),
-                    useMaterial3: true,
-                  ),
-                  darkTheme: ThemeData(
-                    colorScheme: ColorScheme.fromSeed(
-                      seedColor: color,
-                      brightness: Brightness.dark,
-                      surface: trueDark ? Colors.black : null,
-                    ),
-                    scaffoldBackgroundColor: trueDark ? Colors.black : null,
-                    appBarTheme: trueDark ? const AppBarTheme(backgroundColor: Colors.black) : null,
-                    useMaterial3: true,
-                  ),
-                  themeMode: mode,
-                  home: const AuthWrapper(),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: LanguageService().currentLocale,
+      builder: (context, locale, child) {
+        return ValueListenableBuilder<int>(
+          valueListenable: LanguageService().appLanguageVersion,
+          builder: (context, ver, child) {
+            return ValueListenableBuilder<ThemeMode>(
+              valueListenable: ThemeService().themeMode,
+              builder: (context, mode, child) {
+                return ValueListenableBuilder<Color>(
+                  valueListenable: ThemeService().seedColor,
+                  builder: (context, color, child) {
+                    return MaterialApp(
+                      title: 'Aurum',
+                      navigatorKey: navigatorKey,
+                      debugShowCheckedModeBanner: false,
+                      locale: locale,
+                      builder: (context, child) {
+                        return ValueListenableBuilder<int>(
+                          valueListenable: LanguageService().appLanguageVersion,
+                          builder: (context, ver, _) {
+                            return KeyedSubtree(
+                              key: ValueKey('lang_ver_$ver'),
+                              child: child ?? const SizedBox.shrink(),
+                            );
+                          },
+                        );
+                      },
+                      theme: ThemeData(
+                        colorScheme: ColorScheme.fromSeed(
+                          seedColor: color,
+                          brightness: Brightness.light,
+                        ),
+                        useMaterial3: true,
+                      ),
+                      darkTheme: ThemeData(
+                        colorScheme: ColorScheme.fromSeed(
+                          seedColor: color,
+                          brightness: Brightness.dark,
+                          surface: Colors.black,
+                        ),
+                        scaffoldBackgroundColor: Colors.black,
+                        cardColor: const Color(0xFF121212),
+                        appBarTheme: const AppBarTheme(
+                          backgroundColor: Colors.black,
+                          surfaceTintColor: Colors.black,
+                        ),
+                        dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF121212)),
+                        useMaterial3: true,
+                      ),
+                      themeMode: mode,
+                      home: const AuthWrapper(),
+                    );
+                  },
                 );
               },
             );
@@ -139,15 +162,15 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Session Ended'),
-        content: const Text('Your account has been logged in on another device. You have been signed out from this instance.'),
+        title: Text('Session Ended'.tr),
+        content: Text('Your account has been logged in on another device. You have been signed out from this instance.'.tr),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context, rootNavigator: true).pop();
               _startSessionMonitor(); // Re-start monitoring for the next login
             },
-            child: const Text('OK'),
+            child: Text('OK'.tr),
           ),
         ],
       ),
@@ -257,7 +280,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
                       }
                     }
                   },
-                  child: const Text('Decline', style: TextStyle(color: Colors.red)),
+                  child: Text('Decline'.tr, style: const TextStyle(color: Colors.red)),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -273,12 +296,12 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
                       final scaffoldCtx = navigatorKey.currentContext;
                       if (scaffoldCtx != null && scaffoldCtx.mounted) {
                         ScaffoldMessenger.of(scaffoldCtx).showSnackBar(
-                          const SnackBar(content: Text('Accepted! Waiting for host to start.')),
+                          SnackBar(content: Text('Accepted! Waiting for host to start.'.tr)),
                         );
                       }
                     }
                   },
-                  child: const Text('Accept'),
+                  child: Text('Accept'.tr),
                 ),
               ],
             );

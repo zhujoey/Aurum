@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tt_models.dart';
 import 'tt_scoreboard.dart';
@@ -447,7 +448,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         }
         
         return Scaffold(
-          appBar: AppBar(title: const Text('Table Tennis Setup')),
+          appBar: AppBar(title: Text('Table Tennis Setup'.tr)),
           body: SafeArea(
             child: _buildSetupForm(activeMatchDoc),
           ),
@@ -480,7 +481,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Game Type', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  Text('Game Type'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -491,7 +492,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                     ],
                   ),
                   const Divider(height: 40),
-                  const Text('Match Format', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  Text('Match Format'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   Center(
                     child: SingleChildScrollView(
@@ -509,7 +510,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                     ),
                   ),
                   const Divider(height: 40),
-                  const Text('Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  Text('Players'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 20),
                   if (!_isDoubles) ...[
                     _buildDynamicPlayerSection(0, _p1Controller, 'Player 1', Icons.person),
@@ -603,11 +604,11 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Match in Progress ($p1Sets - $p2Sets)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('${"Match in Progress".tr} ($p1Sets - $p2Sets)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text(
                         isHost 
-                          ? 'You are the host. Finish this match to start a new one.'
-                          : 'You are a participant. You cannot start a new match yet.',
+                          ? 'You are the host. Finish this match to start a new one.'.tr
+                          : 'You are a participant. You cannot start a new match yet.'.tr,
                         style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
@@ -625,11 +626,11 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                       bool? confirm = await showDialog<bool>(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('Discard Match?'),
-                          content: const Text('This will delete all match data. This action cannot be undone.'),
+                          title: Text('Discard Match?'.tr),
+                          content: Text('This will delete all match data. This action cannot be undone.'.tr),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Discard', style: TextStyle(color: Colors.red))),
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Discard'.tr, style: const TextStyle(color: Colors.red))),
                           ],
                         ),
                       );

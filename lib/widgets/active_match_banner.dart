@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
-import 'package:sportspro/table_tennis/tt_scoreboard.dart';
-import 'package:sportspro/table_tennis/tt_models.dart';
-import 'package:sportspro/badminton/badminton_scoreboard.dart';
-import 'package:sportspro/badminton/badminton_models.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
+import 'package:aurum/table_tennis/tt_scoreboard.dart';
+import 'package:aurum/table_tennis/tt_models.dart';
+import 'package:aurum/badminton/badminton_scoreboard.dart';
+import 'package:aurum/badminton/badminton_models.dart';
 
-class ActiveMatchBanner extends StatelessWidget {
+class ActiveMatchBanner extends StatelessWidget
+{
   final DocumentSnapshot matchDoc;
   final VoidCallback? onForfeit;
 
@@ -17,7 +19,8 @@ class ActiveMatchBanner extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     final AuthService authService = AuthService();
     final data = matchDoc.data() as Map<String, dynamic>;
     final String sport = data['sport'] ?? '';
@@ -28,11 +31,13 @@ class ActiveMatchBanner extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 24),
       child: ListTile(
         leading: const Icon(Icons.sports_tennis, color: Colors.amber),
-        title: const Text('Active Match in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(isHost ? 'You are hosting a match.' : 'You are participating in a match.'),
-        onTap: () {
+        title: Text('Active Match in Progress'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(isHost ? 'You are hosting a match.'.tr : 'You are participating in a match.'.tr),
+        onTap: ()
+        {
           final matchData = data['matchData'] ?? {};
-          if (sport == 'Table Tennis') {
+          if (sport == 'Table Tennis')
+          {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -73,7 +78,9 @@ class ActiveMatchBanner extends StatelessWidget {
                 ),
               ),
             );
-          } else if (sport == 'Badminton') {
+          }
+          else if (sport == 'Badminton')
+          {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -117,30 +124,34 @@ class ActiveMatchBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextButton(
-                  onPressed: () async {
+                  onPressed: () async
+                  {
                     bool? confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Forfeit Match?'),
-                        content: const Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'),
+                        title: Text('Forfeit Match?'.tr),
+                        content: Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'.tr),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Forfeit', style: TextStyle(color: Colors.red))),
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red))),
                         ],
                       ),
                     );
-                    if (confirm == true) {
+                    if (confirm == true)
+                    {
                       await authService.updateMatchStatus(matchDoc.id, 'forfeited');
                       onForfeit?.call();
                     }
                   },
-                  child: const Text('Forfeit', style: TextStyle(color: Colors.red, fontSize: 12)),
+                  child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red, fontSize: 12)),
                 ),
                 const SizedBox(width: 4),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: ()
+                  {
                     final matchData = data['matchData'] ?? {};
-                    if (sport == 'Table Tennis') {
+                    if (sport == 'Table Tennis')
+                    {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -181,7 +192,9 @@ class ActiveMatchBanner extends StatelessWidget {
                           ),
                         ),
                       );
-                    } else if (sport == 'Badminton') {
+                    }
+                    else if (sport == 'Badminton')
+                    {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -224,7 +237,7 @@ class ActiveMatchBanner extends StatelessWidget {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
-                  child: const Text('View Match', style: TextStyle(fontSize: 12)),
+                  child: Text('View Match'.tr, style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),

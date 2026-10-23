@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
 import '../table_tennis/widgets/tt_stats.dart';
 import 'badminton_models.dart';
 import 'widgets/badminton_banners.dart';
@@ -108,6 +108,34 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
 
   void _listenToMatchStatus() {
     if (widget.matchId.isEmpty) return;
+
+    if (widget.matchId.startsWith('tour_')) {
+      final parts = widget.matchId.split('_');
+      if (parts.length >= 4) {
+        final cId = parts[1];
+        final tId = parts[2];
+        final mId = parts.sublist(3).join('_');
+
+        _matchSubscription = FirebaseFirestore.instance
+            .collection('clubs')
+            .doc(cId)
+            .collection('tournaments')
+            .doc(tId)
+            .collection('matches')
+            .doc(mId)
+            .snapshots()
+            .listen((doc) {
+          if (doc.exists) {
+            final data = doc.data() ?? {};
+            if (data['status'] == 'completed' && !isGameOver) {
+              setState(() => isGameOver = true);
+            }
+          }
+        });
+      }
+      return;
+    }
+
     _matchSubscription = FirebaseFirestore.instance.collection('active_matches').doc(widget.matchId).snapshots().listen((doc) {
       if (!doc.exists) { if (!widget.isHost && mounted) Navigator.pop(context); return; }
       if (!widget.isHost) {
@@ -817,13 +845,14 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         ],
         Padding(padding: const EdgeInsets.symmetric(horizontal: 40.0), child: ElevatedButton(
           onPressed: (p1Games >= widget.gamesToWin || p2Games >= widget.gamesToWin || isBlackedMatch) ? () async { 
+            await _recordMatchResult();
             if (widget.matchId.isNotEmpty && widget.isHost) {
               await _authService.deleteActiveMatch(widget.matchId);
             }
             await _clearPersistedMatch(); 
             if (!context.mounted) return; 
             Navigator.pop(context); 
-            ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(isBlackedMatch ? 'Match concluded and data cleared (Disqualification).' : 'Match finished and data cleared.')));
+            ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(isBlackedMatch ? 'Match concluded and saved (Disqualification).' : 'Match finished and saved successfully!')));
           } : null,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(55), 
@@ -839,6 +868,30 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         const SizedBox(height: 40),
       ]),
     );
+  }
+
+  Future<void> _recordMatchResult() async {
+    if (widget.matchId.startsWith('tour_')) {
+      final parts = widget.matchId.split('_');
+      if (parts.length >= 4) {
+        final cId = parts[1];
+        final tId = parts[2];
+        final mId = parts.sublist(3).join('_');
+
+        final winnerName = p1Games > p2Games ? widget.p1Name : widget.p2Name;
+        final loserName = p1Games > p2Games ? widget.p2Name : widget.p1Name;
+
+        await _authService.recordTournamentMatchResult(
+          clubId: cId,
+          tournamentId: tId,
+          matchId: mId,
+          winnerUid: winnerName,
+          loserUid: loserName,
+          scoreText: '$p1Games-$p2Games',
+          logs: logs.map((l) => l.toMap()).toList(),
+        );
+      }
+    }
   }
 
   bool get isBlackedMatch => logs.any((l) => l.type == 'penalty' && l.cardType == 'black');

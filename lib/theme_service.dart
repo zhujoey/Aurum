@@ -29,8 +29,8 @@ class ThemeService {
       seedColor.value = Color(savedColor);
     }
 
-    // True Dark
-    useTrueDark.value = prefs.getBool('useTrueDark') ?? false;
+    // True Dark (AMOLED Always On)
+    useTrueDark.value = true;
   }
 
   Future<void> setTheme(ThemeMode mode) async {

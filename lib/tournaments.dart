@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
-import 'package:sportspro/club_requests.dart';
-import 'package:sportspro/table_tennis/tt_scoreboard.dart';
-import 'package:sportspro/table_tennis/tt_models.dart';
-import 'package:sportspro/table_tennis/widgets/tt_history.dart';
-import 'package:sportspro/badminton/badminton_scoreboard.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/club_requests.dart';
+import 'package:aurum/table_tennis/tt_scoreboard.dart';
+import 'package:aurum/table_tennis/tt_models.dart';
+import 'package:aurum/table_tennis/widgets/tt_history.dart';
+import 'package:aurum/badminton/badminton_scoreboard.dart';
+import 'package:aurum/language_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
@@ -29,6 +30,96 @@ void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
       ),
     ),
   );
+}
+
+String _getValidTeamMatchSystem(String sport, String teamType, String currentSystem) {
+  final validItems = _getTeamMatchSystemItems(sport, teamType);
+  final validValues = validItems.map((item) => item.value as String).toSet();
+  if (validValues.contains(currentSystem)) {
+    return currentSystem;
+  }
+  return validItems.first.value as String;
+}
+
+List<DropdownMenuItem<String>> _getTeamMatchSystemItems(String sport, String teamType) {
+  if (sport == 'Badminton') {
+    if (teamType == 'mixed') {
+      return [
+        DropdownMenuItem(
+          value: 'Sudirman Cup System (MS, WS, MD, WD, XD)',
+          child: Text('Sudirman Cup System (MS, WS, MD, WD, XD)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: '3-Match Mixed Tie (1 Mixed Doubles + 1 Singles + 1 Doubles)',
+          child: Text('3-Match Mixed Tie (1 XD + 1 Singles + 1 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+      ];
+    } else {
+      return [
+        DropdownMenuItem(
+          value: 'Thomas/Uber Cup System (3 Singles + 2 Doubles)',
+          child: Text('Thomas/Uber Cup System (3 Singles + 2 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: '3-Match Tie (2 Singles + 1 Doubles)',
+          child: Text('3-Match Tie (2 Singles + 1 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+      ];
+    }
+  } else if (sport == 'Tennis') {
+    if (teamType == 'mixed') {
+      return [
+        DropdownMenuItem(
+          value: 'United Cup / Hopman Cup System (1 Men\'s Singles + 1 Women\'s Singles + 1 Mixed Doubles)',
+          child: Text('United/Hopman Cup (MS + WS + XD)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+      ];
+    } else {
+      return [
+        DropdownMenuItem(
+          value: 'Davis Cup / Billie Jean King Cup System (2 Singles + 1 Doubles)',
+          child: Text('Davis / Billie Jean King Cup (2 Singles + 1 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: '5-Match Tie (4 Singles + 1 Doubles)',
+          child: Text('5-Match Tie (4 Singles + 1 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+      ];
+    }
+  } else {
+    // Table Tennis (ITTF Rules)
+    if (teamType == 'mixed') {
+      return [
+        DropdownMenuItem(
+          value: 'Mixed Team Olympic System (Mixed Doubles, Men\'s Singles, Women\'s Singles, Men\'s Doubles, Women\'s Doubles)',
+          child: Text('Mixed Team Olympic System'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: 'Mixed Team 8-Match World System (2 Mixed Doubles, 2 Men\'s Singles, 2 Women\'s Singles, 1 Men\'s Doubles, 1 Women\'s Doubles)',
+          child: Text('Mixed Team 8-Match World System'.tr, overflow: TextOverflow.ellipsis),
+        ),
+      ];
+    } else {
+      return [
+        DropdownMenuItem(
+          value: 'Olympic System (1 Doubles + 4 Singles)',
+          child: Text('Olympic System (1 Doubles + 4 Singles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: 'Swaythling Cup (5 Singles)',
+          child: Text('Swaythling Cup (5 Singles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: 'Corbillon Cup (4 Singles + 1 Doubles)',
+          child: Text('Corbillon Cup (4 Singles + 1 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+        DropdownMenuItem(
+          value: '3-Match Club System (2 Singles + 1 Doubles)',
+          child: Text('3-Match Club System (2 Singles + 1 Doubles)'.tr, overflow: TextOverflow.ellipsis),
+        ),
+      ];
+    }
+  }
 }
 
 void _showCompletedMatchHistoryModal(
@@ -255,10 +346,14 @@ class _ClubTournamentsView extends StatelessWidget {
                     statusColor = Colors.blue;
                   }
 
+                  final String teamType = data['teamType'] as String? ?? 'none';
+                  final bool isTeamTourney = teamType != 'none';
+                  final String categoryDisplay = isTeamTourney ? 'Team Tournament'.tr : 'Individual'.tr;
+
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: statusColor.withValues(alpha: 0.15),
-                      child: Icon(Icons.emoji_events, color: statusColor),
+                      backgroundColor: isTeamTourney ? Colors.purple.withValues(alpha: 0.15) : statusColor.withValues(alpha: 0.15),
+                      child: Icon(isTeamTourney ? Icons.groups : Icons.emoji_events, color: isTeamTourney ? Colors.purple : statusColor),
                     ),
                     title: Text(name),
                     subtitle: Column(
@@ -268,12 +363,28 @@ class _ClubTournamentsView extends StatelessWidget {
                           Text(description, style: const TextStyle(fontSize: 13, color: Colors.grey)),
                           const SizedBox(height: 2),
                         ],
-                        Text('$sport • $rankingPoints pts • $statusText'),
+                        Text('${(sport as String).tr} • $categoryDisplay • $rankingPoints ${"pts".tr} • ${statusText.tr}'),
                       ],
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isTeamTourney ? Colors.purple.withValues(alpha: 0.15) : Colors.blue.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            isTeamTourney ? 'Team'.tr : 'Individual'.tr,
+                            style: TextStyle(
+                              color: isTeamTourney ? Colors.purple : Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         if (!isOpen) const Icon(Icons.lock_outline, size: 16),
                         const Icon(Icons.chevron_right, color: Colors.grey),
                       ],
@@ -312,36 +423,43 @@ class _ClubTournamentsView extends StatelessWidget {
     final r32PointsController = TextEditingController(text: '45');
     final r64PointsController = TextEditingController(text: '15');
     String selectedPreset = 'WTT Champions (1000 Pts)';
+    String tournamentCategory = 'individual';
     String selectedStyle = 'Single Elimination';
     String selectedSinglesType = 'everyone';
     String selectedDoublesType = 'none';
+    String selectedTeamType = 'none';
+    String selectedTeamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
+    String selectedPointsExpiration = '1_year';
+    bool hasThirdPlacePlayoff = false;
     bool isOpen = false;
     bool keepRunningTimers = true;
     final authService = AuthService();
+
+    bool isCreating = false;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Create Tournament'),
+          title: Text('Create Tournament'.tr),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tournament Name',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Tournament Name'.tr,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description / Subheading',
-                    hintText: 'Brief summary or details',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Description / Subheading'.tr,
+                    hintText: 'Brief summary or details'.tr,
+                    border: const OutlineInputBorder(),
                   ),
                   maxLines: 2,
                 ),
@@ -349,17 +467,17 @@ class _ClubTournamentsView extends StatelessWidget {
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   initialValue: selectedPreset,
-                  decoration: const InputDecoration(
-                    labelText: 'Points Template / Preset',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Points Template / Preset'.tr,
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Grand Smash (2000 Pts)', child: Text('WTT Grand Smash (2000 Pts)', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Champions (1000 Pts)', child: Text('WTT Champions (1000 Pts)', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Star Contender (600 Pts)', child: Text('WTT Star Contender (600 Pts)', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Contender (400 Pts)', child: Text('WTT Contender (400 Pts)', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'Club Local Championship (250 Pts)', child: Text('Club Local Championship (250 Pts)', overflow: TextOverflow.ellipsis)),
+                  items: [
+                    DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Grand Smash (2000 Pts)', child: Text('WTT Grand Smash (2000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Champions (1000 Pts)', child: Text('WTT Champions (1000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Star Contender (600 Pts)', child: Text('WTT Star Contender (600 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'WTT Contender (400 Pts)', child: Text('WTT Contender (400 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Club Local Championship (250 Pts)', child: Text('Club Local Championship (250 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val == null) return;
@@ -421,7 +539,7 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: winnerPointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Winner Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'Winner Pts'.tr, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -429,7 +547,7 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: finalistPointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Finalist Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'Finalist Pts'.tr, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -441,7 +559,7 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: sfPointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Semifinal Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'Semifinal Pts'.tr, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -449,7 +567,7 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: qfPointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Quarterfinal Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'Quarterfinal Pts'.tr, border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -461,7 +579,7 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: r16PointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'R16 Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'R16 Pts'.tr, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -469,7 +587,7 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: r32PointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'R32 Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'R32 Pts'.tr, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -477,7 +595,52 @@ class _ClubTournamentsView extends StatelessWidget {
                       child: TextField(
                         controller: r64PointsController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'R64 Pts', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: 'R64 Pts'.tr, border: const OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Tournament Category'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        avatar: const Icon(Icons.person, size: 18),
+                        label: Text('Individual'.tr),
+                        selected: tournamentCategory == 'individual',
+                        onSelected: (val) {
+                          if (val) {
+                            setDialogState(() {
+                              tournamentCategory = 'individual';
+                              selectedSinglesType = 'everyone';
+                              selectedTeamType = 'none';
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ChoiceChip(
+                        avatar: const Icon(Icons.groups, size: 18),
+                        label: Text('Team'.tr),
+                        selected: tournamentCategory == 'team',
+                        onSelected: (val) {
+                          if (val) {
+                            setDialogState(() {
+                              tournamentCategory = 'team';
+                              selectedSinglesType = 'none';
+                              selectedDoublesType = 'none';
+                              selectedTeamType = 'open';
+                              selectedTeamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
+                            });
+                          }
+                        },
                       ),
                     ),
                   ],
@@ -486,66 +649,126 @@ class _ClubTournamentsView extends StatelessWidget {
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   initialValue: selectedStyle,
-                  decoration: const InputDecoration(
-                    labelText: 'Tournament Style / Format',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Tournament Style / Format'.tr,
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'Single Elimination', child: Text('Single Elimination (Knockout)', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'Double Elimination', child: Text('Double Elimination', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'Round Robin', child: Text('Round Robin', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'Swiss System', child: Text('Swiss System', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'World Cup', child: Text('World Cup (Group Stage + KO)', overflow: TextOverflow.ellipsis)),
+                  items: [
+                    DropdownMenuItem(value: 'Single Elimination', child: Text('Single Elimination (Knockout)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Double Elimination', child: Text('Double Elimination'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Round Robin', child: Text('Round Robin'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Swiss System', child: Text('Swiss System'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'World Cup', child: Text('World Cup (Group Stage + KO)'.tr, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) => setDialogState(() => selectedStyle = val!),
                 ),
+                if (tournamentCategory == 'individual') ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: selectedSinglesType,
+                    decoration: InputDecoration(
+                      labelText: 'Singles Format'.tr,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: 'everyone', child: Text('Everyone in Same Bracket (Open)'.tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'separate_gender', child: Text("Men's & Women's Singles (Separate)".tr, overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: (val) => setDialogState(() => selectedSinglesType = val!),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: selectedDoublesType,
+                    decoration: InputDecoration(
+                      labelText: 'Doubles Format'.tr,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: 'none', child: Text('No Doubles'.tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'open', child: Text('Open Doubles'.tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'gendered', child: Text("Men's and Women's Doubles only".tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'mixed_only', child: Text('Mixed Doubles only'.tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'all', child: Text("Men's, Women's, and Mixed Doubles".tr, overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: (val) => setDialogState(() => selectedDoublesType = val!),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: selectedTeamType,
+                    decoration: InputDecoration(
+                      labelText: 'Team Format'.tr,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: 'open', child: Text('Open Teams'.tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'gendered', child: Text("Men's and Women's Teams".tr, overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'mixed', child: Text('Mixed Teams'.tr, overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedTeamType = val;
+                          if (val == 'mixed') {
+                            selectedTeamMatchSystem = 'Mixed Team Olympic System (Mixed Doubles, Men\'s Singles, Women\'s Singles, Men\'s Doubles, Women\'s Doubles)';
+                          } else {
+                            selectedTeamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: _getValidTeamMatchSystem(clubSport, selectedTeamType, selectedTeamMatchSystem),
+                    decoration: InputDecoration(
+                      labelText: 'Team Match System Format'.tr,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: _getTeamMatchSystemItems(clubSport, selectedTeamType),
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedTeamMatchSystem = val);
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   isExpanded: true,
-                  initialValue: selectedSinglesType,
-                  decoration: const InputDecoration(
-                    labelText: 'Singles Format',
-                    border: OutlineInputBorder(),
+                  initialValue: selectedPointsExpiration,
+                  decoration: InputDecoration(
+                    labelText: 'Points Expiration / Validity'.tr,
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'everyone', child: Text('Everyone in Same Bracket (Open)', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'separate_gender', child: Text("Men's & Women's Singles (Separate)", overflow: TextOverflow.ellipsis)),
+                  items: [
+                    DropdownMenuItem(value: '1_year', child: Text('1 Year (Default - ITTF Standard)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: '6_months', child: Text('6 Months'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: '2_years', child: Text('2 Years'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'never', child: Text('Never Expire'.tr, overflow: TextOverflow.ellipsis)),
                   ],
-                  onChanged: (val) => setDialogState(() => selectedSinglesType = val!),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: selectedDoublesType,
-                  decoration: const InputDecoration(
-                    labelText: 'Doubles Format',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'none', child: Text('No Doubles', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'open', child: Text('Open Doubles', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'gendered', child: Text("Men's and Women's Doubles only", overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'mixed_only', child: Text('Mixed Doubles only', overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'all', child: Text("Men's, Women's, and Mixed Doubles", overflow: TextOverflow.ellipsis)),
-                  ],
-                  onChanged: (val) => setDialogState(() => selectedDoublesType = val!),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedPointsExpiration = val);
+                  },
                 ),
                 const SizedBox(height: 16),
                 ListTile(
                   leading: const Icon(Icons.sports, color: Colors.blue),
-                  title: const Text('Sport'),
-                  subtitle: Text(clubSport),
+                  title: Text('Sport'.tr),
+                  subtitle: Text(clubSport.tr),
                   contentPadding: EdgeInsets.zero,
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Open Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('People can join without permission', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('Open Tournament'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('People can join without permission'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -558,12 +781,30 @@ class _ClubTournamentsView extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Keep Timers Running in Background', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('Timers continue running when match screen is closed', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('3rd Place Bronze Medal Match'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Playoff match between semifinal losers'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: hasThirdPlacePlayoff,
+                      onChanged: (val) => setDialogState(() => hasThirdPlacePlayoff = val),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Keep Timers Running in Background'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Timers continue running when match screen is closed'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -577,13 +818,17 @@ class _ClubTournamentsView extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: isCreating ? null : () async {
                 final name = nameController.text.trim();
                 final description = descriptionController.text.trim();
                 final points = int.tryParse(pointsController.text.trim()) ?? 1000;
-                if (name.isEmpty) return;
+                if (name.isEmpty) {
+                  _showAppSnackBar(context, SnackBar(content: Text('Please enter a tournament name.'.tr)));
+                  return;
+                }
+                setDialogState(() => isCreating = true);
                 try {
                   final Map<String, dynamic> breakdown = {
                     'winner': int.tryParse(winnerPointsController.text.trim()) ?? points,
@@ -603,8 +848,12 @@ class _ClubTournamentsView extends StatelessWidget {
                     isOpen: isOpen,
                     rankingPoints: points,
                     tournamentStyle: selectedStyle,
+                    hasThirdPlacePlayoff: hasThirdPlacePlayoff,
                     singlesType: selectedSinglesType,
                     doublesType: selectedDoublesType,
+                    teamType: selectedTeamType,
+                    teamMatchSystem: selectedTeamMatchSystem,
+                    pointsExpiration: selectedPointsExpiration,
                     keepRunningTimers: keepRunningTimers,
                     pointsBreakdown: breakdown,
                   );
@@ -613,9 +862,13 @@ class _ClubTournamentsView extends StatelessWidget {
                   if (context.mounted) {
                     _showAppSnackBar(context, SnackBar(content: Text('$e')));
                   }
+                } finally {
+                  setDialogState(() => isCreating = false);
                 }
               },
-              child: const Text('Create'),
+              child: isCreating 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text('Create'.tr),
             ),
           ],
         ),
@@ -675,9 +928,12 @@ class TournamentDetailsPage extends StatelessWidget {
 
         final bool isJoined = participantUids.contains(currentUid);
 
+        final String teamType = data['teamType'] as String? ?? 'none';
+        final bool isTeamTourney = teamType != 'none';
+
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Tournament Details'),
+            title: Text('Tournament Details'.tr),
             actions: [
               if (isOwnerOrManager) ...[
                 IconButton(
@@ -712,10 +968,10 @@ class TournamentDetailsPage extends StatelessWidget {
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
                       children: [
-                        const CircleAvatar(
+                        CircleAvatar(
                           radius: 32,
-                          backgroundColor: Colors.amber,
-                          child: Icon(Icons.emoji_events, size: 36, color: Colors.white),
+                          backgroundColor: isTeamTourney ? Colors.purple : Colors.amber,
+                          child: Icon(isTeamTourney ? Icons.groups : Icons.emoji_events, size: 36, color: Colors.white),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -738,17 +994,24 @@ class TournamentDetailsPage extends StatelessWidget {
                           alignment: WrapAlignment.center,
                           children: [
                             Chip(
+                              avatar: Icon(isTeamTourney ? Icons.groups : Icons.person, size: 16, color: isTeamTourney ? Colors.purple : Colors.blue),
+                              label: Text(
+                                isTeamTourney ? 'Team Tournament'.tr : 'Individual'.tr,
+                                style: TextStyle(color: isTeamTourney ? Colors.purple : Colors.blue, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Chip(
                               avatar: const Icon(Icons.sports, size: 16),
-                              label: Text(sport),
+                              label: Text(sport.tr),
                             ),
                             Chip(
                               avatar: const Icon(Icons.account_tree, size: 16),
-                              label: Text(tournamentStyle),
+                              label: Text(tournamentStyle.tr),
                             ),
                             Chip(
                               avatar: const Icon(Icons.stars, size: 16, color: Colors.amber),
                               label: Text(
-                                '$rankingPoints Points',
+                                '$rankingPoints ${"Points".tr}',
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -759,7 +1022,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                 color: isOpen ? Colors.green : Colors.orange,
                               ),
                               label: Text(
-                                isOpen ? 'Open Tournament' : 'Closed / Invite Only',
+                                isOpen ? 'Open Tournament'.tr : 'Closed / Invite Only'.tr,
                                 style: TextStyle(
                                   color: isOpen ? Colors.green : Colors.orange,
                                   fontWeight: FontWeight.bold,
@@ -1809,11 +2072,15 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
   late TextEditingController _r32PointsController;
   late TextEditingController _r64PointsController;
   String _selectedPreset = 'Custom';
+  late String _tournamentCategory;
   late String _tournamentStyle;
   late String _seedingMethod;
   late bool _hasThirdPlacePlayoff;
   late String _singlesType;
   late String _doublesType;
+  late String _teamType;
+  late String _teamMatchSystem;
+  late String _pointsExpiration;
   late bool _isOpen;
   bool _isSaving = false;
 
@@ -1836,9 +2103,21 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
 
     _tournamentStyle = widget.currentData['tournamentStyle'] ?? 'Single Elimination';
     _seedingMethod = widget.currentData['seedingMethod'] ?? 'ITTF Seeded';
-    _hasThirdPlacePlayoff = widget.currentData['hasThirdPlacePlayoff'] ?? true;
-    _singlesType = widget.currentData['singlesType'] ?? 'everyone';
-    _doublesType = widget.currentData['doublesType'] ?? 'none';
+    _hasThirdPlacePlayoff = widget.currentData['hasThirdPlacePlayoff'] ?? false;
+    _teamType = widget.currentData['teamType'] ?? 'none';
+    if (_teamType != 'none') {
+      _tournamentCategory = 'team';
+      _singlesType = 'none';
+      _doublesType = 'none';
+    } else {
+      _tournamentCategory = 'individual';
+      _singlesType = widget.currentData['singlesType'] ?? 'everyone';
+      if (_singlesType == 'none') _singlesType = 'everyone';
+      _doublesType = widget.currentData['doublesType'] ?? 'none';
+      _teamType = 'none';
+    }
+    _teamMatchSystem = widget.currentData['teamMatchSystem'] ?? 'Olympic System (1 Doubles + 4 Singles)';
+    _pointsExpiration = widget.currentData['pointsExpiration'] ?? '1_year';
     _isOpen = widget.currentData['isOpen'] ?? !(widget.currentData['needsPermission'] ?? false);
   }
 
@@ -1955,6 +2234,9 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
         hasThirdPlacePlayoff: _hasThirdPlacePlayoff,
         singlesType: _singlesType,
         doublesType: _doublesType,
+        teamType: _teamType,
+        teamMatchSystem: _teamMatchSystem,
+        pointsExpiration: _pointsExpiration,
         pointsBreakdown: breakdown,
       );
       if (mounted) {
@@ -2225,57 +2507,162 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               ],
             ),
             const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Tournament Category'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    avatar: const Icon(Icons.person, size: 18),
+                    label: Text('Individual'.tr),
+                    selected: _tournamentCategory == 'individual',
+                    onSelected: (val) {
+                      if (val) {
+                        setState(() {
+                          _tournamentCategory = 'individual';
+                          _singlesType = 'everyone';
+                          _teamType = 'none';
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    avatar: const Icon(Icons.groups, size: 18),
+                    label: Text('Team'.tr),
+                    selected: _tournamentCategory == 'team',
+                    onSelected: (val) {
+                      if (val) {
+                        setState(() {
+                          _tournamentCategory = 'team';
+                          _singlesType = 'none';
+                          _doublesType = 'none';
+                          _teamType = 'open';
+                          _teamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               isExpanded: true,
               initialValue: _tournamentStyle,
-              decoration: const InputDecoration(
-                labelText: 'Tournament Style / Format',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Tournament Style / Format'.tr,
+                border: const OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'Single Elimination', child: Text('Single Elimination (Knockout)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Double Elimination', child: Text('Double Elimination', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Round Robin', child: Text('Round Robin', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Swiss System', child: Text('Swiss System', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'World Cup', child: Text('World Cup (Group Stage + KO)', overflow: TextOverflow.ellipsis)),
+              items: [
+                DropdownMenuItem(value: 'Single Elimination', child: Text('Single Elimination (Knockout)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Double Elimination', child: Text('Double Elimination'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Round Robin', child: Text('Round Robin'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Swiss System', child: Text('Swiss System'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'World Cup', child: Text('World Cup (Group Stage + KO)'.tr, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _tournamentStyle = val);
               },
             ),
+            if (_tournamentCategory == 'individual') ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _singlesType,
+                decoration: InputDecoration(
+                  labelText: 'Singles Format'.tr,
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: 'everyone', child: Text('Everyone in Same Bracket (Open)'.tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'separate_gender', child: Text("Men's & Women's Singles (Separate)".tr, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _singlesType = val);
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _doublesType,
+                decoration: InputDecoration(
+                  labelText: 'Doubles Format'.tr,
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: 'none', child: Text('No Doubles'.tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'open', child: Text('Open Doubles'.tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'gendered', child: Text("Men's and Women's Doubles only".tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'mixed_only', child: Text('Mixed Doubles only'.tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'all', child: Text("Men's, Women's, and Mixed Doubles".tr, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _doublesType = val);
+                },
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _teamType,
+                decoration: InputDecoration(
+                  labelText: 'Team Format'.tr,
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: 'open', child: Text('Open Teams'.tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'gendered', child: Text("Men's and Women's Teams".tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'mixed', child: Text('Mixed Teams'.tr, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _teamType = val;
+                      if (val == 'mixed') {
+                        _teamMatchSystem = 'Mixed Team Olympic System (Mixed Doubles, Men\'s Singles, Women\'s Singles, Men\'s Doubles, Women\'s Doubles)';
+                      } else {
+                        _teamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
+                      }
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _getValidTeamMatchSystem(widget.currentData['sport'] ?? 'Table Tennis', _teamType, _teamMatchSystem),
+                decoration: const InputDecoration(
+                  labelText: 'Team Match System Format',
+                  border: OutlineInputBorder(),
+                ),
+                items: _getTeamMatchSystemItems(widget.currentData['sport'] ?? 'Table Tennis', _teamType),
+                onChanged: (val) {
+                  if (val != null) setState(() => _teamMatchSystem = val);
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               isExpanded: true,
-              initialValue: _singlesType,
-              decoration: const InputDecoration(
-                labelText: 'Singles Format',
-                border: OutlineInputBorder(),
+              initialValue: _pointsExpiration,
+              decoration: InputDecoration(
+                labelText: 'Points Expiration / Validity'.tr,
+                border: const OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'everyone', child: Text('Everyone in Same Bracket (Open)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'separate_gender', child: Text("Men's & Women's Singles (Separate)", overflow: TextOverflow.ellipsis)),
+              items: [
+                DropdownMenuItem(value: '1_year', child: Text('1 Year (Default - ITTF Standard)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '6_months', child: Text('6 Months'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '2_years', child: Text('2 Years'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'never', child: Text('Never Expire'.tr, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
-                if (val != null) setState(() => _singlesType = val);
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _doublesType,
-              decoration: const InputDecoration(
-                labelText: 'Doubles Format',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'none', child: Text('No Doubles', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'open', child: Text('Open Doubles', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'gendered', child: Text("Men's and Women's Doubles only", overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'mixed_only', child: Text('Mixed Doubles only', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'all', child: Text("Men's, Women's, and Mixed Doubles", overflow: TextOverflow.ellipsis)),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _doublesType = val);
+                if (val != null) setState(() => _pointsExpiration = val);
               },
             ),
             const SizedBox(height: 16),

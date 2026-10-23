@@ -1,4 +1,4 @@
-package com.example.sportspro
+package com.example.aurum
 
 import io.flutter.embedding.android.FlutterActivity
 

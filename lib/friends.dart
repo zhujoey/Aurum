@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -167,7 +168,7 @@ class _FriendsPageState extends State<FriendsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Friends'),
+        title: Text('Friends'.tr),
         actions: [
           Stack(
             children: [
@@ -214,7 +215,7 @@ class _FriendsPageState extends State<FriendsPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Enter exact username...',
+                hintText: 'Enter exact username...'.tr,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -340,7 +341,7 @@ class FriendRequestsPage extends StatelessWidget {
     final AuthService authService = AuthService();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Friend Requests')),
+      appBar: AppBar(title: Text('Friend Requests'.tr)),
       body: StreamBuilder<QuerySnapshot>(
         stream: authService.incomingFriendRequests,
         builder: (context, snapshot) {

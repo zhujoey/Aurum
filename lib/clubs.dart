@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
-import 'package:sportspro/main.dart';
-import 'package:sportspro/club_requests.dart';
-import 'package:sportspro/tournaments.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/club_requests.dart';
+import 'package:aurum/tournaments.dart';
+import 'package:aurum/language_service.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -28,7 +28,6 @@ void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   );
 }
 
-
 class ClubsPage extends StatefulWidget {
   const ClubsPage({super.key});
 
@@ -39,53 +38,15 @@ class ClubsPage extends StatefulWidget {
 class _ClubsPageState extends State<ClubsPage> {
   final AuthService _authService = AuthService();
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  StreamSubscription? _membershipSubscription;
-  bool _initialized = false;
-  bool _wasInAClub = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startMembershipListener();
-  }
-
-  @override
-  void dispose() {
-    _membershipSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _startMembershipListener() {
-    // Listen to combined status (owned or joined)
-    _membershipSubscription = _db.collection('users').doc(_authService.currentUser?.uid).snapshots().listen((snap) {
-      if (!snap.exists || !mounted) return;
-      
-      final data = snap.data() as Map<String, dynamic>;
-      final bool currentlyInAClub = data['ownedClubId'] != null || data['joinedClubId'] != null;
-
-      if (!_initialized) {
-        _wasInAClub = currentlyInAClub;
-        _initialized = true;
-        return;
-      }
-
-      // If they were in a club and now they aren't, exit the page
-      if (_wasInAClub && !currentlyInAClub) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        _showAppSnackBar(context, 
-          const SnackBar(content: Text('You are no longer part of that organization.')),
-        );
-      }
-
-      _wasInAClub = currentlyInAClub;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
+    final uid = _authService.currentUser?.uid;
+    if (uid == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Clubs'),
+        title: Text('My Clubs'.tr),
         actions: [
           Stack(
             children: [
@@ -131,35 +92,126 @@ class _ClubsPageState extends State<ClubsPage> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _authService.myOwnedClubs,
-        builder: (context, ownedSnapshot) {
-          if (ownedSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _db.collection('users').doc(uid).snapshots(),
+        builder: (context, userSnap) {
+          if (!userSnap.hasData) return const Center(child: CircularProgressIndicator());
+          final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+
+          final String? ownedClubId = userData['ownedClubId'] as String?;
+          final List joinedClubIds = List.from(userData['joinedClubIds'] ?? []);
+          final String? singleJoinedId = userData['joinedClubId'] as String?;
+
+          final Set<String> allUserClubIds = {};
+          if (ownedClubId != null && ownedClubId.isNotEmpty) {
+            allUserClubIds.add(ownedClubId);
+          }
+          for (var id in joinedClubIds) {
+            if (id != null && id.toString().isNotEmpty) allUserClubIds.add(id.toString());
+          }
+          if (singleJoinedId != null && singleJoinedId.isNotEmpty) {
+            allUserClubIds.add(singleJoinedId);
           }
 
-          // Case 1: User owns a club
-          if (ownedSnapshot.hasData && ownedSnapshot.data!.docs.isNotEmpty) {
-            final clubDoc = ownedSnapshot.data!.docs.first;
-            return _buildClubManagementView(clubDoc);
-          }
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (ownedClubId == null) ...[
+                  Card(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.add_business, size: 36, color: Colors.blue),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Establish Your Club'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text('Create and manage your own club (1 club limit)'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                            onPressed: _showCreateClubDialog,
+                            child: Text('Create'.tr),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
-          // Case 2: User doesn't own a club, check if they joined one
-          return StreamBuilder<DocumentSnapshot>(
-            stream: _authService.myJoinedClub,
-            builder: (context, joinedSnapshot) {
-              if (joinedSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+                if (allUserClubIds.isEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        'You are not part of any clubs yet.\nCreate your own club above or accept a club invitation!'.tr,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  ...allUserClubIds.map((cId) {
+                    return StreamBuilder<DocumentSnapshot>(
+                      stream: _db.collection('clubs').doc(cId).snapshots(),
+                      builder: (context, clubSnap) {
+                        if (!clubSnap.hasData || !clubSnap.data!.exists) return const SizedBox.shrink();
+                        final clubData = clubSnap.data!.data() as Map<String, dynamic>;
+                        final bool isOwner = (clubData['ownerUid'] == uid);
 
-              if (joinedSnapshot.hasData && joinedSnapshot.data!.exists && joinedSnapshot.data!.reference.parent.id == 'clubs') {
-                 // The stream above returns the club document if it exists
-                 return _buildJoinedClubView(joinedSnapshot.data!);
-              }
-
-              // Case 3: User is free
-              return _buildNoClubView();
-            },
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isOwner ? Colors.purple.withValues(alpha: 0.15) : Colors.green.withValues(alpha: 0.15),
+                              child: Icon(Icons.groups, color: isOwner ? Colors.purple : Colors.green),
+                            ),
+                            title: Text(clubData['name'] ?? 'Club', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('${(clubData['sport'] as String? ?? "Sport").tr} • ${(isOwner ? "Owner" : "Member").tr}'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Chip(
+                                  label: Text(
+                                    (isOwner ? 'Owner' : 'Member').tr,
+                                    style: TextStyle(
+                                      color: isOwner ? Colors.purple : Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right, color: Colors.grey),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => Scaffold(
+                                    appBar: AppBar(title: Text(clubData['name'] ?? 'Club Details')),
+                                    body: isOwner ? _buildClubManagementView(clubSnap.data!) : _buildJoinedClubView(clubSnap.data!),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ],
+              ],
+            ),
           );
         },
       ),
@@ -188,17 +240,17 @@ class _ClubsPageState extends State<ClubsPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text('Owned by $ownerName', style: const TextStyle(color: Colors.grey)),
+              Text('${"Owned by".tr} $ownerName', style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Chip(label: Text(sport)),
+                  Chip(label: Text(sport.tr)),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: () => _showLeaveClubDialog(clubDoc.id, clubName),
                     icon: const Icon(Icons.exit_to_app, size: 16),
-                    label: const Text('Leave'),
+                    label: Text('Leave'.tr),
                     style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                   ),
                 ],
@@ -206,15 +258,15 @@ class _ClubsPageState extends State<ClubsPage> {
             ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Text(
-            'Tournaments',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'Tournaments'.tr,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
         SizedBox(
-          height: 150,
+          height: 110,
           child: StreamBuilder<QuerySnapshot>(
             stream: _authService.getClubTournaments(clubDoc.id),
             builder: (context, snapshot) {
@@ -257,14 +309,14 @@ class _ClubsPageState extends State<ClubsPage> {
                         );
                       },
                       child: Container(
-                        width: 200,
-                        padding: const EdgeInsets.all(16),
+                        width: 160,
+                        padding: const EdgeInsets.all(10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const Spacer(),
-                            Text('${t['sport'] ?? "Sport"} • ${t['rankingPoints'] ?? 1000} pts', style: const TextStyle(color: Colors.blue, fontSize: 12)),
+                            Text('${(t['sport'] as String? ?? "Sport").tr} • ${t['rankingPoints'] ?? 1000} ${"pts".tr}', style: const TextStyle(color: Colors.blue, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -275,11 +327,11 @@ class _ClubsPageState extends State<ClubsPage> {
             },
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Text(
-            'Members',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'Members'.tr,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
         Expanded(
@@ -290,7 +342,7 @@ class _ClubsPageState extends State<ClubsPage> {
               final members = snapshot.data!.docs;
 
               return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.only(left: 8, right: 8, bottom: MediaQuery.of(context).padding.bottom + 40),
                 itemCount: members.length,
                 itemBuilder: (context, index) {
                   final m = members[index].data() as Map<String, dynamic>;
@@ -301,7 +353,7 @@ class _ClubsPageState extends State<ClubsPage> {
                   return ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.person)),
                     title: Text(m['username'] ?? 'Unknown'),
-                    subtitle: Text(isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')),
+                    subtitle: Text((isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')).tr),
                   );
                 },
               );
@@ -309,31 +361,6 @@ class _ClubsPageState extends State<ClubsPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildNoClubView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.group_add, size: 80, color: Colors.grey),
-          const SizedBox(height: 24),
-          const Text(
-            'You haven\'t created a club yet.',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _showCreateClubDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Create My Club'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -360,14 +387,14 @@ class _ClubsPageState extends State<ClubsPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Chip(
-                    label: Text(sport),
+                    label: Text(sport.tr),
                     avatar: const Icon(Icons.sports, size: 16),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: () => _showDeleteClubDialog(clubDoc.id, clubName),
                     icon: const Icon(Icons.delete_forever, size: 16),
-                    label: const Text('Disband'),
+                    label: Text('Disband'.tr),
                     style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                   ),
                 ],
@@ -375,15 +402,15 @@ class _ClubsPageState extends State<ClubsPage> {
             ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Text(
-            'Tournaments',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'Tournaments'.tr,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
         SizedBox(
-          height: 150,
+          height: 110,
           child: StreamBuilder<QuerySnapshot>(
             stream: _authService.getClubTournaments(clubDoc.id),
             builder: (context, snapshot) {
@@ -397,7 +424,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 itemCount: tournaments.length,
                 itemBuilder: (context, index) {
                   final tDoc = tournaments[index];
-                  final data = tDoc.data() as Map<String, dynamic>;
+                  final t = tDoc.data() as Map<String, dynamic>;
                   return Card(
                     child: InkWell(
                       onTap: () async {
@@ -426,14 +453,14 @@ class _ClubsPageState extends State<ClubsPage> {
                         );
                       },
                       child: Container(
-                        width: 200,
-                        padding: const EdgeInsets.all(16),
+                        width: 160,
+                        padding: const EdgeInsets.all(10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(data['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const Spacer(),
-                            Text('${data['sport'] ?? "Sport"} • ${data['rankingPoints'] ?? 1000} pts', style: const TextStyle(color: Colors.blue, fontSize: 12)),
+                            Text('${t['sport'] ?? "Sport"} • ${t['rankingPoints'] ?? 1000} pts', style: const TextStyle(color: Colors.blue, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -446,17 +473,62 @@ class _ClubsPageState extends State<ClubsPage> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Members',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                'Members'.tr,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddMemberDialog(clubDoc.id, clubName),
-                icon: const Icon(Icons.person_add),
-                label: const Text('Invite'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showAddRealMemberDialog(clubDoc.id),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.person_add_alt_1, size: 16),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Register Member'.tr),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _showAddMemberDialog(clubDoc.id, clubName),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.person_add, size: 16),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Invite'.tr),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -469,13 +541,16 @@ class _ClubsPageState extends State<ClubsPage> {
               final members = snapshot.data!.docs;
 
               return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.only(left: 8, right: 8, bottom: MediaQuery.of(context).padding.bottom + 40),
                 itemCount: members.length,
                 itemBuilder: (context, index) {
                   final m = members[index].data() as Map<String, dynamic>;
                   final String role = m['role'] ?? 'member';
                   final bool isOwner = role == 'owner';
                   final bool isManager = role == 'manager';
+
+                  final String mUid = m['uid'] as String? ?? '';
+                  final bool isRegisteredMember = mUid.startsWith('member_');
 
                   return ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.person)),
@@ -486,36 +561,37 @@ class _ClubsPageState extends State<ClubsPage> {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              PopupMenuButton<String>(
-                                onSelected: (val) async {
-                                  try {
-                                    if (val == 'promote') {
-                                      await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: m['uid'], newRole: 'manager');
-                                      if (context.mounted) {
-                                        _showAppSnackBar(context, const SnackBar(content: Text('Promoted to Manager!')));
+                              if (!isRegisteredMember)
+                                PopupMenuButton<String>(
+                                  onSelected: (val) async {
+                                    try {
+                                      if (val == 'promote') {
+                                        await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: mUid, newRole: 'manager');
+                                        if (context.mounted) {
+                                          _showAppSnackBar(context, const SnackBar(content: Text('Promoted to Manager!')));
+                                        }
+                                      } else if (val == 'demote') {
+                                        await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: mUid, newRole: 'member');
+                                        if (context.mounted) {
+                                          _showAppSnackBar(context, const SnackBar(content: Text('Demoted to Member')));
+                                        }
                                       }
-                                    } else if (val == 'demote') {
-                                      await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: m['uid'], newRole: 'member');
+                                    } catch (e) {
                                       if (context.mounted) {
-                                        _showAppSnackBar(context, const SnackBar(content: Text('Demoted to Member')));
+                                        _showAppSnackBar(context, SnackBar(content: Text('$e')));
                                       }
                                     }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      _showAppSnackBar(context, SnackBar(content: Text('$e')));
-                                    }
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    value: isManager ? 'demote' : 'promote',
-                                    child: Text(isManager ? 'Demote to Member' : 'Promote to Manager'),
-                                  ),
-                                ],
-                              ),
+                                  },
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      value: isManager ? 'demote' : 'promote',
+                                      child: Text(isManager ? 'Demote to Member' : 'Promote to Manager'),
+                                    ),
+                                  ],
+                                ),
                               IconButton(
                                 icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                onPressed: () => _showKickMemberDialog(clubDoc.id, m['uid'], m['username'] ?? 'Unknown'),
+                                onPressed: () => _showKickMemberDialog(clubDoc.id, mUid, m['username'] ?? 'Unknown'),
                                 tooltip: 'Remove from Club',
                               ),
                             ],
@@ -539,31 +615,31 @@ class _ClubsPageState extends State<ClubsPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Establish Organization'),
+          title: Text('Establish Organization'.tr),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Club Name',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'Club Name'.tr,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedSport,
-                decoration: const InputDecoration(
-                  labelText: 'Sport',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'Sport'.tr,
+                  border: const OutlineInputBorder(),
                 ),
-                items: sports.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                items: sports.map((s) => DropdownMenuItem(value: s, child: Text(s.tr))).toList(),
                 onChanged: (val) => setDialogState(() => selectedSport = val!),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
             ElevatedButton(
               onPressed: () async {
                 final name = nameController.text.trim();
@@ -577,7 +653,98 @@ class _ClubsPageState extends State<ClubsPage> {
                   }
                 }
               },
-              child: const Text('Establish'),
+              child: Text('Establish'.tr),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddRealMemberDialog(String clubId) {
+    final nameController = TextEditingController();
+    String selectedGender = '';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Register Member Directly'.tr),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'Member Name'.tr,
+                  hintText: 'e.g. John Smith'.tr,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Select Gender:'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      avatar: Icon(Icons.male, size: 18, color: selectedGender == 'Male' ? Colors.white : Colors.blue),
+                      label: Text('Male'.tr),
+                      selected: selectedGender == 'Male',
+                      selectedColor: Colors.blue,
+                      labelStyle: TextStyle(color: selectedGender == 'Male' ? Colors.white : null, fontWeight: FontWeight.bold),
+                      onSelected: (selected) {
+                        if (selected) setDialogState(() => selectedGender = 'Male');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      avatar: Icon(Icons.female, size: 18, color: selectedGender == 'Female' ? Colors.white : Colors.pink),
+                      label: Text('Female'.tr),
+                      selected: selectedGender == 'Female',
+                      selectedColor: Colors.pink,
+                      labelStyle: TextStyle(color: selectedGender == 'Female' ? Colors.white : null, fontWeight: FontWeight.bold),
+                      onSelected: (selected) {
+                        if (selected) setDialogState(() => selectedGender = 'Female');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isEmpty) {
+                  _showAppSnackBar(context, SnackBar(content: Text('Please enter member name.'.tr)));
+                  return;
+                }
+                if (selectedGender.isEmpty) {
+                  _showAppSnackBar(context, SnackBar(content: Text('Please select a gender (Male or Female).'.tr)));
+                  return;
+                }
+                try {
+                  await _authService.addRealMemberToClub(
+                    clubId: clubId,
+                    name: name,
+                    gender: selectedGender,
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _showAppSnackBar(context, SnackBar(content: Text('$name ${"registered as a member!".tr}')));
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
+                  }
+                }
+              },
+              child: Text('Register'.tr),
             ),
           ],
         ),
@@ -589,10 +756,10 @@ class _ClubsPageState extends State<ClubsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Leave Club?'),
-        content: Text('Are you sure you want to leave "$clubName"?'),
+        title: Text('Leave Club?'.tr),
+        content: Text('${"Are you sure you want to leave".tr} "$clubName"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
           TextButton(
             onPressed: () async {
               Navigator.pop(context); // Pop dialog first
@@ -604,7 +771,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 }
               }
             },
-            child: const Text('Leave', style: TextStyle(color: Colors.red)),
+            child: Text('Leave'.tr, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -615,10 +782,10 @@ class _ClubsPageState extends State<ClubsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Member?'),
-        content: Text('Are you sure you want to remove "$memberName" from the organization?'),
+        title: Text('Remove Member?'.tr),
+        content: Text('${"Are you sure you want to remove".tr} "$memberName" ${"from the organization?".tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
           TextButton(
             onPressed: () async {
               try {
@@ -630,7 +797,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 }
               }
             },
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+            child: Text('Remove'.tr, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -643,14 +810,14 @@ class _ClubsPageState extends State<ClubsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Disband Club?'),
+        title: Text('Disband Club?'.tr),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('This will permanently delete "$clubName" and remove all members.'),
+            Text('${"This will permanently delete".tr} "$clubName" ${"and remove all members.".tr}'),
             const SizedBox(height: 16),
-            const Text('To confirm, type the club name below:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('To confirm, type the club name below:'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: confirmController,
@@ -662,12 +829,12 @@ class _ClubsPageState extends State<ClubsPage> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
           ElevatedButton(
             onPressed: () async {
               if (confirmController.text.trim() != clubName) {
                 _showAppSnackBar(context, 
-                  const SnackBar(content: Text('Club name does not match.')),
+                  SnackBar(content: Text('Club name does not match.'.tr)),
                 );
                 return;
               }
@@ -676,13 +843,13 @@ class _ClubsPageState extends State<ClubsPage> {
               bool? finalConfirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('FINAL WARNING'),
-                  content: const Text('Are you absolutely sure? All data will be lost forever.'),
+                  title: Text('FINAL WARNING'.tr),
+                  content: Text('Are you absolutely sure? All data will be lost forever.'.tr),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('I changed my mind')),
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: Text('I changed my mind'.tr)),
                     TextButton(
                       onPressed: () => Navigator.pop(context, true), 
-                      child: const Text('Yes, Disband', style: TextStyle(color: Colors.red)),
+                      child: Text('Yes, Disband'.tr, style: const TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
@@ -700,7 +867,7 @@ class _ClubsPageState extends State<ClubsPage> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('Confirm Disband'),
+            child: Text('Confirm Disband'.tr),
           ),
         ],
       ),
@@ -731,16 +898,9 @@ class _ClubsPageState extends State<ClubsPage> {
             List<Map<String, dynamic>> combined = [];
             for (var d in friendsSnap.docs) {
               final data = d.data();
-              // Check if user is in a club
-              final userDoc = await _db.collection('users').doc(d.id).get();
-              final userData = userDoc.data();
-              bool inClub = userData?['ownedClubId'] != null || userData?['joinedClubId'] != null;
-              
-              if (!inClub) {
-                data['isFriend'] = true;
-                data['uid'] = d.id;
-                combined.add(data);
-              }
+              data['isFriend'] = true;
+              data['uid'] = d.id;
+              combined.add(data);
             }
 
             // 2. Search Global if no friend found
@@ -754,13 +914,9 @@ class _ClubsPageState extends State<ClubsPage> {
               for (var d in globalSnap.docs) {
                 if (d.id != _authService.currentUser?.uid) {
                   final data = d.data();
-                  bool inClub = data['ownedClubId'] != null || data['joinedClubId'] != null;
-                  
-                  if (!inClub) {
-                    data['isFriend'] = false;
-                    data['uid'] = d.id;
-                    combined.add(data);
-                  }
+                  data['isFriend'] = false;
+                  data['uid'] = d.id;
+                  combined.add(data);
                 }
               }
             }
@@ -772,67 +928,96 @@ class _ClubsPageState extends State<ClubsPage> {
           }
 
           return AlertDialog(
-            title: const Text('Invite Member'),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            title: Text('Invite Member'.tr),
             content: SizedBox(
-              width: double.maxFinite,
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: 380,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
                     controller: searchController,
                     decoration: InputDecoration(
-                      hintText: 'Enter exact username',
+                      labelText: 'Search Username'.tr,
+                      hintText: 'Enter exact username'.tr,
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.search),
                         onPressed: () => search(searchController.text),
                       ),
                     ),
-                    onSubmitted: search,
+                    onSubmitted: (query) => search(query),
                   ),
-                  if (isSearching) const LinearProgressIndicator(),
                   const SizedBox(height: 16),
-                  if (results.isNotEmpty)
-                    Flexible(
+                  if (isSearching)
+                    const Center(child: CircularProgressIndicator())
+                  else if (results.isEmpty)
+                    Center(child: Text('Search by exact username above.'.tr))
+                  else
+                    Expanded(
                       child: ListView.builder(
-                        shrinkWrap: true,
                         itemCount: results.length,
                         itemBuilder: (context, index) {
-                          final user = results[index];
-                          final bool isFriend = user['isFriend'] ?? false;
+                          final item = results[index];
+                          final targetUid = item['uid'];
+                          final targetUsername = item['username'] ?? 'User';
+                          final isFriend = item['isFriend'] ?? false;
+
                           return ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.person)),
-                            title: Text(user['username']),
-                            subtitle: isFriend ? const Text('Friend', style: TextStyle(color: Colors.green, fontSize: 12)) : null,
-                            trailing: IconButton(
-                              icon: const Icon(Icons.send, color: Colors.blue),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: isFriend ? Colors.blue.withValues(alpha: 0.15) : null,
+                              child: Icon(isFriend ? Icons.person : Icons.person_outline),
+                            ),
+                            title: Text(
+                              targetUsername,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(isFriend ? 'Friend'.tr : 'User'.tr),
+                            trailing: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                visualDensity: VisualDensity.compact,
+                              ),
                               onPressed: () async {
                                 try {
-                                  await _authService.sendClubJoinRequest(clubId, clubName, user['uid'], user['username']);
-                                  if (!context.mounted) return;
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-                                    SnackBar(content: Text('Invitation sent to ${user['username']}!')),
+                                  await _authService.sendClubJoinRequest(
+                                    clubId,
+                                    clubName,
+                                    targetUid,
+                                    targetUsername,
                                   );
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    _showAppSnackBar(context, 
+                                      SnackBar(content: Text('${"Invitation sent to".tr} $targetUsername!')),
+                                    );
+                                  }
                                 } catch (e) {
-                                  if (!context.mounted) return;
-                                  _showAppSnackBar(context, SnackBar(content: Text('$e')));
+                                  if (context.mounted) {
+                                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
+                                  }
                                 }
                               },
+                              child: Text('Invite'.tr),
                             ),
                           );
                         },
                       ),
-                    )
-                  else if (searchController.text.isNotEmpty && !isSearching)
-                    const Text('No user found.', style: TextStyle(color: Colors.grey)),
+                    ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel'.tr),
+              ),
             ],
           );
-        }
+        },
       ),
     );
   }

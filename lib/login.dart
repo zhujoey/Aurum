@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sportspro/home.dart';
-import 'package:sportspro/signup.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/home.dart';
+import 'package:aurum/signup.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -140,17 +141,17 @@ class _LoginState extends State<Login> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
+        title: Text('Reset Password'.tr),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter your email and we\'ll send you a reset link.'),
+            Text('Enter your email and we\'ll send you a reset link.'.tr),
             const SizedBox(height: 16),
             TextField(
               controller: _resetEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Email'.tr,
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -158,7 +159,7 @@ class _LoginState extends State<Login> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -169,7 +170,7 @@ class _LoginState extends State<Login> {
                   if (!context.mounted) return;
                   Navigator.pop(context);
                   _showAppSnackBar(context, 
-                    const SnackBar(content: Text('Reset link sent! Check your email.')),
+                    SnackBar(content: Text('Reset link sent! Check your email.'.tr)),
                   );
                 } catch (e) {
                   _showAppSnackBar(context, 
@@ -178,7 +179,7 @@ class _LoginState extends State<Login> {
                 }
               }
             },
-            child: const Text('Send Link'),
+            child: Text('Send Link'.tr),
           ),
         ],
       ),
@@ -197,9 +198,18 @@ class _LoginState extends State<Login> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.sports_tennis, size: 80, color: Colors.blue),
-                const SizedBox(height: 24),
-                const SizedBox(height: 48),
+                Image.asset('assets/logo.png', height: 100),
+                const SizedBox(height: 12),
+                Text(
+                  'Aurum',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 32),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -231,12 +241,12 @@ class _LoginState extends State<Login> {
                           value: _rememberMe,
                           onChanged: (value) => setState(() => _rememberMe = value ?? false),
                         ),
-                        const Text('Remember Me'),
+                        Text('Remember Me'.tr),
                       ],
                     ),
                     TextButton(
                       onPressed: _showForgotPasswordDialog,
-                      child: const Text('Forgot Password?'),
+                      child: Text('Forgot Password?'.tr),
                     ),
                   ],
                 ),
@@ -251,24 +261,24 @@ class _LoginState extends State<Login> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Login', style: TextStyle(fontSize: 18)),
+                      child: Text('Login'.tr, style: const TextStyle(fontSize: 18)),
                     ),
                 const SizedBox(height: 16),
-                const Row(
+                Row(
                   children: [
-                    Expanded(child: Divider()),
+                    const Expanded(child: Divider()),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR', style: TextStyle(color: Colors.grey)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('OR'.tr, style: const TextStyle(color: Colors.grey)),
                     ),
-                    Expanded(child: Divider()),
+                    const Expanded(child: Divider()),
                   ],
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: _isLoading ? null : _handleGoogleSignIn,
                   icon: const Icon(Icons.login, color: Colors.red), // Placeholder icon
-                  label: const Text('Sign in with Google'),
+                  label: Text('Sign in with Google'.tr),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     side: const BorderSide(color: Colors.grey),
@@ -279,7 +289,7 @@ class _LoginState extends State<Login> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account?"),
+                    Text("Don't have an account?".tr),
                     TextButton(
                       onPressed: () {
                         Navigator.push(
@@ -287,7 +297,7 @@ class _LoginState extends State<Login> {
                           MaterialPageRoute(builder: (context) => const SignUp()),
                         );
                       },
-                      child: const Text('Sign Up'),
+                      child: Text('Sign Up'.tr),
                     ),
                   ],
                 ),

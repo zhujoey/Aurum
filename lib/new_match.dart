@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
-import 'package:sportspro/widgets/active_match_banner.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/widgets/active_match_banner.dart';
 import 'table_tennis/tt_setup.dart';
 import 'badminton/badminton_setup.dart';
+import 'tennis/tennis_setup.dart';
+
+import 'package:aurum/language_service.dart';
 
 class NewMatch extends StatelessWidget {
   const NewMatch({super.key});
@@ -19,7 +22,7 @@ class NewMatch extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Select Sport'),
+            title: Text('Select Sport'.tr),
           ),
           body: Column(
             children: [
@@ -62,10 +65,17 @@ class NewMatch extends StatelessWidget {
                     ),
                     _buildSportCard(
                       context,
-                      'Tennis (Coming Soon)',
-                      Icons.sports_tennis_outlined,
-                      Colors.grey,
-                      null,
+                      'Tennis',
+                      Icons.sports_tennis,
+                      Colors.orange,
+                      hasActiveMatch 
+                        ? null 
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const TennisSetup()),
+                            );
+                          },
                     ),
                   ],
                 ),
@@ -87,7 +97,7 @@ class NewMatch extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         leading: Icon(icon, size: 40, color: isDisabled ? Colors.grey : color),
         title: Text(
-          title,
+          title.tr,
           style: TextStyle(
             fontSize: 18, 
             fontWeight: FontWeight.bold,

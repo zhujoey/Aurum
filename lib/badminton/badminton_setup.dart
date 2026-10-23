@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'badminton_models.dart';
 import 'badminton_scoreboard.dart';
@@ -449,7 +450,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
         }
       },
       style: ElevatedButton.styleFrom(backgroundColor: isSelected ? Colors.blue : Colors.grey[800], foregroundColor: Colors.white),
-      child: Text(label),
+      child: Text(label.tr),
     );
   }
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sportspro/home.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/home.dart';
+import 'package:aurum/auth_service.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
 
 class FriendRequestsPage extends StatelessWidget {
   const FriendRequestsPage({super.key});

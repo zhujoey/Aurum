@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aurum/language_service.dart';
 
 class TeamColumn extends StatelessWidget {
   final int teamNum;
@@ -80,7 +81,7 @@ class TeamColumn extends StatelessWidget {
                     : Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: hasWon ? Border.all(color: Colors.amber, width: 1) : null),
-            child: Text('Sets: $sets',
+            child: Text('${"Sets".tr}: $sets',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

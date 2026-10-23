@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 import 'tt_models.dart';
 import 'widgets/tt_banners.dart';
 import 'widgets/tt_history.dart';
@@ -115,7 +116,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
   @override
   void initState() {
     super.initState();
-    _isHost = widget.isHost ?? widget.matchId.isEmpty;
+    _isHost = widget.isHost ?? (widget.matchId.isEmpty || widget.matchId.startsWith('tour_'));
     player1Score = widget.initialP1Score;
     player2Score = widget.initialP2Score;
     player1Sets = widget.initialP1Sets;
@@ -164,12 +165,6 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       p1OnLeftOfMatch = Random().nextBool();
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted || isFinished || _isAnySuspended) return;
-        // Wait a bit to ensure _isHost is determined for cloud matches
-        if (widget.matchId.isNotEmpty) {
-           await Future.delayed(const Duration(milliseconds: 1000));
-        }
-        if (!mounted || isFinished || _isAnySuspended) return;
-        
         if (_isHost) {
           await _promptTossWinner();
           if (!mounted || isFinished || _isAnySuspended) return;
@@ -190,6 +185,34 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
   void _listenToMatchStatus() {
     if (widget.matchId.isEmpty) return;
+
+    if (widget.matchId.startsWith('tour_')) {
+      final parts = widget.matchId.split('_');
+      if (parts.length >= 4) {
+        final cId = parts[1];
+        final tId = parts[2];
+        final mId = parts.sublist(3).join('_');
+
+        _matchSubscription = FirebaseFirestore.instance
+            .collection('clubs')
+            .doc(cId)
+            .collection('tournaments')
+            .doc(tId)
+            .collection('matches')
+            .doc(mId)
+            .snapshots()
+            .listen((doc) {
+          if (doc.exists) {
+            final data = doc.data() ?? {};
+            if (data['status'] == 'completed' && !isFinished) {
+              setState(() => isFinished = true);
+            }
+          }
+        });
+      }
+      return;
+    }
+
     _matchSubscription = FirebaseFirestore.instance
         .collection('active_matches')
         .doc(widget.matchId)
@@ -569,10 +592,10 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Coin Toss Result'),
-        content: Text('$winnerDisplay won the toss!'),
+        title: Text('Coin Toss Result'.tr),
+        content: Text('$winnerDisplay ${"won the toss!".tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Continue')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Continue'.tr)),
         ],
       ),
     );
@@ -925,12 +948,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     }
   }
 
-  void _checkMatchWinner() {
-    setState(() {
-      isFinished = (player1Sets >= widget.setsToWin || player2Sets >= widget.setsToWin);
-    });
-
-    if (isFinished && widget.matchId.startsWith('tour_')) {
+  Future<void> _recordMatchResult() async {
+    if (widget.matchId.startsWith('tour_')) {
       final parts = widget.matchId.split('_');
       if (parts.length >= 4) {
         final cId = parts[1];
@@ -953,7 +972,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         final loserName = player1Sets > player2Sets ? widget.p2Name : widget.p1Name;
         final scoreText = '$player1Sets-$player2Sets';
 
-        _authService.recordTournamentMatchResult(
+        await _authService.recordTournamentMatchResult(
           clubId: cId,
           tournamentId: tId,
           matchId: mId,
@@ -964,6 +983,15 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           setSummaries: finalSets.map((s) => s.toMap()).toList(),
         );
       }
+    }
+  }
+
+  void _checkMatchWinner() {
+    setState(() {
+      isFinished = (player1Sets >= widget.setsToWin || player2Sets >= widget.setsToWin);
+    });
+    if (isFinished) {
+      _recordMatchResult();
     }
   }
 
@@ -1141,7 +1169,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Table Tennis Match'),
+          title: Text('Table Tennis Match'.tr),
           actions: [
             IconButton(
               icon: const Icon(Icons.info_outline),
@@ -1206,9 +1234,9 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
               },
               itemBuilder: (context) => [
                 if (_isHost)
-                  const PopupMenuItem(value: 'discard', child: Text('Discard Match', style: TextStyle(color: Colors.red))),
+                  PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red))),
                 if (!_isHost)
-                  const PopupMenuItem(value: 'forfeit', child: Text('Forfeit Match', style: TextStyle(color: Colors.red))),
+                  PopupMenuItem(value: 'forfeit', child: Text('Forfeit Match'.tr, style: const TextStyle(color: Colors.red))),
               ],
             ),
           ],
@@ -1229,16 +1257,17 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
             if (isFinished || _isAnySuspended) ...[MatchStatsSummary(s1: _calculateStats(1), s2: _calculateStats(2)), const SizedBox(height: 20)],
             Padding(padding: const EdgeInsets.symmetric(horizontal: 40.0), child: ElevatedButton(
               onPressed: (isFinished || _isAnySuspended) ? () async { 
+                await _recordMatchResult();
                 if (widget.matchId.isNotEmpty && _isHost) {
                   await _authService.deleteActiveMatch(widget.matchId);
                 }
                 await _clearPersistedMatch(); 
                 if (!context.mounted) return; 
                 Navigator.pop(context); 
-                ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(_isAnySuspended ? 'Match concluded and data cleared.' : 'Match finished and data cleared.')));
+                ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(_isAnySuspended ? 'Match concluded and saved.' : 'Match finished and saved successfully!')));
               } : null,
               style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(55), backgroundColor: (isFinished || _isAnySuspended) ? Colors.amber : Colors.grey.withValues(alpha: 0.1), disabledBackgroundColor: Colors.grey.withValues(alpha: 0.1), foregroundColor: Colors.white, disabledForegroundColor: Colors.white.withValues(alpha: 0.3), elevation: (isFinished || _isAnySuspended) ? 8 : 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: Text((isFinished || _isAnySuspended) ? 'CONCLUDE MATCH' : 'Finish Match', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: (isFinished || _isAnySuspended) ? 1.2 : 0)),
+              child: Text((isFinished || _isAnySuspended) ? 'CONCLUDE MATCH'.tr : 'Finish Match'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: (isFinished || _isAnySuspended) ? 1.2 : 0)),
             )),
             const SizedBox(height: 40),
           ]),

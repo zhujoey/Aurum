@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart' as gsignin;
 import 'package:google_sign_in_all_platforms/google_sign_in_all_platforms.dart' as gsignin_all;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:aurum/language_service.dart';
 
 class AuthService {
   // Singleton pattern
@@ -64,11 +65,15 @@ class AuthService {
       final docRef = _db.collection('users').doc(user.uid);
       String? finalUsername = username ?? user.displayName;
       
-      // If name is missing from auth, try to get from existing DB entry
-      if (finalUsername == null || finalUsername.isEmpty) {
-        final doc = await docRef.get();
-        if (doc.exists) {
-          finalUsername = doc.data()?['username'];
+      final doc = await docRef.get();
+      if (doc.exists) {
+        final data = doc.data();
+        if (finalUsername == null || finalUsername.isEmpty) {
+          finalUsername = data?['username'];
+        }
+        final String? savedLang = data?['selectedLanguage'] as String?;
+        if (savedLang != null && savedLang.isNotEmpty) {
+          LanguageService().setLanguage(savedLang, updateFirestore: false);
         }
       }
 
@@ -326,11 +331,20 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Check if user already owns or is in a club
+    // 1. Check if user already owns a club (users can only create 1 club)
     final userDoc = await _db.collection('users').doc(user.uid).get();
     final data = userDoc.data();
-    if (data?['ownedClubId'] != null || data?['joinedClubId'] != null) {
-      throw 'You are already part of an organization. You must leave it to create your own.';
+    if (data?['ownedClubId'] != null) {
+      throw 'You already own a club. You can only create 1 club, but you can join as many clubs as you wish.';
+    }
+
+    // 2. Check if a club with the same name already exists system-wide (case-insensitive)
+    final existingClubs = await _db.collection('clubs').get();
+    for (var clubDoc in existingClubs.docs) {
+      final String clubName = (clubDoc.data()['name'] as String? ?? '').trim().toLowerCase();
+      if (clubName == name.trim().toLowerCase()) {
+        throw 'A club named "$name" already exists. Please choose a unique club name.';
+      }
     }
 
     final docRef = await _db.collection('clubs').add({
@@ -440,6 +454,54 @@ class AuthService {
     return _db.collection('clubs').doc(clubId).collection('members').snapshots();
   }
 
+  Future<void> addRealMemberToClub({
+    required String clubId,
+    required String name,
+    required String gender,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final clubDoc = await _db.collection('clubs').doc(clubId).get();
+    if (!clubDoc.exists) throw 'Club not found.';
+
+    final String clubName = clubDoc.data()?['name'] ?? 'Club';
+    final String cleanName = name.trim();
+    if (cleanName.isEmpty) throw 'Member name cannot be empty.';
+
+    final String newUid = 'member_${clubId}_${DateTime.now().millisecondsSinceEpoch}';
+
+    final batch = _db.batch();
+
+    // 1. Create real user profile document in 'users' collection (isBot: false)
+    final userRef = _db.collection('users').doc(newUid);
+    batch.set(userRef, {
+      'username': cleanName,
+      'displayName': cleanName,
+      'gender': gender,
+      'isBot': false,
+      'joinedClubId': clubId,
+      'joinedClubName': clubName,
+      'points_open_singles': 0,
+      'elo_open_singles': 800,
+      'glicko_open_singles': 800,
+      'wins': 0,
+      'losses': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    // 2. Add as a real member in club's members subcollection
+    final memberRef = _db.collection('clubs').doc(clubId).collection('members').doc(newUid);
+    batch.set(memberRef, {
+      'uid': newUid,
+      'username': cleanName,
+      'role': 'member',
+      'joinedAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
   Future<void> createTournament({
     required String clubId,
     required String name,
@@ -449,9 +511,12 @@ class AuthService {
     int rankingPoints = 1000,
     String tournamentStyle = 'Single Elimination',
     String seedingMethod = 'ITTF Seeded',
-    bool hasThirdPlacePlayoff = true,
+    bool hasThirdPlacePlayoff = false,
     String singlesType = 'everyone',
     String doublesType = 'none',
+    String teamType = 'none',
+    String teamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)',
+    String pointsExpiration = '1_year',
     bool keepRunningTimers = true,
     Map<String, dynamic>? pointsBreakdown,
   }) async {
@@ -464,15 +529,23 @@ class AuthService {
       throw 'Only the club owner can create tournaments.';
     }
 
-    // Check limit of 3 tournaments
+    // Check limit of 7 tournaments
     final existing = await _db
         .collection('clubs')
         .doc(clubId)
         .collection('tournaments')
         .get();
     
-    if (existing.docs.length >= 3) {
-      throw 'Clubs are limited to 3 tournaments at a time.';
+    if (existing.docs.length >= 7) {
+      throw 'Clubs are limited to 7 tournaments at a time.';
+    }
+
+    // Check for duplicate tournament name in this club
+    for (var tDoc in existing.docs) {
+      final String tName = (tDoc.data()['name'] as String? ?? '').trim().toLowerCase();
+      if (tName == name.trim().toLowerCase()) {
+        throw 'A tournament named "$name" already exists in this club. Please choose a unique name.';
+      }
     }
 
     final bool resolvedOpenDoubles = doublesType == 'open';
@@ -499,6 +572,9 @@ class AuthService {
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
       'singlesType': singlesType,
       'doublesType': doublesType,
+      'teamType': teamType,
+      'teamMatchSystem': teamMatchSystem,
+      'pointsExpiration': pointsExpiration,
       'keepRunningTimers': keepRunningTimers,
       'pointsBreakdown': breakdown,
       'hasMixedDoubles': resolvedMixedDoubles,
@@ -542,6 +618,9 @@ class AuthService {
     required bool hasThirdPlacePlayoff,
     required String singlesType,
     required String doublesType,
+    String teamType = 'none',
+    String teamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)',
+    String pointsExpiration = '1_year',
     bool keepRunningTimers = true,
     Map<String, dynamic>? pointsBreakdown,
   }) async {
@@ -550,6 +629,22 @@ class AuthService {
         .doc(clubId)
         .collection('tournaments')
         .doc(tournamentId);
+
+    // Check if another tournament in this club already has this name
+    final existingTours = await _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .get();
+
+    for (var tDoc in existingTours.docs) {
+      if (tDoc.id != tournamentId) {
+        final String tName = (tDoc.data()['name'] as String? ?? '').trim().toLowerCase();
+        if (tName == name.trim().toLowerCase()) {
+          throw 'Another tournament named "$name" already exists in this club. Please choose a unique name.';
+        }
+      }
+    }
 
     final bool resolvedOpenDoubles = doublesType == 'open';
     final bool resolvedGenderDoubles = doublesType == 'gendered' || doublesType == 'all';
@@ -574,6 +669,9 @@ class AuthService {
       'hasThirdPlacePlayoff': hasThirdPlacePlayoff,
       'singlesType': singlesType,
       'doublesType': doublesType,
+      'teamType': teamType,
+      'teamMatchSystem': teamMatchSystem,
+      'pointsExpiration': pointsExpiration,
       'keepRunningTimers': keepRunningTimers,
       'pointsBreakdown': breakdown,
       'hasMixedDoubles': resolvedMixedDoubles,
@@ -620,6 +718,28 @@ class AuthService {
     while (tempM > 1) {
       tempM ~/= 2;
       totalRounds++;
+    }
+
+    // Filter out incomplete teams/pairs before starting bracket
+    final doublesSnap = await docRef.collection('doubles_requests').get();
+    for (var dDoc in doublesSnap.docs) {
+      final dData = dDoc.data();
+      final String status = dData['status'] ?? 'pending';
+      final String eventType = dData['eventType'] ?? '';
+
+      if (status != 'accepted') {
+        int requiredMembers = 2;
+        if (eventType == 'mixed_team') {
+          requiredMembers = 8;
+        } else if (eventType.endsWith('_team')) {
+          requiredMembers = 5;
+        }
+
+        final List acceptedUids = List.from(dData['acceptedUids'] ?? []);
+        if (acceptedUids.length < requiredMembers) {
+          await dDoc.reference.delete();
+        }
+      }
     }
 
     final batch = _db.batch();
@@ -920,12 +1040,13 @@ class AuthService {
     final List participantUids = List.from(data['participantUids'] ?? []);
 
     final String singlesType = data['singlesType'] ?? 'everyone';
+    final String tourName = data['name'] ?? 'Tournament';
     final batch = _db.batch();
 
     for (int i = 1; i <= count; i++) {
       final String botUid = 'test_bot_${tournamentId}_$i';
       final String gender = (singlesType == 'separate_gender' && i % 2 == 0) ? 'Female' : 'Male';
-      final String botName = 'Test Player $i (${gender[0]})';
+      final String botName = 'Test Player $i (${gender[0]}) • $tourName';
 
       if (!participantUids.contains(botUid)) {
         participantUids.add(botUid);
@@ -968,29 +1089,41 @@ class AuthService {
         .collection('tournaments')
         .doc(tournamentId);
 
-    // 1. Clean up matches subcollection
+    final batch = _db.batch();
+
+    // 1. Delete all test user profiles belonging to this tournament from 'users'
+    final botUsersSnap = await _db.collection('users').get();
+    for (var uDoc in botUsersSnap.docs) {
+      if (uDoc.id.startsWith('test_bot_${tournamentId}_')) {
+        batch.delete(uDoc.reference);
+      }
+    }
+
+    // 2. Clean up matches subcollection
     final matches = await tourRef.collection('matches').get();
     for (var doc in matches.docs) {
-      await doc.reference.delete();
+      batch.delete(doc.reference);
     }
 
-    // 2. Clean up doubles_requests subcollection
+    // 3. Clean up doubles_requests subcollection
     final doublesReqs = await tourRef.collection('doubles_requests').get();
     for (var doc in doublesReqs.docs) {
-      await doc.reference.delete();
+      batch.delete(doc.reference);
     }
 
-    // 3. Clean up pending invitations in tournament_requests
+    // 4. Clean up pending invitations in tournament_requests
     final pendingInvites = await _db
         .collection('tournament_requests')
         .where('tournamentId', isEqualTo: tournamentId)
         .get();
     for (var doc in pendingInvites.docs) {
-      await doc.reference.delete();
+      batch.delete(doc.reference);
     }
 
-    // 4. Delete the tournament document
-    await tourRef.delete();
+    // 5. Delete tournament document
+    batch.delete(tourRef);
+
+    await batch.commit();
   }
 
   // Club Request Logic
@@ -1048,17 +1181,13 @@ class AuthService {
   }
 
   Stream<QuerySnapshot> get incomingClubRequests {
-    return _auth.userChanges().asyncExpand((user) {
-      if (user == null) {
-        return const Stream.empty();
-      }
-      // Only show pending invitations to the recipient
-      return _db
-          .collection('club_requests')
-          .where('toUid', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'pending')
-          .snapshots();
-    });
+    final uid = currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('club_requests')
+        .where('toUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
   }
 
   Future<void> acceptClubRequest(String requestId, String clubId, String clubName) async {
@@ -1128,6 +1257,21 @@ class AuthService {
       throw 'This member is already in the tournament.';
     }
 
+    // Auto-add club registered local members (member_...) directly!
+    if (targetUid.startsWith('member_')) {
+      await docRef.update({
+        'participantUids': FieldValue.arrayUnion([targetUid]),
+        'participants': FieldValue.arrayUnion([
+          {
+            'uid': targetUid,
+            'username': targetUsername,
+            'joinedAt': DateTime.now().toIso8601String(),
+          }
+        ]),
+      });
+      return;
+    }
+
     // Check if invitation already pending
     final existing = await _db
         .collection('tournament_requests')
@@ -1153,16 +1297,13 @@ class AuthService {
   }
 
   Stream<QuerySnapshot> get incomingTournamentRequests {
-    return _auth.userChanges().asyncExpand((user) {
-      if (user == null) {
-        return const Stream.empty();
-      }
-      return _db
-          .collection('tournament_requests')
-          .where('toUid', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'pending')
-          .snapshots();
-    });
+    final uid = currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('tournament_requests')
+        .where('toUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
   }
 
   Future<void> acceptTournamentRequest(String requestId, String clubId, String tournamentId) async {
@@ -1305,7 +1446,30 @@ class AuthService {
     if (!reqDoc.exists) throw 'Request not found.';
 
     final reqData = reqDoc.data() as Map<String, dynamic>;
-    final eventType = reqData['eventType'];
+    final eventType = reqData['eventType'] ?? 'doubles';
+    final List teamRoster = List.from(reqData['teamRoster'] ?? []);
+
+    if (teamRoster.isNotEmpty) {
+      final List acceptedUids = List.from(reqData['acceptedUids'] ?? []);
+      if (!acceptedUids.contains(user.uid)) {
+        acceptedUids.add(user.uid);
+      }
+
+      bool isFullyAccepted = acceptedUids.length >= teamRoster.length;
+
+      if (isFullyAccepted) {
+        await reqRef.update({
+          'status': 'accepted',
+          'acceptedUids': acceptedUids,
+        });
+      } else {
+        await reqRef.update({
+          'acceptedUids': acceptedUids,
+        });
+      }
+      return;
+    }
+
     final fromUid = reqData['fromUid'];
     final toUid = reqData['toUid'];
 
@@ -1325,13 +1489,142 @@ class AuthService {
     await reqRef.update({'status': 'accepted'});
   }
 
+  Future<void> createDirectDoublesPair({
+    required String clubId,
+    required String tournamentId,
+    required String p1Uid,
+    required String p1Username,
+    required String p2Uid,
+    required String p2Username,
+    required String eventType,
+  }) async {
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('doubles_requests')
+        .doc();
+
+    final batch = _db.batch();
+
+    batch.set(docRef, {
+      'fromUid': p1Uid,
+      'fromUsername': p1Username,
+      'toUid': p2Uid,
+      'toUsername': p2Username,
+      'status': 'accepted',
+      'eventType': eventType,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final pairRef = _db.collection('doubles_pairs').doc(docRef.id);
+    batch.set(pairRef, {
+      'clubId': clubId,
+      'tournamentId': tournamentId,
+      'eventType': eventType,
+      'p1Uid': p1Uid,
+      'p1Name': p1Username,
+      'p2Uid': p2Uid,
+      'p2Name': p2Username,
+      'points': 0,
+      'elo': 800,
+      'glicko': 800,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
+  Future<void> createTeamRoster({
+    required String clubId,
+    required String tournamentId,
+    required String eventType,
+    required List<Map<String, String>> teamMembers,
+  }) async {
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('doubles_requests')
+        .doc();
+
+    final String teamName = teamMembers.map((m) => m['username']).join(' & ');
+
+    await docRef.set({
+      'fromUid': teamMembers.first['uid'],
+      'fromUsername': teamMembers.first['username'],
+      'toUid': teamMembers.last['uid'],
+      'toUsername': teamName,
+      'status': 'accepted',
+      'eventType': eventType,
+      'teamRoster': teamMembers,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> sendTeamRosterRequest({
+    required String clubId,
+    required String tournamentId,
+    required String eventType,
+    required List<Map<String, String>> teamMembers,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    final docRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('doubles_requests')
+        .doc();
+
+    final String teamName = teamMembers.map((m) => m['username']).join(' & ');
+
+    await docRef.set({
+      'fromUid': user.uid,
+      'fromUsername': user.displayName ?? 'Player',
+      'toUid': teamMembers.last['uid'],
+      'toUsername': teamName,
+      'status': 'pending',
+      'acceptedUids': [user.uid],
+      'eventType': eventType,
+      'teamRoster': teamMembers,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> declineDoublesPartner({
     required String clubId,
     required String tournamentId,
     required String requestId,
   }) async {
+    final user = currentUser;
+    if (user == null) return;
+
     final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
-    await tourRef.collection('doubles_requests').doc(requestId).delete();
+    final reqRef = tourRef.collection('doubles_requests').doc(requestId);
+    final reqDoc = await reqRef.get();
+
+    if (reqDoc.exists) {
+      final reqData = reqDoc.data() as Map<String, dynamic>;
+      final List teamRoster = List.from(reqData['teamRoster'] ?? []);
+
+      if (teamRoster.isNotEmpty) {
+        final List declinedUids = List.from(reqData['declinedUids'] ?? []);
+        if (!declinedUids.contains(user.uid)) {
+          declinedUids.add(user.uid);
+        }
+        await reqRef.update({
+          'declinedUids': declinedUids,
+        });
+        return;
+      }
+    }
+
+    await reqRef.delete();
   }
 
   Future<void> deleteDoublesPartnerRequest({
@@ -1349,6 +1642,19 @@ class AuthService {
     await _db.collection('users').doc(user.uid).update({
       'gender': gender,
     });
+  }
+
+  Future<void> updateUserPhotoUrl(String photoUrl) async {
+    final user = currentUser;
+    if (user == null) return;
+    try {
+      await user.updatePhotoURL(photoUrl);
+    } catch (e) {
+      debugPrint("Error updating auth photo URL: $e");
+    }
+    await _db.collection('users').doc(user.uid).set({
+      'photoUrl': photoUrl,
+    }, SetOptions(merge: true));
   }
 
   Future<void> setSamkitsGenderToMale() async {
@@ -1661,13 +1967,11 @@ class AuthService {
       winnerRef.get(),
       loserRef.get(),
       tourRef.get(),
-      tourRef.collection('matches').where('winnerUid', isEqualTo: loserUid).get(),
     ]);
 
     final DocumentSnapshot winnerDoc = results[0] as DocumentSnapshot;
     final DocumentSnapshot loserDoc = results[1] as DocumentSnapshot;
     final DocumentSnapshot tourDoc = results[2] as DocumentSnapshot;
-    final QuerySnapshot loserPriorWins = results[3] as QuerySnapshot;
 
     final winnerData = (winnerDoc.data() as Map<String, dynamic>?) ?? {};
     final loserData = (loserDoc.data() as Map<String, dynamic>?) ?? {};
@@ -1689,14 +1993,6 @@ class AuthService {
     }, SetOptions(merge: true));
 
     if (!isBye) {
-      final breakdown = (tourData['pointsBreakdown'] as Map<String, dynamic>?) ?? {};
-      final int winnerPoints = (breakdown['winner'] as num?)?.toInt() ?? pointsAwarded;
-      final int sfPoints = (breakdown['semifinalist'] as num?)?.toInt() ?? (winnerPoints * 0.35).round();
-      final int qfPoints = (breakdown['quarterfinalist'] as num?)?.toInt() ?? (winnerPoints * 0.175).round();
-
-      final bool loserWonPriorMatch = loserPriorWins.docs.isNotEmpty;
-      int loserPointsAwarded = loserWonPriorMatch ? sfPoints : qfPoints;
-
       // Rating calculations
       final double wElo = ((winnerData['elo_open_singles'] ?? winnerData['eloRating'] ?? 1200) as num).toDouble();
       final double lElo = ((loserData['elo_open_singles'] ?? loserData['eloRating'] ?? 1200) as num).toDouble();
@@ -1707,31 +2003,93 @@ class AuthService {
       final int newWElo = (wElo + 32 * (1.0 - expectedW)).round();
       final int newLElo = (lElo + 32 * (0.0 - expectedL)).round();
 
-      final double wGlicko = ((winnerData['glicko_open_singles'] ?? winnerData['glickoRating'] ?? 1500) as num).toDouble();
-      final double lGlicko = ((loserData['glicko_open_singles'] ?? loserData['glickoRating'] ?? 1500) as num).toDouble();
+      // Glicko-2 Calculations
+      final double wGlicko = ((winnerData['glicko_open_singles'] ?? winnerData['glickoRating'] ?? winnerData['glicko'] ?? 800) as num).toDouble();
+      final double wRd = ((winnerData['glicko_rd'] ?? winnerData['glickoRd'] ?? 350) as num).toDouble();
+      final double wVol = ((winnerData['glicko_vol'] ?? winnerData['glickoVol'] ?? 0.06) as num).toDouble();
 
-      final int newWGlicko = (wGlicko + 25 * (1.0 - expectedW)).round();
-      final int newLGlicko = (lGlicko + 25 * (0.0 - expectedL)).round();
+      final double lGlicko = ((loserData['glicko_open_singles'] ?? loserData['glickoRating'] ?? loserData['glicko'] ?? 800) as num).toDouble();
+      final double lRd = ((loserData['glicko_rd'] ?? loserData['glickoRd'] ?? 350) as num).toDouble();
+      final double lVol = ((loserData['glicko_vol'] ?? loserData['glickoVol'] ?? 0.06) as num).toDouble();
+
+      final Glicko2Result winnerGlickoRes = _calculateGlicko2(
+        r: wGlicko,
+        rd: wRd,
+        vol: wVol,
+        opponentR: lGlicko,
+        opponentRd: lRd,
+        outcome: 1.0,
+      );
+
+      final Glicko2Result loserGlickoRes = _calculateGlicko2(
+        r: lGlicko,
+        rd: lRd,
+        vol: lVol,
+        opponentR: wGlicko,
+        opponentRd: wRd,
+        outcome: 0.0,
+      );
+
+      final int newWGlicko = winnerGlickoRes.rating.round();
+      final int newLGlicko = loserGlickoRes.rating.round();
+
+      // Glicko-1 Calculations
+      final double wGlicko1 = ((winnerData['glicko1_open_singles'] ?? winnerData['glicko1Rating'] ?? 800) as num).toDouble();
+      final double wGlicko1Rd = ((winnerData['glicko1_rd'] ?? 350) as num).toDouble();
+
+      final double lGlicko1 = ((loserData['glicko1_open_singles'] ?? loserData['glicko1Rating'] ?? 800) as num).toDouble();
+      final double lGlicko1Rd = ((loserData['glicko1_rd'] ?? 350) as num).toDouble();
+
+      final Glicko1Result winnerGlicko1Res = _calculateGlicko1(
+        r: wGlicko1,
+        rd: wGlicko1Rd,
+        opponentR: lGlicko1,
+        opponentRd: lGlicko1Rd,
+        outcome: 1.0,
+      );
+
+      final Glicko1Result loserGlicko1Res = _calculateGlicko1(
+        r: lGlicko1,
+        rd: lGlicko1Rd,
+        opponentR: wGlicko1,
+        opponentRd: wGlicko1Rd,
+        outcome: 0.0,
+      );
+
+      String category = rankingCategory;
+      if (category.isEmpty || category.contains('teams')) {
+        category = 'points_open_singles';
+      }
+
+      final String eloCategory = category.replaceAll('points_', 'elo_');
+      final String glickoCategory = category.replaceAll('points_', 'glicko_');
+      final String glicko1Category = category.replaceAll('points_', 'glicko1_');
 
       if (winnerDoc.exists) {
         batch.update(winnerRef, {
-          rankingCategory: FieldValue.increment(winnerPoints),
           'wins': FieldValue.increment(1),
-          'elo_open_singles': newWElo,
+          eloCategory: newWElo,
           'eloRating': newWElo,
-          'glicko_open_singles': newWGlicko,
+          glickoCategory: newWGlicko,
           'glickoRating': newWGlicko,
+          'glicko_rd': winnerGlickoRes.rd,
+          'glicko_vol': winnerGlickoRes.volatility,
+          glicko1Category: winnerGlicko1Res.rating.round(),
+          'glicko1_rd': winnerGlicko1Res.rd,
         });
       }
 
       if (loserDoc.exists) {
         batch.update(loserRef, {
-          rankingCategory: FieldValue.increment(loserPointsAwarded),
           'losses': FieldValue.increment(1),
-          'elo_open_singles': newLElo,
+          eloCategory: newLElo,
           'eloRating': newLElo,
-          'glicko_open_singles': newLGlicko,
+          glickoCategory: newLGlicko,
           'glickoRating': newLGlicko,
+          'glicko_rd': loserGlickoRes.rd,
+          'glicko_vol': loserGlickoRes.volatility,
+          glicko1Category: loserGlicko1Res.rating.round(),
+          'glicko1_rd': loserGlicko1Res.rd,
         });
       }
 
@@ -1812,5 +2170,288 @@ class AuthService {
     }
 
     await batch.commit();
+
+    // Check if tournament has ended and award final placement points
+    if (!isBye && matchId.startsWith('match_r')) {
+      final parts = matchId.split('_');
+      if (parts.length >= 3) {
+        final int roundNum = int.tryParse(parts[1].replaceAll('r', '')) ?? 1;
+        final int totalRounds = (tourData['totalRounds'] as num?)?.toInt() ?? 3;
+        if (roundNum >= totalRounds) {
+          await finalizeTournamentAndAwardPoints(clubId: clubId, tournamentId: tournamentId);
+        }
+      }
+    }
   }
+
+  Future<void> finalizeTournamentAndAwardPoints({
+    required String clubId,
+    required String tournamentId,
+  }) async {
+    final tourRef = _db
+        .collection('clubs')
+        .doc(clubId)
+        .collection('tournaments')
+        .doc(tournamentId);
+
+    final tourDoc = await tourRef.get();
+    if (!tourDoc.exists) return;
+
+    final tourData = tourDoc.data() as Map<String, dynamic>;
+    if (tourData['pointsDistributed'] == true) return; // Prevent duplicate distribution
+
+    final int rankingPoints = (tourData['rankingPoints'] as num?)?.toInt() ?? 1000;
+    final Map<String, dynamic> breakdown = (tourData['pointsBreakdown'] as Map<String, dynamic>?) ?? {
+      'winner': rankingPoints,
+      'finalist': (rankingPoints * 0.7).round(),
+      'semifinalist': (rankingPoints * 0.35).round(),
+      'quarterfinalist': (rankingPoints * 0.175).round(),
+      'roundOf16': (rankingPoints * 0.0875).round(),
+      'roundOf32': (rankingPoints * 0.045).round(),
+      'roundOf64': (rankingPoints * 0.015).round(),
+    };
+
+    String doublesType = tourData['doublesType'] ?? 'none';
+    String category = 'points_open_singles';
+    if (doublesType != 'none') {
+      category = 'points_open_doubles_indiv';
+    }
+
+    final matchesSnap = await tourRef.collection('matches').get();
+    final List<QueryDocumentSnapshot> matches = matchesSnap.docs;
+
+    Map<String, int> userHighestRoundWon = {};
+    Map<String, int> userHighestRoundPlayed = {};
+
+    for (var mDoc in matches) {
+      final mData = mDoc.data() as Map<String, dynamic>;
+      final String winner = mData['winnerUid'] ?? '';
+      final String loser = mData['loserUid'] ?? '';
+      final String p1 = mData['p1Uid'] ?? '';
+      final String p2 = mData['p2Uid'] ?? '';
+      final int roundNum = (mData['roundNum'] as num?)?.toInt() ?? 1;
+
+      if (winner.isNotEmpty && winner != 'BYE') {
+        userHighestRoundWon[winner] = max(userHighestRoundWon[winner] ?? 0, roundNum);
+      }
+      if (p1.isNotEmpty && p1 != 'BYE') {
+        userHighestRoundPlayed[p1] = max(userHighestRoundPlayed[p1] ?? 0, roundNum);
+      }
+      if (p2.isNotEmpty && p2 != 'BYE') {
+        userHighestRoundPlayed[p2] = max(userHighestRoundPlayed[p2] ?? 0, roundNum);
+      }
+      if (loser.isNotEmpty && loser != 'BYE') {
+        userHighestRoundPlayed[loser] = max(userHighestRoundPlayed[loser] ?? 0, roundNum);
+      }
+    }
+
+    final bool hasThirdPlace = tourData['hasThirdPlacePlayoff'] ?? false;
+    final String championUid = tourData['championUid'] ?? '';
+    final String runnerUpUid = tourData['runnerUpUid'] ?? '';
+    final String thirdPlaceUid = tourData['thirdPlaceUid'] ?? '';
+
+    String bronzeLoserUid = '';
+    for (var mDoc in matches) {
+      if (mDoc.id == 'match_bronze') {
+        final mData = mDoc.data() as Map<String, dynamic>;
+        final String bWinner = mData['winnerUid'] ?? '';
+        final String bP1 = mData['p1Uid'] ?? '';
+        final String bP2 = mData['p2Uid'] ?? '';
+        if (bWinner.isNotEmpty) {
+          bronzeLoserUid = (bWinner == bP1) ? bP2 : bP1;
+        }
+      }
+    }
+
+    final int totalRounds = (tourData['totalRounds'] as num?)?.toInt() ?? 3;
+    final List participantUids = List.from(tourData['participantUids'] ?? []);
+
+    final batch = _db.batch();
+
+    for (var uidObj in participantUids) {
+      final String uid = uidObj.toString();
+      if (uid.isEmpty || uid == 'BYE') continue;
+
+      int maxRoundWon = userHighestRoundWon[uid] ?? 0;
+      int maxRoundPlayed = userHighestRoundPlayed[uid] ?? 1;
+
+      int pointsToAward = breakdown['roundOf64'] ?? (rankingPoints * 0.015).round();
+
+      int winnerPts = (breakdown['winner'] as num?)?.toInt() ?? rankingPoints;
+      int finalistPts = (breakdown['finalist'] as num?)?.toInt() ?? (rankingPoints * 0.7).round();
+      int semiPts = (breakdown['semifinalist'] as num?)?.toInt() ?? (rankingPoints * 0.35).round();
+      int qfPts = (breakdown['quarterfinalist'] as num?)?.toInt() ?? (rankingPoints * 0.175).round();
+      int fourthPts = (breakdown['fourthPlace'] as num?)?.toInt() ?? ((semiPts + qfPts) ~/ 2);
+
+      if (uid == championUid || maxRoundWon >= totalRounds) {
+        // Champion / Winner
+        pointsToAward = winnerPts;
+      } else if (uid == runnerUpUid || maxRoundPlayed == totalRounds) {
+        // Finalist / Runner-up
+        pointsToAward = finalistPts;
+      } else if (hasThirdPlace) {
+        // If 3rd place match exists:
+        if (uid == thirdPlaceUid) {
+          // 3rd Place Bronze Winner
+          pointsToAward = semiPts;
+        } else if (uid == bronzeLoserUid) {
+          // 4th Place Bronze Loser (More than QF, Less than Bronze Winner)
+          pointsToAward = fourthPts;
+        } else if (maxRoundPlayed == totalRounds - 1) {
+          pointsToAward = semiPts;
+        } else if (maxRoundPlayed == totalRounds - 2) {
+          pointsToAward = qfPts;
+        } else if (maxRoundPlayed == totalRounds - 3) {
+          pointsToAward = (breakdown['roundOf16'] as num?)?.toInt() ?? (rankingPoints * 0.0875).round();
+        } else if (maxRoundPlayed == totalRounds - 4) {
+          pointsToAward = (breakdown['roundOf32'] as num?)?.toInt() ?? (rankingPoints * 0.045).round();
+        }
+      } else {
+        // If NO 3rd place match exists (both Semifinal losers earn equal points):
+        if (maxRoundPlayed == totalRounds - 1) {
+          pointsToAward = semiPts;
+        } else if (maxRoundPlayed == totalRounds - 2) {
+          pointsToAward = qfPts;
+        } else if (maxRoundPlayed == totalRounds - 3) {
+          pointsToAward = (breakdown['roundOf16'] as num?)?.toInt() ?? (rankingPoints * 0.0875).round();
+        } else if (maxRoundPlayed == totalRounds - 4) {
+          pointsToAward = (breakdown['roundOf32'] as num?)?.toInt() ?? (rankingPoints * 0.045).round();
+        }
+      }
+
+      final userRef = _db.collection('users').doc(uid);
+      batch.set(userRef, {
+        category: FieldValue.increment(pointsToAward),
+      }, SetOptions(merge: true));
+    }
+
+    batch.update(tourRef, {
+      'isCompleted': true,
+      'pointsDistributed': true,
+      'completedAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+}
+
+class Glicko1Result {
+  final double rating;
+  final double rd;
+
+  Glicko1Result({required this.rating, required this.rd});
+}
+
+Glicko1Result _calculateGlicko1({
+  required double r,
+  required double rd,
+  required double opponentR,
+  required double opponentRd,
+  required double outcome,
+}) {
+  const double q = 0.00575646273; // ln(10)/400
+  double g(double rdVal) => 1.0 / sqrt(1.0 + (3.0 * q * q * rdVal * rdVal) / (pi * pi));
+
+  final double gOpp = g(opponentRd);
+  final double expected = 1.0 / (1.0 + pow(10, -gOpp * (r - opponentR) / 400.0));
+
+  final double dSq = 1.0 / (q * q * gOpp * gOpp * expected * (1.0 - expected));
+  final double newRd = sqrt(1.0 / ((1.0 / (rd * rd)) + (1.0 / dSq)));
+  final double newR = r + (q / ((1.0 / (rd * rd)) + (1.0 / dSq))) * gOpp * (outcome - expected);
+
+  return Glicko1Result(rating: newR, rd: newRd);
+}
+
+class Glicko2Result {
+  final double rating;
+  final double rd;
+  final double volatility;
+
+  Glicko2Result({
+    required this.rating,
+    required this.rd,
+    required this.volatility,
+  });
+}
+
+Glicko2Result _calculateGlicko2({
+  required double r,
+  required double rd,
+  required double vol,
+  required double opponentR,
+  required double opponentRd,
+  required double outcome,
+}) {
+  const double scale = 173.7178;
+  const double tau = 0.5;
+  const double defaultRating = 800.0;
+  const double epsilon = 0.000001;
+
+  double g(double phi) => 1.0 / sqrt(1.0 + (3.0 * phi * phi) / (pi * pi));
+  double e(double mu, double muJ, double phiJ) => 1.0 / (1.0 + exp(-g(phiJ) * (mu - muJ)));
+
+  final double mu = (r - defaultRating) / scale;
+  final double phi = rd / scale;
+  final double muJ = (opponentR - defaultRating) / scale;
+  final double phiJ = opponentRd / scale;
+
+  final double gPhiJ = g(phiJ);
+  final double eVal = e(mu, muJ, phiJ);
+
+  final double v = 1.0 / (gPhiJ * gPhiJ * eVal * (1.0 - eVal));
+  final double delta = v * gPhiJ * (outcome - eVal);
+
+  final double a = log(vol * vol);
+
+  double f(double x) {
+    final double ex = exp(x);
+    final double num1 = ex * (delta * delta - phi * phi - v - ex);
+    final double den1 = 2.0 * pow(phi * phi + v + ex, 2);
+    return (num1 / den1) - ((x - a) / (tau * tau));
+  }
+
+  double A = a;
+  double B;
+
+  if (delta * delta > phi * phi + v) {
+    B = log(delta * delta - phi * phi - v);
+  } else {
+    int k = 1;
+    while (f(a - k * tau) < 0) {
+      k++;
+    }
+    B = a - k * tau;
+  }
+
+  double fA = f(A);
+  double fB = f(B);
+
+  while ((B - A).abs() > epsilon) {
+    final double C = A + (A - B) * fA / (fB - fA);
+    final double fC = f(C);
+
+    if (fC * fB < 0) {
+      A = B;
+      fA = fB;
+    } else {
+      fA = fA / 2.0;
+    }
+
+    B = C;
+    fB = fC;
+  }
+
+  final double newVol = exp(A / 2.0);
+  final double phiStar = sqrt(phi * phi + newVol * newVol);
+  final double newPhi = 1.0 / sqrt((1.0 / (phiStar * phiStar)) + (1.0 / v));
+  final double newMu = mu + newPhi * newPhi * gPhiJ * (outcome - eVal);
+
+  final double newR = scale * newMu + defaultRating;
+  final double newRd = scale * newPhi;
+
+  return Glicko2Result(
+    rating: newR,
+    rd: newRd,
+    volatility: newVol,
+  );
 }

@@ -10,6 +10,7 @@ class TennisTeamColumn extends StatelessWidget {
   final String servingCourt; // 'Deuce' or 'Ad'
   final String side; // 'HOME' or 'AWAY'
   final bool isHost;
+  final bool isFinished;
   final VoidCallback onPointAdd;
   final VoidCallback onCodeViolation;
   final VoidCallback onMedicalTimeout;
@@ -25,6 +26,7 @@ class TennisTeamColumn extends StatelessWidget {
     required this.servingCourt,
     required this.side,
     required this.isHost,
+    required this.isFinished,
     required this.onPointAdd,
     required this.onCodeViolation,
     required this.onMedicalTimeout,
@@ -32,107 +34,135 @@ class TennisTeamColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
+    double screenWidth = MediaQuery.of(context).size.width;
+    double columnWidth = (screenWidth - 40) / 2.1;
+    if (columnWidth > 200) columnWidth = 200;
+
+    return SizedBox(
+      width: columnWidth,
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(side, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Flexible(
+                child: Text(
+                  name + (isServing ? ' (S)' : ''),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: isServing ? FontWeight.bold : FontWeight.normal,
+                    color: isServing ? Colors.green : null,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isServing) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(8)),
+                  child: Text(servingCourt, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                ),
+                child: Text('Sets: $sets', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.5)),
+                ),
+                child: Text('Games: $games', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: (isHost && !isFinished) ? onPointAdd : null,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(16),
+                border: isServing ? Border.all(color: Colors.green, width: 2) : null,
+              ),
+              child: Column(
                 children: [
-                  Flexible(
-                    child: Text(
-                      name,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    pointText,
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                   ),
-                  if (isServing) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(12)),
+                  const Text('POINTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (isHost && !isFinished)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: onCodeViolation,
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
                       child: Row(
                         children: [
-                          const Icon(Icons.sports_tennis, color: Colors.white, size: 12),
-                          const SizedBox(width: 2),
-                          Text(servingCourt, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Icon(Icons.warning, size: 12, color: Colors.orange),
+                          SizedBox(width: 2),
+                          Text('Code', style: TextStyle(fontSize: 11)),
                         ],
                       ),
                     ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: isHost ? onPointAdd : null,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Column(
-                    children: [
-                      Text(
-                        pointText,
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: onMedicalTimeout,
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        children: [
+                          Icon(Icons.medical_services, size: 12, color: Colors.red),
+                          SizedBox(width: 2),
+                          Text('Medical', style: TextStyle(fontSize: 11)),
+                        ],
                       ),
-                      const Text('POINTS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    children: [
-                      Text('$games', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
-                      const Text('GAMES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    ],
-                  ),
-                  Column(
-                    children: [
-                      Text('$sets', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.amber)),
-                      const Text('SETS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (isHost)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.warning, size: 14, color: Colors.orange),
-                      label: const Text('Code', style: TextStyle(fontSize: 11)),
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-                      onPressed: onCodeViolation,
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.medical_services, size: 14, color: Colors.red),
-                      label: const Text('Medical', style: TextStyle(fontSize: 11)),
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-                      onPressed: onMedicalTimeout,
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
+              ],
+            ),
+        ],
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
@@ -42,20 +43,160 @@ class ClubRequestsPage extends StatelessWidget {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('Notifications & Requests'),
-              bottom: const TabBar(
+              title: Text('Notifications & Requests'.tr),
+              bottom: TabBar(
                 tabs: [
-                  Tab(text: 'Clubs'),
-                  Tab(text: 'Tournaments'),
-                  Tab(text: 'Doubles'),
+                  Tab(text: 'Clubs'.tr),
+                  Tab(text: 'Tournaments'.tr),
+                  Tab(text: 'Doubles'.tr),
                 ],
               ),
             ),
             body: TabBarView(
               children: [
-                _buildIncomingClubRequests(authService),
-                _buildIncomingTournamentRequests(authService),
-                _buildIncomingDoublesRequests(authService, user.uid),
+                _KeepAliveStreamTabView(
+                  stream: authService.incomingClubRequests,
+                  emptyMessage: 'No incoming club invitations.'.tr,
+                  itemBuilder: (context, req) {
+                    final data = req.data() as Map<String, dynamic>;
+                    final clubName = data['clubName'] ?? 'Unknown Club';
+                    final clubId = data['clubId'];
+
+                    return ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.groups)),
+                      title: Text(clubName),
+                      subtitle: const Text('Invited you to join their club'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check, color: Colors.green),
+                            onPressed: () async {
+                              try {
+                                await authService.acceptClubRequest(req.id, clubId, clubName);
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, SnackBar(content: Text('Joined $clubName!')));
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+                                }
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () => authService.declineClubRequest(req.id),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                _KeepAliveStreamTabView(
+                  stream: authService.incomingTournamentRequests,
+                  emptyMessage: 'No incoming tournament invitations.',
+                  itemBuilder: (context, req) {
+                    final data = req.data() as Map<String, dynamic>;
+                    final tournamentName = data['tournamentName'] ?? 'Tournament';
+                    final clubId = data['clubId'];
+                    final tournamentId = data['tournamentId'];
+
+                    return ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.emoji_events, color: Colors.amber)),
+                      title: Text(tournamentName),
+                      subtitle: const Text('Invited you to join tournament'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check, color: Colors.green),
+                            onPressed: () async {
+                              try {
+                                await authService.acceptTournamentRequest(req.id, clubId, tournamentId);
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, const SnackBar(content: Text('Accepted tournament invitation!')));
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+                                }
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () => authService.declineTournamentRequest(req.id),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                _KeepAliveStreamTabView(
+                  stream: FirebaseFirestore.instance
+                      .collectionGroup('doubles_requests')
+                      .where('toUid', isEqualTo: user.uid)
+                      .where('status', isEqualTo: 'pending')
+                      .snapshots(),
+                  emptyMessage: 'No incoming doubles partner requests.',
+                  itemBuilder: (context, req) {
+                    final data = req.data() as Map<String, dynamic>;
+                    final fromName = data['fromUsername'] ?? 'Player';
+                    final eventType = data['eventType'] ?? 'Doubles';
+
+                    String eventDisplay = 'Doubles Event';
+                    if (eventType == 'mixed') eventDisplay = 'Mixed Doubles (1 Male + 1 Female)';
+                    if (eventType == 'open_doubles') eventDisplay = 'Open Doubles (2 Players)';
+                    if (eventType == 'mens_doubles') eventDisplay = "Men's Doubles (2 Players)";
+                    if (eventType == 'womens_doubles') eventDisplay = "Women's Doubles (2 Players)";
+                    if (eventType == 'open_team') eventDisplay = 'Open Team (5 Players)';
+                    if (eventType == 'mens_team') eventDisplay = "Men's Team (5 Male Players)";
+                    if (eventType == 'womens_team') eventDisplay = "Women's Team (5 Female Players)";
+                    if (eventType == 'mixed_team') eventDisplay = 'Mixed Team (4 Males + 4 Females)';
+
+                    final String clubId = req.reference.parent.parent!.parent.parent!.id;
+                    final String tournamentId = req.reference.parent.parent!.id;
+
+                    return ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.handshake, color: Colors.blue)),
+                      title: Text('$fromName requested to partner with you'),
+                      subtitle: Text('Event: $eventDisplay'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check, color: Colors.green),
+                            onPressed: () async {
+                              try {
+                                await authService.acceptDoublesPartner(
+                                  clubId: clubId,
+                                  tournamentId: tournamentId,
+                                  requestId: req.id,
+                                );
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, const SnackBar(content: Text('Accepted doubles partner request!')));
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  _showAppSnackBar(context, SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+                                }
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () => authService.declineDoublesPartner(
+                              clubId: clubId,
+                              tournamentId: tournamentId,
+                              requestId: req.id,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -63,204 +204,44 @@ class ClubRequestsPage extends StatelessWidget {
       },
     );
   }
+}
 
-  Widget _buildIncomingClubRequests(AuthService authService) {
+class _KeepAliveStreamTabView extends StatefulWidget {
+  final Stream<QuerySnapshot> stream;
+  final String emptyMessage;
+  final Widget Function(BuildContext, QueryDocumentSnapshot) itemBuilder;
+
+  const _KeepAliveStreamTabView({
+    required this.stream,
+    required this.emptyMessage,
+    required this.itemBuilder,
+  });
+
+  @override
+  State<_KeepAliveStreamTabView> createState() => _KeepAliveStreamTabViewState();
+}
+
+class _KeepAliveStreamTabViewState extends State<_KeepAliveStreamTabView> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     return StreamBuilder<QuerySnapshot>(
-      stream: authService.incomingClubRequests,
+      stream: widget.stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No incoming club invitations.'));
+          return Center(child: Text(widget.emptyMessage));
         }
 
-        final requests = snapshot.data!.docs;
-
+        final docs = snapshot.data!.docs;
         return ListView.builder(
-          itemCount: requests.length,
-          itemBuilder: (context, index) {
-            final req = requests[index];
-            final data = req.data() as Map<String, dynamic>;
-            final clubName = data['clubName'] ?? 'Unknown Club';
-            final clubId = data['clubId'];
-
-            return ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.groups)),
-              title: Text(clubName),
-              subtitle: const Text('Invited you to join their club'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: () async {
-                      try {
-                        await authService.acceptClubRequest(req.id, clubId, clubName);
-                        if (context.mounted) {
-                          _showAppSnackBar(context, 
-                            SnackBar(content: Text('Joined $clubName!')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          _showAppSnackBar(context, 
-                            SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () => authService.declineClubRequest(req.id),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildIncomingTournamentRequests(AuthService authService) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: authService.incomingTournamentRequests,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No incoming tournament invitations.'));
-        }
-
-        final requests = snapshot.data!.docs;
-
-        return ListView.builder(
-          itemCount: requests.length,
-          itemBuilder: (context, index) {
-            final req = requests[index];
-            final data = req.data() as Map<String, dynamic>;
-            final tournamentName = data['tournamentName'] ?? 'Tournament';
-            final clubId = data['clubId'];
-            final tournamentId = data['tournamentId'];
-
-            return ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.emoji_events, color: Colors.amber)),
-              title: Text(tournamentName),
-              subtitle: const Text('Invited you to join tournament'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: () async {
-                      try {
-                        await authService.acceptTournamentRequest(req.id, clubId, tournamentId);
-                        if (context.mounted) {
-                          _showAppSnackBar(context, 
-                            const SnackBar(content: Text('Accepted tournament invitation!')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          _showAppSnackBar(context, 
-                            SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () => authService.declineTournamentRequest(req.id),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildIncomingDoublesRequests(AuthService authService, String currentUid) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collectionGroup('doubles_requests')
-          .where('toUid', isEqualTo: currentUid)
-          .where('status', isEqualTo: 'pending')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No incoming doubles partner requests.'));
-        }
-
-        final requests = snapshot.data!.docs;
-
-        return ListView.builder(
-          itemCount: requests.length,
-          itemBuilder: (context, index) {
-            final req = requests[index];
-            final data = req.data() as Map<String, dynamic>;
-            final fromName = data['fromUsername'] ?? 'Player';
-            final eventType = data['eventType'] ?? 'Doubles';
-
-            String eventDisplay = 'Doubles';
-            if (eventType == 'mixed') eventDisplay = 'Mixed Doubles';
-            if (eventType == 'open_doubles') eventDisplay = 'Open Doubles';
-            if (eventType == 'mens_doubles') eventDisplay = "Men's Doubles";
-            if (eventType == 'womens_doubles') eventDisplay = "Women's Doubles";
-
-            final String clubId = req.reference.parent.parent!.parent.parent!.id;
-            final String tournamentId = req.reference.parent.parent!.id;
-
-            return ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.handshake, color: Colors.blue)),
-              title: Text('$fromName requested to partner with you'),
-              subtitle: Text('Event: $eventDisplay'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: () async {
-                      try {
-                        await authService.acceptDoublesPartner(
-                          clubId: clubId,
-                          tournamentId: tournamentId,
-                          requestId: req.id,
-                        );
-                        if (context.mounted) {
-                          _showAppSnackBar(context, 
-                            const SnackBar(content: Text('Accepted doubles partner request!')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          _showAppSnackBar(context, 
-                            SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () => authService.declineDoublesPartner(
-                      clubId: clubId,
-                      tournamentId: tournamentId,
-                      requestId: req.id,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+          itemCount: docs.length,
+          itemBuilder: (context, index) => widget.itemBuilder(context, docs[index]),
         );
       },
     );

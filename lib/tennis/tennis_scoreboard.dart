@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sportspro/auth_service.dart';
+import 'package:aurum/auth_service.dart';
 import 'tennis_models.dart';
 import 'widgets/tennis_banners.dart';
 import 'widgets/tennis_history.dart';
@@ -34,6 +33,9 @@ void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
 class TennisMatch extends StatefulWidget {
   final String p1Name;
   final String p2Name;
+  final String p3Name;
+  final String p4Name;
+  final bool isDoubles;
   final int setsToWin; // 2 for Best of 3, 3 for Best of 5
   final String matchId;
   final bool initialKeepRunningTimers;
@@ -43,6 +45,9 @@ class TennisMatch extends StatefulWidget {
     super.key,
     required this.p1Name,
     required this.p2Name,
+    this.p3Name = '',
+    this.p4Name = '',
+    this.isDoubles = false,
     this.setsToWin = 2,
     this.matchId = '',
     this.initialKeepRunningTimers = true,
@@ -462,7 +467,7 @@ class _TennisMatchState extends State<TennisMatch> {
     setState(() {});
   }
 
-  void _recordMatchResult() {
+  Future<void> _recordMatchResult() async {
     if (widget.matchId.startsWith('tour_')) {
       final parts = widget.matchId.split('_');
       if (parts.length >= 4) {
@@ -470,10 +475,13 @@ class _TennisMatchState extends State<TennisMatch> {
         final tId = parts[2];
         final mId = parts.sublist(3).join('_');
 
-        final winnerName = p1Sets > p2Sets ? widget.p1Name : widget.p2Name;
-        final loserName = p1Sets > p2Sets ? widget.p2Name : widget.p1Name;
+        final String t1Name = widget.isDoubles ? '${widget.p1Name} & ${widget.p2Name}' : widget.p1Name;
+        final String t2Name = widget.isDoubles ? '${widget.p3Name} & ${widget.p4Name}' : widget.p2Name;
 
-        _authService.recordTournamentMatchResult(
+        final winnerName = p1Sets > p2Sets ? t1Name : t2Name;
+        final loserName = p1Sets > p2Sets ? t2Name : t1Name;
+
+        await _authService.recordTournamentMatchResult(
           clubId: cId,
           tournamentId: tId,
           matchId: mId,
@@ -493,7 +501,7 @@ class _TennisMatchState extends State<TennisMatch> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.p1Name} vs ${widget.p2Name} (ITF Tennis)'),
+        title: Text('${widget.p1Name} vs ${widget.p2Name}'),
         actions: [
           IconButton(icon: const Icon(Icons.undo), onPressed: _history.isNotEmpty ? _undo : null),
           IconButton(
@@ -502,6 +510,7 @@ class _TennisMatchState extends State<TennisMatch> {
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                 builder: (_) => TennisMatchHistoryBottomSheet(
                   allSets: setSummaries,
                   logs: logs,
@@ -511,59 +520,118 @@ class _TennisMatchState extends State<TennisMatch> {
               );
             },
           ),
+          PopupMenuButton<String>(
+            onSelected: (val) {
+              if (val == 'discard') {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Discard Match?'),
+                    content: const Text('Are you sure you want to discard this match? Progress will be lost.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Discard'),
+                      ),
+                    ],
+                  ),
+                );
+              } else if (val == 'toss') {
+                _promptToss();
+              } else if (val == 'warmup') {
+                _startTimer('5-Min Warmup', 300);
+              }
+            },
+            itemBuilder: (context) => [
+              if (_isHost) const PopupMenuItem(value: 'toss', child: Text('Coin Toss')),
+              if (_isHost) const PopupMenuItem(value: 'warmup', child: Text('Start 5-Min Warmup')),
+              if (_isHost) const PopupMenuItem(value: 'discard', child: Text('Discard Match', style: TextStyle(color: Colors.red))),
+            ],
+          ),
         ],
       ),
-      body: Column(
-        children: [
-          TennisPenaltyBanner(logs: logs, isDoubles: false, p1Name: widget.p1Name, p2Name: widget.p2Name),
-          if (timerEndTime != null)
-            TennisTimerBanner(
-              title: timerTitle,
-              endTime: timerEndTime!,
-              isHost: _isHost,
-              onSkip: () => setState(() => timerEndTime = null),
-            ),
-          const SizedBox(height: 12),
-          Text(
-            'ITF Best of ${widget.setsToWin * 2 - 1} Sets • Server: $serverName (${_getServingCourt()} Court)',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Row(
-              children: [
-                TennisTeamColumn(
-                  teamNum: 1,
-                  pointText: _getPointDisplay(1),
-                  games: p1Games,
-                  sets: p1Sets,
-                  name: widget.p1Name,
-                  isServing: serverPlayerNum == 1,
-                  servingCourt: _getServingCourt(),
-                  side: p1OnLeft ? 'HOME' : 'AWAY',
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 24),
+          child: Column(
+            children: [
+              TennisPenaltyBanner(logs: logs, isDoubles: false, p1Name: widget.p1Name, p2Name: widget.p2Name),
+              if (timerEndTime != null)
+                TennisTimerBanner(
+                  title: timerTitle,
+                  endTime: timerEndTime!,
                   isHost: _isHost,
-                  onPointAdd: () => _addPoint(1),
-                  onCodeViolation: () => _issueCodeViolation(1),
-                  onMedicalTimeout: () => _startTimer('Medical Timeout (P1)', 180),
+                  onSkip: () => setState(() => timerEndTime = null),
                 ),
-                TennisTeamColumn(
-                  teamNum: 2,
-                  pointText: _getPointDisplay(2),
-                  games: p2Games,
-                  sets: p2Sets,
-                  name: widget.p2Name,
-                  isServing: serverPlayerNum == 2,
-                  servingCourt: _getServingCourt(),
-                  side: p1OnLeft ? 'AWAY' : 'HOME',
-                  isHost: _isHost,
-                  onPointAdd: () => _addPoint(2),
-                  onCodeViolation: () => _issueCodeViolation(2),
-                  onMedicalTimeout: () => _startTimer('Medical Timeout (P2)', 180),
+              const SizedBox(height: 12),
+              Text(
+                'ITF Best of ${widget.setsToWin * 2 - 1} Sets • Server: $serverName (${_getServingCourt()} Court)',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TennisTeamColumn(
+                    teamNum: 1,
+                    pointText: _getPointDisplay(1),
+                    games: p1Games,
+                    sets: p1Sets,
+                    name: widget.isDoubles ? '${widget.p1Name} & ${widget.p2Name}' : widget.p1Name,
+                    isServing: serverPlayerNum == 1,
+                    servingCourt: _getServingCourt(),
+                    side: p1OnLeft ? 'HOME' : 'AWAY',
+                    isHost: _isHost,
+                    isFinished: isFinished,
+                    onPointAdd: () => _addPoint(1),
+                    onCodeViolation: () => _issueCodeViolation(1),
+                    onMedicalTimeout: () => _startTimer('Medical Timeout (P1)', 180),
+                  ),
+                  TennisTeamColumn(
+                    teamNum: 2,
+                    pointText: _getPointDisplay(2),
+                    games: p2Games,
+                    sets: p2Sets,
+                    name: widget.isDoubles ? '${widget.p3Name} & ${widget.p4Name}' : widget.p2Name,
+                    isServing: serverPlayerNum == 2,
+                    servingCourt: _getServingCourt(),
+                    side: p1OnLeft ? 'AWAY' : 'HOME',
+                    isHost: _isHost,
+                    isFinished: isFinished,
+                    onPointAdd: () => _addPoint(2),
+                    onCodeViolation: () => _issueCodeViolation(2),
+                    onMedicalTimeout: () => _startTimer('Medical Timeout (P2)', 180),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              if (isFinished)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check),
+                      label: const Text('Confirm & Finish Match', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                      onPressed: () async {
+                        await _recordMatchResult();
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          _showAppSnackBar(context, const SnackBar(content: Text('Tennis match concluded and saved successfully!')));
+                        }
+                      },
+                    ),
+                  ),
                 ),
-              ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

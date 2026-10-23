@@ -1,4 +1,4 @@
-name: sportspro
+name: aurum
 description: "useful tools for sports"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -41,6 +41,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_sign_in: ^6.2.1
   google_sign_in_all_platforms: ^1.2.1
+  image_picker: ^1.2.4
 
 dev_dependencies:
   flutter_test:
@@ -59,10 +60,10 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
 
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
