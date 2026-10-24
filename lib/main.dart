@@ -13,22 +13,42 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+  // Run Firebase initialization and SharedPreferences loading in parallel for blazing fast boot time
+  final results = await Future.wait([
+    if (Firebase.apps.isEmpty)
+      Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      )
+    else
+      Future.value(null),
+    SharedPreferences.getInstance(),
+  ]);
+
+  final prefs = results[1] as SharedPreferences;
+
+  // Enable Firestore offline persistence for Web (IndexedDB) and Mobile (SQLite)
+  try {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
+  } catch (e) {
+    debugPrint("Firestore settings notice: $e");
   }
 
-  Future.wait([
-    AuthService().init(),
-    ThemeService().init(),
-    LanguageService().init(),
+  // Fast parallel/sync memory initialization from pre-fetched SharedPreferences
+  await Future.wait([
+    AuthService().init(prefs),
+    ThemeService().init(prefs),
+    LanguageService().init(prefs),
   ]);
 
   FlutterNativeSplash.remove();
@@ -40,48 +60,47 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Locale>(
-      valueListenable: LanguageService().currentLocale,
-      builder: (context, locale, child) {
-        return ValueListenableBuilder<ThemeMode>(
-          valueListenable: ThemeService().themeMode,
-          builder: (context, mode, child) {
-            return ValueListenableBuilder<Color>(
-              valueListenable: ThemeService().seedColor,
-              builder: (context, color, child) {
-                return MaterialApp(
-                  title: 'Aurum',
-                  navigatorKey: navigatorKey,
-                  debugShowCheckedModeBanner: false,
-                  locale: locale,
-                  theme: ThemeData(
-                    colorScheme: ColorScheme.fromSeed(
-                      seedColor: color,
-                      brightness: Brightness.light,
-                    ),
-                    useMaterial3: true,
-                  ),
-                  darkTheme: ThemeData(
-                    colorScheme: ColorScheme.fromSeed(
-                      seedColor: color,
-                      brightness: Brightness.dark,
-                      surface: Colors.black,
-                    ),
-                    scaffoldBackgroundColor: Colors.black,
-                    cardColor: const Color(0xFF121212),
-                    appBarTheme: const AppBarTheme(
-                      backgroundColor: Colors.black,
-                      surfaceTintColor: Colors.black,
-                    ),
-                    dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF121212)),
-                    useMaterial3: true,
-                  ),
-                  themeMode: mode,
-                  home: const AuthWrapper(),
-                );
-              },
-            );
-          },
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        LanguageService().currentLocale,
+        LanguageService().appLanguageVersion,
+        ThemeService().themeMode,
+        ThemeService().seedColor,
+      ]),
+      builder: (context, child) {
+        final locale = LanguageService().currentLocale.value;
+        final mode = ThemeService().themeMode.value;
+        final color = ThemeService().seedColor.value;
+
+        return MaterialApp(
+          title: 'Aurum'.tr,
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          locale: locale,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: color,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: color,
+              brightness: Brightness.dark,
+              surface: Colors.black,
+            ),
+            scaffoldBackgroundColor: Colors.black,
+            cardColor: const Color(0xFF121212),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.black,
+              surfaceTintColor: Colors.black,
+            ),
+            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF121212)),
+            useMaterial3: true,
+          ),
+          themeMode: mode,
+          home: const AuthWrapper(),
         );
       },
     );

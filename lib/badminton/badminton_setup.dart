@@ -359,11 +359,11 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
                     _buildPlayerSection(3, _p4Controller, 'Team 2 - P2', Icons.person_outline),
                   ],
                   const Divider(height: 40),
-                  const Text('Timer Options', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Timer Options'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   SwitchListTile(
-                    title: const Text('Keep running timers when page not loaded'),
-                    subtitle: const Text('Timers will continue running even when you leave the match screen'),
+                    title: Text('Keep running timers when page not loaded'.tr),
+                    subtitle: Text('Timers will continue running even when you leave the match screen'.tr),
                     value: _keepRunningTimers,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) => setState(() => _keepRunningTimers = val),
@@ -376,7 +376,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
           ElevatedButton(
             onPressed: inMatch ? null : _handleStartMatch,
             style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), backgroundColor: Colors.blue, foregroundColor: Colors.white),
-            child: Text(inMatch ? 'Match In Progress' : 'Start Match', style: const TextStyle(fontSize: 18)),
+            child: Text(inMatch ? 'Match In Progress'.tr : 'Start Match'.tr, style: const TextStyle(fontSize: 18)),
           ),
         ],
       ),
@@ -510,17 +510,17 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
     bool isInvite = _isInviteMode[index];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(label.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
         ToggleButtons(
           isSelected: [!isInvite, isInvite],
           onPressed: (i) => setState(() { _isInviteMode[index] = i == 1; if (i == 1) controller.clear(); }),
-          children: const [Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Guest')), Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Invite'))],
+          children: [Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('Guest'.tr)), Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('Invite'.tr))],
         ),
       ]),
       const SizedBox(height: 8),
       if (isInvite) DropdownMenu<String>(
         width: MediaQuery.of(context).size.width - 48,
-        label: const Text('Select Friend'),
+        label: Text('Select Friend'.tr),
         dropdownMenuEntries: _friendsList.map((f) => DropdownMenuEntry<String>(
           value: f['username'] as String, 
           label: f['username'] as String

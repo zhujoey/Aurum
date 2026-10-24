@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/widgets/user_avatar.dart';
+import 'package:aurum/widgets/user_profile_sheet.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -110,7 +112,7 @@ class _FriendsPageState extends State<FriendsPage> {
       if (mounted) {
         _showAppSnackBar(context, 
           SnackBar(
-            content: Text('Friend request sent to $friendName!'),
+            content: Text('${'Friend request sent to'.tr} $friendName!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -119,7 +121,7 @@ class _FriendsPageState extends State<FriendsPage> {
       if (mounted) {
         _showAppSnackBar(context, 
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(e.toString().tr),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -131,16 +133,16 @@ class _FriendsPageState extends State<FriendsPage> {
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Friend?'),
-        content: Text('Are you sure you want to remove $friendName from your friends list?'),
+        title: Text('Remove Friend?'.tr),
+        content: Text('${'Are you sure you want to remove'.tr} $friendName ${'from your friends list?'.tr}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+            child: Text('Remove'.tr, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -151,13 +153,13 @@ class _FriendsPageState extends State<FriendsPage> {
         await _authService.removeFriend(targetUid);
         if (mounted) {
           _showAppSnackBar(context, 
-            SnackBar(content: Text('$friendName removed from friends.')),
+            SnackBar(content: Text('$friendName ${'removed from friends.'.tr}')),
           );
         }
       } catch (e) {
         if (mounted) {
           _showAppSnackBar(context, 
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text('${'Error:'.tr} ${e.toString().tr}')),
           );
         }
       }
@@ -275,9 +277,19 @@ class _FriendsPageState extends State<FriendsPage> {
         final bool isAlreadyFriend = _friendUids.contains(user['uid']);
 
         return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
+          leading: UserAvatar(
+            photoUrl: user['photoUrl'],
+            uid: user['uid'],
+            username: user['username'],
+          ),
           title: Text(user['username']),
           subtitle: const Text('Exact match found'),
+          onTap: () => showUserProfileSheet(
+            context,
+            uid: user['uid'],
+            username: user['username'],
+            photoUrl: user['photoUrl'],
+          ),
           trailing: isAlreadyFriend
               ? const Icon(Icons.check_circle, color: Colors.green)
               : IconButton(
@@ -316,15 +328,22 @@ class _FriendsPageState extends State<FriendsPage> {
             final String friendName = friend['username'] ?? 'Unknown';
 
             return ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
+              leading: UserAvatar(
+                photoUrl: friend['photoUrl'],
+                uid: friendUid,
+                username: friendName,
+              ),
               title: Text(friendName),
               trailing: IconButton(
                 icon: const Icon(Icons.person_remove, color: Colors.grey),
                 onPressed: () => _unfriend(friendUid, friendName),
               ),
-              onTap: () {
-                // Show friend stats/profile later
-              },
+              onTap: () => showUserProfileSheet(
+                context,
+                uid: friendUid,
+                username: friendName,
+                photoUrl: friend['photoUrl'],
+              ),
             );
           },
         );
@@ -363,9 +382,19 @@ class FriendRequestsPage extends StatelessWidget {
               final fromUid = data['fromUid'];
 
               return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.person)),
+                leading: UserAvatar(
+                  photoUrl: data['photoUrl'],
+                  uid: fromUid,
+                  username: fromUsername,
+                ),
                 title: Text(fromUsername),
                 subtitle: const Text('wants to be your friend'),
+                onTap: () => showUserProfileSheet(
+                  context,
+                  uid: fromUid,
+                  username: fromUsername,
+                  photoUrl: data['photoUrl'],
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

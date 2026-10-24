@@ -5,6 +5,8 @@ import 'package:aurum/auth_service.dart';
 import 'package:aurum/club_requests.dart';
 import 'package:aurum/tournaments.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/widgets/user_avatar.dart';
+import 'package:aurum/widgets/user_profile_sheet.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -350,10 +352,26 @@ class _ClubsPageState extends State<ClubsPage> {
                   final bool isOwner = role == 'owner';
                   final bool isManager = role == 'manager';
 
+                  final String mUid = m['uid'] as String? ?? '';
+
                   return ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
+                    leading: UserAvatar(
+                      photoUrl: m['photoUrl'],
+                      uid: mUid,
+                      username: m['username'],
+                    ),
                     title: Text(m['username'] ?? 'Unknown'),
                     subtitle: Text((isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')).tr),
+                    onTap: () {
+                      if (mUid.isNotEmpty) {
+                        showUserProfileSheet(
+                          context,
+                          uid: mUid,
+                          username: m['username'],
+                          photoUrl: m['photoUrl'],
+                        );
+                      }
+                    },
                   );
                 },
               );
@@ -553,9 +571,23 @@ class _ClubsPageState extends State<ClubsPage> {
                   final bool isRegisteredMember = mUid.startsWith('member_');
 
                   return ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
+                    leading: UserAvatar(
+                      photoUrl: m['photoUrl'],
+                      uid: mUid,
+                      username: m['username'],
+                    ),
                     title: Text(m['username'] ?? 'Unknown'),
                     subtitle: Text(isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')),
+                    onTap: () {
+                      if (mUid.isNotEmpty && !isRegisteredMember) {
+                        showUserProfileSheet(
+                          context,
+                          uid: mUid,
+                          username: m['username'],
+                          photoUrl: m['photoUrl'],
+                        );
+                      }
+                    },
                     trailing: isOwner
                         ? null
                         : Row(
@@ -965,9 +997,10 @@ class _ClubsPageState extends State<ClubsPage> {
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            leading: CircleAvatar(
-                              backgroundColor: isFriend ? Colors.blue.withValues(alpha: 0.15) : null,
-                              child: Icon(isFriend ? Icons.person : Icons.person_outline),
+                            leading: UserAvatar(
+                              photoUrl: item['photoUrl'],
+                              uid: targetUid,
+                              username: targetUsername,
                             ),
                             title: Text(
                               targetUsername,
@@ -976,6 +1009,16 @@ class _ClubsPageState extends State<ClubsPage> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Text(isFriend ? 'Friend'.tr : 'User'.tr),
+                            onTap: () {
+                              if (targetUid != null) {
+                                showUserProfileSheet(
+                                  context,
+                                  uid: targetUid,
+                                  username: targetUsername,
+                                  photoUrl: item['photoUrl'],
+                                );
+                              }
+                            },
                             trailing: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

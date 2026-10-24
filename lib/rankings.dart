@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/widgets/user_avatar.dart';
+import 'package:aurum/widgets/user_profile_sheet.dart';
 
 class RankingsPage extends StatefulWidget {
   const RankingsPage({super.key});
@@ -105,6 +107,8 @@ class _RankingsPageState extends State<RankingsPage> {
               ],
               bottom: TabBar(
                 isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
                 tabs: [
                   Tab(text: 'Tournament Points'.tr),
                   Tab(text: 'Elo Rating System'.tr),
@@ -149,18 +153,20 @@ class _SportCategoryRankingsView extends StatelessWidget {
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             child: TabBar(
               isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 10.0),
               tabs: [
                 Tab(text: "Open Singles".tr),
                 Tab(text: "Men's Singles".tr),
                 Tab(text: "Women's Singles".tr),
-                Tab(text: "Open Doubles Pairs".tr),
-                Tab(text: "Men's Doubles Pairs".tr),
-                Tab(text: "Women's Doubles Pairs".tr),
-                Tab(text: "Mixed Doubles Pairs".tr),
-                Tab(text: "Open Doubles (Indiv.)".tr),
-                Tab(text: "Men's Doubles (Indiv.)".tr),
-                Tab(text: "Women's Doubles (Indiv.)".tr),
-                Tab(text: "Mixed Doubles (Indiv.)".tr),
+                Tab(text: "Open Pairs".tr),
+                Tab(text: "Men's Pairs".tr),
+                Tab(text: "Women's Pairs".tr),
+                Tab(text: "Mixed Pairs".tr),
+                Tab(text: "Open Indiv.".tr),
+                Tab(text: "Men's Indiv.".tr),
+                Tab(text: "Women's Indiv.".tr),
+                Tab(text: "Mixed Indiv.".tr),
               ],
             ),
           ),
@@ -306,18 +312,39 @@ class _RankingList extends StatelessWidget {
               rankColor = Colors.brown.shade300;
             }
 
+            final String? uId = item['id'] as String?;
+            final photoUrl = data['photoUrl'] as String?;
+
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: rankColor ?? Colors.blue.withValues(alpha: 0.1),
-                  child: Text(
-                    '#$rank',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: rankColor != null ? Colors.white : Colors.blue,
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: rankColor ?? Colors.blue.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '#$rank',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: rankColor != null ? Colors.white : Colors.blue,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    UserAvatar(
+                      photoUrl: photoUrl,
+                      uid: uId,
+                      username: username,
+                    ),
+                  ],
                 ),
                 title: Text(username, style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(
@@ -329,6 +356,16 @@ class _RankingList extends StatelessWidget {
                   field.startsWith('points') ? '$score ${"pts".tr}' : '$score',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
                 ),
+                onTap: () {
+                  if (uId != null && uId.isNotEmpty) {
+                    showUserProfileSheet(
+                      context,
+                      uid: uId,
+                      username: username,
+                      photoUrl: photoUrl,
+                    );
+                  }
+                },
               ),
             );
           },

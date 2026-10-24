@@ -8,6 +8,8 @@ import 'package:aurum/table_tennis/tt_models.dart';
 import 'package:aurum/table_tennis/widgets/tt_history.dart';
 import 'package:aurum/badminton/badminton_scoreboard.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/widgets/user_avatar.dart';
+import 'package:aurum/widgets/user_profile_sheet.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
@@ -207,14 +209,14 @@ class TournamentsPage extends StatelessWidget {
 
               if (clubId == null) {
                 return Scaffold(
-                  appBar: AppBar(title: const Text('Tournaments')),
-                  body: const Center(
+                  appBar: AppBar(title: Text('Tournaments'.tr)),
+                  body: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(32.0),
+                      padding: const EdgeInsets.all(32.0),
                       child: Text(
-                        'You must be in a club to view or create tournaments.',
+                        'You must be in a club to view or create tournaments.'.tr,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey, fontSize: 18),
+                        style: const TextStyle(color: Colors.grey, fontSize: 18),
                       ),
                     ),
                   ),
@@ -260,7 +262,7 @@ class _ClubTournamentsView extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Tournaments'),
+            title: Text('Tournaments'.tr),
             actions: [
               StreamBuilder<QuerySnapshot>(
                 stream: authService.incomingTournamentRequests,
@@ -422,7 +424,7 @@ class _ClubTournamentsView extends StatelessWidget {
     final r16PointsController = TextEditingController(text: '90');
     final r32PointsController = TextEditingController(text: '45');
     final r64PointsController = TextEditingController(text: '15');
-    String selectedPreset = 'WTT Champions (1000 Pts)';
+    String selectedPreset = 'Major Tournament (1000 Pts)';
     String tournamentCategory = 'individual';
     String selectedStyle = 'Single Elimination';
     String selectedSinglesType = 'everyone';
@@ -473,17 +475,17 @@ class _ClubTournamentsView extends StatelessWidget {
                   ),
                   items: [
                     DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Grand Smash (2000 Pts)', child: Text('WTT Grand Smash (2000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Champions (1000 Pts)', child: Text('WTT Champions (1000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Star Contender (600 Pts)', child: Text('WTT Star Contender (600 Pts)'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'WTT Contender (400 Pts)', child: Text('WTT Contender (400 Pts)'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'Club Local Championship (250 Pts)', child: Text('Club Local Championship (250 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Grand Tournament (2000 Pts)', child: Text('Grand Tournament (2000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Major Tournament (1000 Pts)', child: Text('Major Tournament (1000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Premier Tournament (600 Pts)', child: Text('Premier Tournament (600 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Regional Tournament (400 Pts)', child: Text('Regional Tournament (400 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'Local Tournament (250 Pts)', child: Text('Local Tournament (250 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val == null) return;
                     setDialogState(() {
                       selectedPreset = val;
-                      if (val == 'WTT Grand Smash (2000 Pts)') {
+                      if (val == 'Grand Tournament (2000 Pts)') {
                         pointsController.text = '2000';
                         winnerPointsController.text = '2000';
                         finalistPointsController.text = '1400';
@@ -492,7 +494,7 @@ class _ClubTournamentsView extends StatelessWidget {
                         r16PointsController.text = '175';
                         r32PointsController.text = '90';
                         r64PointsController.text = '20';
-                      } else if (val == 'WTT Champions (1000 Pts)') {
+                      } else if (val == 'Major Tournament (1000 Pts)') {
                         pointsController.text = '1000';
                         winnerPointsController.text = '1000';
                         finalistPointsController.text = '700';
@@ -501,7 +503,7 @@ class _ClubTournamentsView extends StatelessWidget {
                         r16PointsController.text = '90';
                         r32PointsController.text = '45';
                         r64PointsController.text = '15';
-                      } else if (val == 'WTT Star Contender (600 Pts)') {
+                      } else if (val == 'Premier Tournament (600 Pts)') {
                         pointsController.text = '600';
                         winnerPointsController.text = '600';
                         finalistPointsController.text = '420';
@@ -510,7 +512,7 @@ class _ClubTournamentsView extends StatelessWidget {
                         r16PointsController.text = '55';
                         r32PointsController.text = '25';
                         r64PointsController.text = '10';
-                      } else if (val == 'WTT Contender (400 Pts)') {
+                      } else if (val == 'Regional Tournament (400 Pts)') {
                         pointsController.text = '400';
                         winnerPointsController.text = '400';
                         finalistPointsController.text = '280';
@@ -519,7 +521,7 @@ class _ClubTournamentsView extends StatelessWidget {
                         r16PointsController.text = '35';
                         r32PointsController.text = '15';
                         r64PointsController.text = '5';
-                      } else if (val == 'Club Local Championship (250 Pts)') {
+                      } else if (val == 'Local Tournament (250 Pts)') {
                         pointsController.text = '250';
                         winnerPointsController.text = '250';
                         finalistPointsController.text = '175';
@@ -901,16 +903,16 @@ class TournamentDetailsPage extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Tournament Details')),
+            appBar: AppBar(title: Text('Tournament Details'.tr)),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Tournament Details')),
-            body: const Center(
-              child: Text('Tournament not found or deleted.', style: TextStyle(color: Colors.grey)),
+            appBar: AppBar(title: Text('Tournament Details'.tr)),
+            body: Center(
+              child: Text('Tournament not found or deleted.'.tr, style: const TextStyle(color: Colors.grey)),
             ),
           );
         }
@@ -1137,16 +1139,16 @@ class TournamentDetailsPage extends StatelessWidget {
 
                         return Card(
                           color: Colors.orange.withValues(alpha: 0.1),
-                          child: const Padding(
-                            padding: EdgeInsets.all(16.0),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
                             child: Row(
                               children: [
-                                Icon(Icons.lock_outline, color: Colors.orange),
-                                SizedBox(width: 12),
+                                const Icon(Icons.lock_outline, color: Colors.orange),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    'This tournament is closed. Only an owner or manager can invite you.',
-                                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                    'This tournament is closed. Only an owner or manager can invite you.'.tr,
+                                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
@@ -1162,7 +1164,7 @@ class TournamentDetailsPage extends StatelessWidget {
                   if (isOwnerOrManager) ...[
                     ElevatedButton.icon(
                       icon: const Icon(Icons.play_arrow),
-                      label: const Text('Start Tournament', style: TextStyle(fontSize: 16)),
+                      label: Text('Start Tournament'.tr, style: const TextStyle(fontSize: 16)),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: Colors.orange,
@@ -1173,7 +1175,7 @@ class TournamentDetailsPage extends StatelessWidget {
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.person_add),
-                      label: const Text('Invite Members', style: TextStyle(fontSize: 16)),
+                      label: Text('Invite Members'.tr, style: const TextStyle(fontSize: 16)),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: Colors.blue,
@@ -1184,7 +1186,7 @@ class TournamentDetailsPage extends StatelessWidget {
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.smart_toy, color: Colors.purple),
-                      label: const Text('Add Test Players (Testing Tool)', style: TextStyle(color: Colors.purple, fontSize: 15)),
+                      label: Text('Add Test Players (Testing Tool)'.tr, style: const TextStyle(color: Colors.purple, fontSize: 15)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: const BorderSide(color: Colors.purple),
@@ -1206,7 +1208,7 @@ class TournamentDetailsPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Participants (${participants.length})',
+                      '${'Participants'.tr} (${participants.length})',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -1214,10 +1216,10 @@ class TournamentDetailsPage extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 if (participants.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24.0),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Center(
-                      child: Text('No participants yet.', style: TextStyle(color: Colors.grey)),
+                      child: Text('No participants yet.'.tr, style: const TextStyle(color: Colors.grey)),
                     ),
                   )
                 else
@@ -1233,11 +1235,27 @@ class TournamentDetailsPage extends StatelessWidget {
                       final bool isBot = (p['isBot'] == true) || pUid.contains('test_bot');
 
                       return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isBot ? Colors.purple.withValues(alpha: 0.15) : null,
-                          child: Icon(isBot ? Icons.smart_toy : Icons.person, color: isBot ? Colors.purple : null),
-                        ),
+                        leading: isBot
+                            ? CircleAvatar(
+                                backgroundColor: Colors.purple.withValues(alpha: 0.15),
+                                child: const Icon(Icons.smart_toy, color: Colors.purple),
+                              )
+                            : UserAvatar(
+                                photoUrl: p['photoUrl'],
+                                uid: pUid,
+                                username: pName,
+                              ),
                         title: Text(pName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        onTap: () {
+                          if (!isBot && pUid.isNotEmpty) {
+                            showUserProfileSheet(
+                              context,
+                              uid: pUid,
+                              username: pName,
+                              photoUrl: p['photoUrl'],
+                            );
+                          }
+                        },
                         trailing: (isOwnerOrManager && pUid != currentUid)
                             ? IconButton(
                                 icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
@@ -1356,7 +1374,7 @@ class TournamentDetailsPage extends StatelessWidget {
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 12),
-        const Text('Tournament Match History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text('Tournament Match History'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
@@ -1369,9 +1387,9 @@ class TournamentDetailsPage extends StatelessWidget {
               .snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12.0),
-                child: Text('No completed matches in history yet.', style: TextStyle(color: Colors.grey)),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                child: Text('No completed matches in history yet.'.tr, style: const TextStyle(color: Colors.grey)),
               );
             }
 
@@ -1666,7 +1684,11 @@ class TournamentDetailsPage extends StatelessWidget {
                               final gender = userData?['gender'] ?? m['gender'] ?? 'Not set';
 
                               return ListTile(
-                                leading: CircleAvatar(child: Text(mName.isNotEmpty ? mName[0].toUpperCase() : 'M')),
+                                leading: UserAvatar(
+                                  photoUrl: userData?['photoUrl'] ?? m['photoUrl'],
+                                  uid: mUid,
+                                  username: mName,
+                                ),
                                 title: Text(mName),
                                 subtitle: Text('${"Gender".tr}: ${gender.tr}'),
                                 trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : const Icon(Icons.radio_button_unchecked),
@@ -2023,10 +2045,24 @@ class TournamentDetailsPage extends StatelessWidget {
                               }
 
                               return ListTile(
-                                leading: const CircleAvatar(child: Icon(Icons.person)),
+                                leading: UserAvatar(
+                                  photoUrl: m['photoUrl'],
+                                  uid: mUid,
+                                  username: mName,
+                                ),
                                 title: Text(mName),
                                 subtitle: Text(m['role'] ?? 'member'),
                                 trailing: trailingWidget,
+                                onTap: () {
+                                  if (mUid.isNotEmpty) {
+                                    showUserProfileSheet(
+                                      context,
+                                      uid: mUid,
+                                      username: mName,
+                                      photoUrl: m['photoUrl'],
+                                    );
+                                  }
+                                },
                               );
                             },
                           );
@@ -2334,12 +2370,12 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tournament Settings'),
+        title: Text('Tournament Settings'.tr),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: _isSaving ? null : _saveSettings,
-            tooltip: 'Save Settings',
+            tooltip: 'Save Settings'.tr,
           ),
         ],
       ),
@@ -2379,17 +2415,17 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               ),
               items: const [
                 DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'WTT Grand Smash (2000 Pts)', child: Text('WTT Grand Smash (2000 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'WTT Champions (1000 Pts)', child: Text('WTT Champions (1000 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'WTT Star Contender (600 Pts)', child: Text('WTT Star Contender (600 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'WTT Contender (400 Pts)', child: Text('WTT Contender (400 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Club Local Championship (250 Pts)', child: Text('Club Local Championship (250 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Grand Tournament (2000 Pts)', child: Text('Grand Tournament (2000 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Major Tournament (1000 Pts)', child: Text('Major Tournament (1000 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Premier Tournament (600 Pts)', child: Text('Premier Tournament (600 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Regional Tournament (400 Pts)', child: Text('Regional Tournament (400 Pts)', overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Local Tournament (250 Pts)', child: Text('Local Tournament (250 Pts)', overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
                 if (val == null) return;
                 setState(() {
                   _selectedPreset = val;
-                  if (val == 'WTT Grand Smash (2000 Pts)') {
+                  if (val == 'Grand Tournament (2000 Pts)') {
                     _pointsController.text = '2000';
                     _winnerPointsController.text = '2000';
                     _finalistPointsController.text = '1400';
@@ -2398,7 +2434,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                     _r16PointsController.text = '175';
                     _r32PointsController.text = '90';
                     _r64PointsController.text = '20';
-                  } else if (val == 'WTT Champions (1000 Pts)') {
+                  } else if (val == 'Major Tournament (1000 Pts)') {
                     _pointsController.text = '1000';
                     _winnerPointsController.text = '1000';
                     _finalistPointsController.text = '700';
@@ -2407,7 +2443,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                     _r16PointsController.text = '90';
                     _r32PointsController.text = '45';
                     _r64PointsController.text = '15';
-                  } else if (val == 'WTT Star Contender (600 Pts)') {
+                  } else if (val == 'Premier Tournament (600 Pts)') {
                     _pointsController.text = '600';
                     _winnerPointsController.text = '600';
                     _finalistPointsController.text = '420';
@@ -2416,7 +2452,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                     _r16PointsController.text = '55';
                     _r32PointsController.text = '25';
                     _r64PointsController.text = '10';
-                  } else if (val == 'WTT Contender (400 Pts)') {
+                  } else if (val == 'Regional Tournament (400 Pts)') {
                     _pointsController.text = '400';
                     _winnerPointsController.text = '400';
                     _finalistPointsController.text = '280';
@@ -2425,7 +2461,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                     _r16PointsController.text = '35';
                     _r32PointsController.text = '15';
                     _r64PointsController.text = '5';
-                  } else if (val == 'Club Local Championship (250 Pts)') {
+                  } else if (val == 'Local Tournament (250 Pts)') {
                     _pointsController.text = '250';
                     _winnerPointsController.text = '250';
                     _finalistPointsController.text = '175';

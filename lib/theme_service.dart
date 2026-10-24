@@ -10,11 +10,11 @@ class ThemeService {
   final ValueNotifier<Color> seedColor = ValueNotifier(Colors.blue);
   final ValueNotifier<bool> useTrueDark = ValueNotifier(false);
 
-  Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> init([SharedPreferences? prefs]) async {
+    final p = prefs ?? await SharedPreferences.getInstance();
     
     // Theme Mode
-    final savedTheme = prefs.getString('themeMode');
+    final savedTheme = p.getString('themeMode');
     if (savedTheme == 'light') {
       themeMode.value = ThemeMode.light;
     } else if (savedTheme == 'dark') {
@@ -24,7 +24,7 @@ class ThemeService {
     }
 
     // Seed Color
-    final savedColor = prefs.getInt('seedColor');
+    final savedColor = p.getInt('seedColor');
     if (savedColor != null) {
       seedColor.value = Color(savedColor);
     }

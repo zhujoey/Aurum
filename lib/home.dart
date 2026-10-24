@@ -22,42 +22,101 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final AuthService _authService = AuthService();
   late final int _quoteIndex;
+  static const int _totalQuotes = 18;
 
-  final List<String> _quoteTemplates = [
-    "Ready to make today count, {name}?",
-    "Small daily wins add up, {name}.",
-    "Focus on progress, not perfection.",
-    "Your next personal best starts right now.",
-    "Keep pushing your limits today, {name}.",
-    "Every match makes you sharper.",
-    "Time to put in the work, {name}.",
-    "Stay sharp, stay hungry.",
-    "Consistency is your superpower.",
-    "One step closer to your goals, {name}.",
-    "Let's make today productive, {name}.",
-    "Trust the process and play your game.",
-    "Discipline beats motivation, {name}.",
-    "Own your momentum today.",
-    "Greatness is built one step at a time, {name}.",
-    "Keep moving forward, {name}.",
-    "Chasing excellence, one day at a time.",
-    "Your potential is endless, {name}.",
-  ];
+  String _getQuote(int index, String displayName) {
+    switch (index) {
+      case 0:
+        return "${"Ready to make today count".tr}, $displayName?";
+      case 1:
+        return "${"Small daily wins add up".tr}, $displayName.";
+      case 2:
+        return "Focus on progress, not perfection.".tr;
+      case 3:
+        return "Your next personal best starts right now.".tr;
+      case 4:
+        return "${"Keep pushing your limits today".tr}, $displayName.";
+      case 5:
+        return "Every match makes you sharper.".tr;
+      case 6:
+        return "${"Time to put in the work".tr}, $displayName.";
+      case 7:
+        return "Stay sharp, stay hungry.".tr;
+      case 8:
+        return "Consistency is your superpower.".tr;
+      case 9:
+        return "${"One step closer to your goals".tr}, $displayName.";
+      case 10:
+        return "${"Let's make today productive".tr}, $displayName.";
+      case 11:
+        return "Trust the process and play your game.".tr;
+      case 12:
+        return "${"Discipline beats motivation".tr}, $displayName.";
+      case 13:
+        return "Own your momentum today.".tr;
+      case 14:
+        return "${"Greatness is built one step at a time".tr}, $displayName.";
+      case 15:
+        return "${"Keep moving forward".tr}, $displayName.";
+      case 16:
+        return "Chasing excellence, one day at a time.".tr;
+      case 17:
+        return "${"Your potential is endless".tr}, $displayName.";
+      default:
+        return "Focus on progress, not perfection.".tr;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _initialSync();
-    _quoteIndex = Random().nextInt(_quoteTemplates.length);
+    _quoteIndex = Random().nextInt(_totalQuotes);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prewarmQuoteTranslations();
+    });
+  }
+
+  void _prewarmQuoteTranslations() {
+    final lang = LanguageService().currentLocale.value.languageCode;
+    if (lang == 'en') return;
+    const phrases = [
+      "Ready to make today count",
+      "Small daily wins add up",
+      "Focus on progress, not perfection.",
+      "Your next personal best starts right now.",
+      "Keep pushing your limits today",
+      "Every match makes you sharper.",
+      "Time to put in the work",
+      "Stay sharp, stay hungry.",
+      "Consistency is your superpower.",
+      "One step closer to your goals",
+      "Let's make today productive",
+      "Trust the process and play your game.",
+      "Discipline beats motivation",
+      "Own your momentum today.",
+      "Greatness is built one step at a time",
+      "Keep moving forward",
+      "Chasing excellence, one day at a time.",
+      "Your potential is endless",
+    ];
+    for (final p in phrases) {
+      p.tr;
+    }
   }
 
   Future<void> _initialSync() async {
     final user = _authService.currentUser;
     if (user != null) {
       if (user.displayName == null || user.displayName!.isEmpty) {
-        await user.reload();
+        user.reload().then((_) {
+          _authService.syncUserData(_authService.currentUser);
+        }).catchError((e) {
+          debugPrint("Error reloading user on startup: $e");
+        });
+      } else {
+        _authService.syncUserData(user);
       }
-      await _authService.syncUserData(_authService.currentUser);
     }
   }
 
@@ -72,19 +131,21 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: _authService.userStream,
-      builder: (context, snapshot) {
-        final user = snapshot.data;
-        final String displayName = user?.displayName?.isNotEmpty == true
-            ? user!.displayName!
-            : (user?.email?.split('@').first ?? 'Player');
+    return ValueListenableBuilder<int>(
+      valueListenable: LanguageService().appLanguageVersion,
+      builder: (context, version, child) {
+        return StreamBuilder<User?>(
+          stream: _authService.userStream,
+          builder: (context, snapshot) {
+            final user = snapshot.data;
+            final String displayName = user?.displayName?.isNotEmpty == true
+                ? user!.displayName!
+                : (user?.email?.split('@').first ?? 'Player');
 
-        final quoteTemplate = _quoteTemplates[_quoteIndex];
-        final quote = quoteTemplate.tr.replaceAll('{name}', displayName);
+            final quote = _getQuote(_quoteIndex, displayName);
 
-        return Scaffold(
-          appBar: AppBar(
+            return Scaffold(
+              appBar: AppBar(
             title: const Icon(Icons.home),
             actions: [
               IconButton(
@@ -180,6 +241,8 @@ class _HomeState extends State<Home> {
               ],
             ),
           ),
+        );
+          },
         );
       },
     );

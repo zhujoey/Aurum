@@ -37,14 +37,14 @@ class AuthService {
   String? _currentSessionId;
   bool _ignoreSessionCheck = false;
 
-  Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _currentSessionId = prefs.getString('currentSessionId');
+  Future<void> init([SharedPreferences? prefs]) async {
+    final p = prefs ?? await SharedPreferences.getInstance();
+    _currentSessionId = p.getString('currentSessionId');
     
     // If this is a fresh install or cache was cleared, generate a persistent ID for this device
     if (_currentSessionId == null) {
       _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
-      await prefs.setString('currentSessionId', _currentSessionId!);
+      await p.setString('currentSessionId', _currentSessionId!);
     }
     debugPrint("Session: Device ID initialized: $_currentSessionId");
   }
@@ -65,9 +65,16 @@ class AuthService {
       final docRef = _db.collection('users').doc(user.uid);
       String? finalUsername = username ?? user.displayName;
       
-      final doc = await docRef.get();
+      // Try cache first for instant response, falling back to server if cache misses
+      DocumentSnapshot? doc;
+      try {
+        doc = await docRef.get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        doc = await docRef.get();
+      }
+
       if (doc.exists) {
-        final data = doc.data();
+        final data = doc.data() as Map<String, dynamic>?;
         if (finalUsername == null || finalUsername.isEmpty) {
           finalUsername = data?['username'];
         }

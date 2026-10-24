@@ -530,11 +530,11 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                     _buildDynamicPlayerSection(3, _p4Controller, 'Player 4', Icons.person_outline),
                   ],
                   const Divider(height: 40),
-                  const Text('Timer Options', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  Text('Timer Options'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   SwitchListTile(
-                    title: const Text('Keep running timers when page not loaded'),
-                    subtitle: const Text('Timer continues running even when you leave the match screen'),
+                    title: Text('Keep running timers when page not loaded'.tr),
+                    subtitle: Text('Timer continues running even when you leave the match screen'.tr),
                     value: _keepRunningTimers,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) => setState(() => _keepRunningTimers = val),
@@ -553,7 +553,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
               foregroundColor: Colors.white,
               disabledBackgroundColor: Colors.grey[800],
             ),
-            child: Text(inMatch ? 'Match Already in Progress' : 'Start Match', style: const TextStyle(fontSize: 18)),
+            child: Text(inMatch ? 'Match Already in Progress'.tr : 'Start Match'.tr, style: const TextStyle(fontSize: 18)),
           ),
         ],
       ),
@@ -800,7 +800,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         }
       },
       style: ElevatedButton.styleFrom(backgroundColor: isSelected ? Colors.blue : Colors.grey[800], foregroundColor: Colors.white),
-      child: Text(label),
+      child: Text(label.tr),
     );
   }
 
@@ -824,7 +824,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            Text(label.tr, style: const TextStyle(fontWeight: FontWeight.w500)),
             ToggleButtons(
               isSelected: [!isInvite, isInvite],
               onPressed: (i) {
@@ -848,8 +848,8 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
               constraints: const BoxConstraints(minHeight: 30, minWidth: 60),
               borderRadius: BorderRadius.circular(8),
               children: [
-                Text(index == 0 ? 'Me' : 'Guest', style: const TextStyle(fontSize: 12)),
-                const Text('Invite', style: TextStyle(fontSize: 12)),
+                Text((index == 0 ? 'Me' : 'Guest').tr, style: const TextStyle(fontSize: 12)),
+                Text('Invite'.tr, style: const TextStyle(fontSize: 12)),
               ],
             ),
           ],
@@ -865,7 +865,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                 requestFocusOnTap: true,
                 enableFilter: true,
                 leadingIcon: Icon(icon),
-                label: const Text('Select Friend'),
+                label: Text('Select Friend'.tr),
                 inputDecorationTheme: const InputDecorationTheme(
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(horizontal: 16),
@@ -887,10 +887,10 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
           : TextField(
               controller: controller,
               decoration: InputDecoration(
-                labelText: isMe ? 'Account: $label' : 'Temporary Guest Name',
+                labelText: isMe ? '${'Account:'.tr} $label' : 'Temporary Guest Name'.tr,
                 border: const OutlineInputBorder(),
                 prefixIcon: Icon(icon),
-                hintText: 'e.g. Guest',
+                hintText: 'e.g. Guest'.tr,
               ),
               readOnly: isMe,
             ),
@@ -906,7 +906,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         backgroundColor: isSelected ? Colors.blue : Colors.grey[800],
         foregroundColor: Colors.white,
       ),
-      child: Text(label),
+      child: Text(label.tr),
     );
   }
 
@@ -918,7 +918,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         backgroundColor: isCustom ? Colors.blue : Colors.grey[800],
         foregroundColor: Colors.white,
       ),
-      child: Text(isCustom ? 'First to $_setsToWin sets' : 'Custom'),
+      child: Text(isCustom ? '${'First to'.tr} $_setsToWin ${'sets'.tr}' : 'Custom'.tr),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 
 class FriendRequestsPage extends StatelessWidget {
   const FriendRequestsPage({super.key});
@@ -10,7 +11,7 @@ class FriendRequestsPage extends StatelessWidget {
     final AuthService authService = AuthService();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Friend Requests')),
+      appBar: AppBar(title: Text('Friend Requests'.tr)),
       body: StreamBuilder<QuerySnapshot>(
         stream: authService.incomingFriendRequests,
         builder: (context, snapshot) {
@@ -18,7 +19,7 @@ class FriendRequestsPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No pending requests.'));
+            return Center(child: Text('No pending requests.'.tr));
           }
 
           final requests = snapshot.data!.docs;
@@ -34,7 +35,7 @@ class FriendRequestsPage extends StatelessWidget {
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
                 title: Text(fromUsername),
-                subtitle: const Text('wants to be your friend'),
+                subtitle: Text('wants to be your friend'.tr),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

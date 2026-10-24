@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/widgets/user_avatar.dart';
+import 'package:aurum/widgets/user_profile_sheet.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
@@ -75,11 +77,11 @@ class ClubRequestsPage extends StatelessWidget {
                               try {
                                 await authService.acceptClubRequest(req.id, clubId, clubName);
                                 if (context.mounted) {
-                                  _showAppSnackBar(context, SnackBar(content: Text('Joined $clubName!')));
+                                  _showAppSnackBar(context, SnackBar(content: Text('${'Joined'.tr} $clubName!')));
                                 }
                               } catch (e) {
                                 if (context.mounted) {
-                                  _showAppSnackBar(context, SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+                                  _showAppSnackBar(context, SnackBar(content: Text(e.toString().tr), backgroundColor: Colors.redAccent));
                                 }
                               }
                             },
@@ -95,7 +97,7 @@ class ClubRequestsPage extends StatelessWidget {
                 ),
                 _KeepAliveStreamTabView(
                   stream: authService.incomingTournamentRequests,
-                  emptyMessage: 'No incoming tournament invitations.',
+                  emptyMessage: 'No incoming tournament invitations.'.tr,
                   itemBuilder: (context, req) {
                     final data = req.data() as Map<String, dynamic>;
                     final tournamentName = data['tournamentName'] ?? 'Tournament';
@@ -105,7 +107,7 @@ class ClubRequestsPage extends StatelessWidget {
                     return ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.emoji_events, color: Colors.amber)),
                       title: Text(tournamentName),
-                      subtitle: const Text('Invited you to join tournament'),
+                      subtitle: Text('Invited you to join tournament'.tr),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -115,11 +117,11 @@ class ClubRequestsPage extends StatelessWidget {
                               try {
                                 await authService.acceptTournamentRequest(req.id, clubId, tournamentId);
                                 if (context.mounted) {
-                                  _showAppSnackBar(context, const SnackBar(content: Text('Accepted tournament invitation!')));
+                                  _showAppSnackBar(context, SnackBar(content: Text('Accepted tournament invitation!'.tr)));
                                 }
                               } catch (e) {
                                 if (context.mounted) {
-                                  _showAppSnackBar(context, SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent));
+                                  _showAppSnackBar(context, SnackBar(content: Text(e.toString().tr), backgroundColor: Colors.redAccent));
                                 }
                               }
                             },
@@ -158,10 +160,26 @@ class ClubRequestsPage extends StatelessWidget {
                     final String clubId = req.reference.parent.parent!.parent.parent!.id;
                     final String tournamentId = req.reference.parent.parent!.id;
 
+                    final String fromUid = data['fromUid'] as String? ?? '';
+
                     return ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.handshake, color: Colors.blue)),
+                      leading: UserAvatar(
+                        photoUrl: data['fromPhotoUrl'] ?? data['photoUrl'],
+                        uid: fromUid,
+                        username: fromName,
+                      ),
                       title: Text('$fromName requested to partner with you'),
                       subtitle: Text('Event: $eventDisplay'),
+                      onTap: () {
+                        if (fromUid.isNotEmpty) {
+                          showUserProfileSheet(
+                            context,
+                            uid: fromUid,
+                            username: fromName,
+                            photoUrl: data['fromPhotoUrl'] ?? data['photoUrl'],
+                          );
+                        }
+                      },
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

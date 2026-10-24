@@ -100,7 +100,7 @@ class _LoginState extends State<Login> {
         if (!mounted) return;
         setState(() => _isLoading = false);
         _showAppSnackBar(context, 
-          const SnackBar(content: Text('Login failed. Check your email/password.')),
+          SnackBar(content: Text('Login failed. Check your email/password.'.tr)),
         );
       }
     }
@@ -124,14 +124,14 @@ class _LoginState extends State<Login> {
         if (!mounted) return;
         setState(() => _isLoading = false);
         _showAppSnackBar(context, 
-          const SnackBar(content: Text('Google Sign-In was cancelled or failed.')),
+          SnackBar(content: Text('Google Sign-In was cancelled or failed.'.tr)),
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       _showAppSnackBar(context, 
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        SnackBar(content: Text('Error: ${e.toString()}'.tr)),
       );
     }
   }
@@ -213,23 +213,23 @@ class _LoginState extends State<Login> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Email'.tr,
+                    prefixIcon: const Icon(Icons.email),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value!.isEmpty ? 'Please enter your email' : null,
+                  validator: (value) => value!.isEmpty ? 'Please enter your email'.tr : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Password'.tr,
+                    prefixIcon: const Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (value) => value!.isEmpty ? 'Please enter your password' : null,
+                  validator: (value) => value!.isEmpty ? 'Please enter your password'.tr : null,
                 ),
                 const SizedBox(height: 8),
                 Row(
