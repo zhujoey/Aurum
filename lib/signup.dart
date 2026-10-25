@@ -91,7 +91,7 @@ class _SignUpState extends State<SignUp> {
         
         if (!mounted) return;
         _showAppSnackBar(context, 
-          SnackBar(content: Text('Account created! Verification email sent to ${user.email}.')),
+          SnackBar(content: Text('${"Account created! Verification email sent to".tr} ${user.email}.')),
         );
         Navigator.pushReplacement(
           context,

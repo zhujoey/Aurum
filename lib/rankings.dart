@@ -301,7 +301,6 @@ class _RankingList extends StatelessWidget {
             final username = data['username'] ?? data['displayName'] ?? 'Player';
             final score = item['score'];
             final rank = item['rank'];
-            final wins = data['wins'] ?? 0;
 
             Color? rankColor;
             if (rank == 1) {
@@ -347,11 +346,15 @@ class _RankingList extends StatelessWidget {
                   ],
                 ),
                 title: Text(username, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(
-                  field.startsWith('glicko')
-                      ? '${"Wins".tr}: $wins • RD: ±${((data["${field}_rd"] ?? data["glicko_rd"] ?? data["glicko1_rd"] ?? 350) as num).round()} • ${"Gender".tr}: ${(data['gender'] as String? ?? "Not set").tr}'
-                      : '${"Wins".tr}: $wins • ${"Gender".tr}: ${(data['gender'] as String? ?? "Not set").tr}',
-                ),
+                subtitle: field.startsWith('glicko')
+                    ? Text(
+                        filterGender != null
+                            ? 'RD: ±${((data["${field}_rd"] ?? data["glicko_rd"] ?? data["glicko1_rd"] ?? 350) as num).round()}'
+                            : 'RD: ±${((data["${field}_rd"] ?? data["glicko_rd"] ?? data["glicko1_rd"] ?? 350) as num).round()} • ${"Gender".tr}: ${(data['gender'] as String? ?? "Not set").tr}',
+                      )
+                    : filterGender != null
+                        ? null
+                        : Text('${"Gender".tr}: ${(data['gender'] as String? ?? "Not set").tr}'),
                 trailing: Text(
                   field.startsWith('points') ? '$score ${"pts".tr}' : '$score',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),

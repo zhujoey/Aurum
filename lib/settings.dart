@@ -62,14 +62,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final newUsername = _usernameController.text.trim();
     if (newUsername.isEmpty) {
       _showAppSnackBar(context, 
-        const SnackBar(content: Text('Username cannot be empty')),
+        SnackBar(content: Text('Username cannot be empty'.tr)),
       );
       return;
     }
 
     if (newUsername == _authService.currentUser?.displayName) {
       _showAppSnackBar(context, 
-        const SnackBar(content: Text('Username is same as current')),
+        SnackBar(content: Text('Username is same as current'.tr)),
       );
       return;
     }
@@ -80,7 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (isTaken) {
         if (!mounted) return;
         _showAppSnackBar(context, 
-          const SnackBar(content: Text('Username is already taken')),
+          SnackBar(content: Text('Username is already taken'.tr)),
         );
         return;
       }
@@ -91,7 +91,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (!mounted) return;
       _showAppSnackBar(context, 
-        const SnackBar(content: Text('Username updated successfully')),
+        SnackBar(content: Text('Username updated successfully'.tr)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -109,7 +109,13 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         Scaffold(
           appBar: AppBar(
-            title: Text('Settings'.tr),
+            title: AnimatedBuilder(
+              animation: Listenable.merge([
+                LanguageService().currentLocale,
+                LanguageService().appLanguageVersion,
+              ]),
+              builder: (context, child) => Text('Settings'.tr),
+            ),
             centerTitle: true,
           ),
           body: StreamBuilder<DocumentSnapshot>(
@@ -727,7 +733,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     _showAppSnackBar(context, 
-                      SnackBar(content: Text('Verification email sent to ${user?.email}! Please check your inbox.')),
+                      SnackBar(content: Text('${"Verification email sent to".tr} ${user?.email}! ${"Please check your inbox.".tr}')),
                     );
                   }
                 } catch (e) {

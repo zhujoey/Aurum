@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tt_models.dart';
 import 'tt_scoreboard.dart';
 import 'widgets/tt_invitation_waiting.dart';
+import 'package:aurum/widgets/active_match_banner.dart';
 
 class TableTennisSetup extends StatefulWidget {
   const TableTennisSetup({super.key});
@@ -210,14 +211,14 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Custom Sets to Win'),
+        title: Text('Custom Sets to Win'.tr),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: 'Enter number of sets'),
+          decoration: InputDecoration(hintText: 'Enter number of sets'.tr),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
           TextButton(
             onPressed: () {
               final val = int.tryParse(controller.text);
@@ -226,7 +227,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
               }
               Navigator.pop(context);
             },
-            child: const Text('OK'),
+            child: Text('OK'.tr),
           ),
         ],
       ),
@@ -237,9 +238,9 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Error'),
+        title: Text('Error'.tr),
         content: Text(message),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'.tr))],
       ),
     );
   }
@@ -357,9 +358,9 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Cannot Invite Players'),
+          title: Text('Cannot Invite Players'.tr),
           content: Text(errorMsg.trim()),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'.tr))],
         ),
       );
       return;
@@ -466,7 +467,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (inMatch) 
-            _buildActiveCloudMatchBanner(activeMatchDoc)
+            ActiveMatchBanner(matchDoc: activeMatchDoc)
           else if (_savedMatch != null && (_savedMatch!['matchId'] ?? '').isEmpty) ...[
             _buildActiveMatchCard(),
             const SizedBox(height: 20),
@@ -513,21 +514,21 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
                   Text('Players'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 20),
                   if (!_isDoubles) ...[
-                    _buildDynamicPlayerSection(0, _p1Controller, 'Player 1', Icons.person),
+                    _buildDynamicPlayerSection(0, _p1Controller, 'Player 1'.tr, Icons.person),
                     const SizedBox(height: 20),
-                    _buildDynamicPlayerSection(2, _p3Controller, 'Player 2', Icons.person_outline),
+                    _buildDynamicPlayerSection(2, _p3Controller, 'Player 2'.tr, Icons.person_outline),
                   ] else ...[
                     const Text('TEAM 1', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
                     const SizedBox(height: 8),
-                    _buildDynamicPlayerSection(0, _p1Controller, 'Player 1', Icons.person),
+                    _buildDynamicPlayerSection(0, _p1Controller, 'Player 1'.tr, Icons.person),
                     const SizedBox(height: 20),
-                    _buildDynamicPlayerSection(1, _p2Controller, 'Player 2', Icons.person),
+                    _buildDynamicPlayerSection(1, _p2Controller, 'Player 2'.tr, Icons.person),
                     const Divider(height: 40),
                     const Text('TEAM 2', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
                     const SizedBox(height: 8),
-                    _buildDynamicPlayerSection(2, _p3Controller, 'Player 3', Icons.person_outline),
+                    _buildDynamicPlayerSection(2, _p3Controller, 'Player 3'.tr, Icons.person_outline),
                     const SizedBox(height: 20),
-                    _buildDynamicPlayerSection(3, _p4Controller, 'Player 4', Icons.person_outline),
+                    _buildDynamicPlayerSection(3, _p4Controller, 'Player 4'.tr, Icons.person_outline),
                   ],
                   const Divider(height: 40),
                   Text('Timer Options'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
@@ -560,160 +561,6 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
     );
   }
 
-  Widget _buildActiveCloudMatchBanner(DocumentSnapshot matchDoc) {
-    final data = matchDoc.data() as Map<String, dynamic>;
-    final String activeSport = data['sport'] ?? '';
-    bool isHost = data['hostUid'] == _authService.currentUser?.uid;
-    
-    if (activeSport != 'Table Tennis') {
-      return Card(
-        color: Colors.red.withValues(alpha: 0.1),
-        margin: const EdgeInsets.only(bottom: 24),
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: ListTile(
-          leading: const Icon(Icons.warning, color: Colors.red),
-          title: Text('Active $activeSport Match', style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: const Text('You must finish your current match before managing Table Tennis.'),
-        ),
-      );
-    }
-    
-    // Attempt to get scores from cloud data if available, or fall back to local
-    int p1Sets = data['matchData']?['p1Sets'] ?? _savedMatch?['p1Sets'] ?? 0;
-    int p2Sets = data['matchData']?['p2Sets'] ?? _savedMatch?['p2Sets'] ?? 0;
-
-    return Card(
-      color: Colors.amber.withValues(alpha: 0.1),
-      margin: const EdgeInsets.only(bottom: 24),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: Colors.amber.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.lock_clock, color: Colors.amber),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${"Match in Progress".tr} ($p1Sets - $p2Sets)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text(
-                        isHost 
-                          ? 'You are the host. Finish this match to start a new one.'.tr
-                          : 'You are a participant. You cannot start a new match yet.'.tr,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (isHost)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () async {
-                      bool? confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('Discard Match?'.tr),
-                          content: Text('This will delete all match data. This action cannot be undone.'.tr),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
-                            TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Discard'.tr, style: const TextStyle(color: Colors.red))),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        // Cleanup local first to prevent UI flicker
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.remove('active_tt_match');
-                        setState(() => _savedMatch = null);
-                        
-                        // Then cleanup cloud
-                        await _authService.deleteActiveMatch(matchDoc.id);
-                      }
-                    },
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Discard'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _resumeMatch(cloudDoc: matchDoc),
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('Resume'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
-                  ),
-                ],
-              )
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () async {
-                      bool? confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Forfeit Match?'),
-                          content: const Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Forfeit', style: TextStyle(color: Colors.red))),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await _authService.updateMatchStatus(matchDoc.id, 'forfeited');
-                      }
-                    },
-                    icon: const Icon(Icons.flag, size: 18),
-                    label: const Text('Forfeit'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      final matchData = data['matchData'] ?? {};
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TableTennisMatch(
-                            p1Name: matchData['p1Name'] ?? 'P1',
-                            p2Name: matchData['p2Name'] ?? '',
-                            p3Name: matchData['p3Name'] ?? 'P2',
-                            p4Name: matchData['p4Name'] ?? '',
-                            isDoubles: matchData['isDoubles'] ?? false,
-                            setsToWin: matchData['setsToWin'] ?? 4,
-                            matchId: matchDoc.id,
-                            isHost: false,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.visibility, size: 18),
-                    label: const Text('View Match'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildActiveMatchCard() {
     final bool savedIsDoubles = _savedMatch!['isDoubles'] ?? false;
     String p1Part = _savedMatch!['p1Name'] ?? 'P1';
@@ -733,7 +580,7 @@ class _TableTennisSetupState extends State<TableTennisSetup> {
               children: [
                 const Icon(Icons.play_circle_fill, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
-                const Text('Match in Progress', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text('Match in Progress'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
             const SizedBox(height: 12),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 import '../table_tennis/widgets/tt_stats.dart';
 import 'badminton_models.dart';
 import 'widgets/badminton_banners.dart';
@@ -290,10 +291,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Coin Toss Result'),
-        content: Text('$winnerName won the toss!'),
+        title: Text('Coin Toss Result'.tr),
+        content: Text('$winnerName ${"won the toss!".tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Continue')),
+          TextButton(onPressed: () => Navigator.pop(c), child: Text('Continue'.tr)),
         ],
       ),
     );
@@ -306,11 +307,11 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: Text('$winnerName: Choose Your Advantage'),
+        title: Text('$winnerName: ${"Choose Your Advantage".tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Choose Service')),
-          TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Choose Side (Home/Away)')),
-          TextButton(onPressed: () => Navigator.pop(c, 3), child: const Text('Let Opponent Choose')),
+          TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Choose Service'.tr)),
+          TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Choose Side (Home/Away)'.tr)),
+          TextButton(onPressed: () => Navigator.pop(c, 3), child: Text('Let Opponent Choose'.tr)),
         ],
       ),
     );
@@ -328,10 +329,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
-          title: Text('$loserName: Opponent deferred to you!'),
+          title: Text('$loserName: ${"Opponent deferred to you!".tr}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Choose Service')),
-            TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Choose Side')),
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Choose Service'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Choose Side'.tr)),
           ],
         ),
       );
@@ -343,10 +344,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           context: context,
           barrierDismissible: false,
           builder: (c) => AlertDialog(
-            title: Text('$loserName: Serve or Receive?'),
+            title: Text('$loserName: ${"Serve or Receive?".tr}'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Serve First')),
-              TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Receive First')),
+              TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+              TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
             ],
           ),
         );
@@ -359,10 +360,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           context: context,
           barrierDismissible: false,
           builder: (c) => AlertDialog(
-            title: Text('$winnerName: Choose Side (Home/Away)'),
+            title: Text('$winnerName: ${"Choose Side (Home/Away)".tr}'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Start on Home Side')),
-              TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Start on Away Side')),
+              TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+              TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
             ],
           ),
         );
@@ -374,10 +375,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           context: context,
           barrierDismissible: false,
           builder: (c) => AlertDialog(
-            title: Text('$loserName: Choose Side (Home/Away)'),
+            title: Text('$loserName: ${"Choose Side (Home/Away)".tr}'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Start on Home Side')),
-              TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Start on Away Side')),
+              TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+              TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
             ],
           ),
         );
@@ -389,10 +390,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
           context: context,
           barrierDismissible: false,
           builder: (c) => AlertDialog(
-            title: Text('$winnerName: Serve or Receive?'),
+            title: Text('$winnerName: ${"Serve or Receive?".tr}'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Serve First')),
-              TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Receive First')),
+              TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+              TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
             ],
           ),
         );
@@ -406,10 +407,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
-          title: Text('$winnerName: Serve or Receive?'),
+          title: Text('$winnerName: ${"Serve or Receive?".tr}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Serve First')),
-            TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Receive First')),
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
           ],
         ),
       );
@@ -427,10 +428,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
-          title: Text('$loserName: Choose Side (Home/Away)'),
+          title: Text('$loserName: ${"Choose Side (Home/Away)".tr}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Start on Home Side')),
-            TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Start on Away Side')),
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
           ],
         ),
       );
@@ -443,10 +444,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
-          title: Text('$winnerName: Choose Side (Home/Away)'),
+          title: Text('$winnerName: ${"Choose Side (Home/Away)".tr}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Start on Home Side')),
-            TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Start on Away Side')),
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
           ],
         ),
       );
@@ -461,10 +462,10 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
-          title: Text('$loserName: Serve or Receive?'),
+          title: Text('$loserName: ${"Serve or Receive?".tr}'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Serve First')),
-            TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Receive First')),
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
           ],
         ),
       );
@@ -580,7 +581,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
       int? selected = await showDialog<int>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Which player?'),
+          title: Text('Which player?'.tr),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               ListTile(title: Text(teamNum == 1 ? widget.p1Name : widget.p3Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 1 : 3)),
@@ -601,32 +602,32 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
 
     if (type == 'yellow') {
       if (teamYellows > 0) {
-        _showError("A warning (Yellow Card) has already been issued to this side.");
+        _showError("A warning (Yellow Card) has already been issued to this side.".tr);
         return;
       }
     }
 
-    String cardName = type == 'yellow' ? 'Yellow Card (Warning)' : type == 'red' ? 'Red Card (Fault + 1 pt)' : 'Black Card (Disqualification)';
+    String cardName = type == 'yellow' ? 'Yellow Card (Warning)'.tr : type == 'red' ? 'Red Card (Fault + 1 pt)'.tr : 'Black Card (Disqualification)'.tr;
     
     String? reason = await showDialog<String>(
       context: context, 
       builder: (context) => AlertDialog(
-        title: Text('Issue $cardName'), 
+        title: Text('${"Issue".tr} $cardName'), 
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: reasonController, 
-                decoration: const InputDecoration(hintText: 'Reason (Optional)', border: OutlineInputBorder()), 
+                decoration: InputDecoration(hintText: 'Reason (Optional)'.tr, border: const OutlineInputBorder()), 
                 autofocus: true,
               ),
             ],
           ),
         ), 
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
-          ElevatedButton(onPressed: () => Navigator.pop(context, reasonController.text.trim()), child: const Text('Confirm'))
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)), 
+          ElevatedButton(onPressed: () => Navigator.pop(context, reasonController.text.trim()), child: Text('Confirm'.tr))
         ]
       )
     );
@@ -728,19 +729,19 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
   Widget build(BuildContext context) {
     final res = _rotation;
     return Scaffold(
-      appBar: AppBar(title: const Text('Badminton Scoreboard'), actions: [
+      appBar: AppBar(title: Text('Badminton Scoreboard'.tr), actions: [
         IconButton(icon: const Icon(Icons.info_outline), onPressed: () {
           showDialog(context: context, builder: (c) => AlertDialog(
-            title: const Text('BWF Rules'),
-            content: const SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('• Rally point to 21. Win by 2.'),
-              Text('• Cap at 30 points (Golden Point).'),
-              Text('• Best of 3 games.'),
-              Text('• Intervals: 60s at 11 pts, 120s between games.'),
-              Text('• Change ends at 11 pts in Decider (Game 3).'),
-              Text('• Red Card: Fault + Point to Opponent.'),
+            title: Text('BWF Rules'.tr),
+            content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('• Rally point to 21. Win by 2.'.tr),
+              Text('• Cap at 30 points (Golden Point).'.tr),
+              Text('• Best of 3 games.'.tr),
+              Text('• Intervals: 60s at 11 pts, 120s between games.'.tr),
+              Text('• Change ends at 11 pts in Decider (Game 3).'.tr),
+              Text('• Red Card: Fault + Point to Opponent.'.tr),
             ])),
-            actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text('OK'.tr))],
           ));
         }),
         IconButton(icon: const Icon(Icons.undo), onPressed: (!widget.isHost || (_history.isEmpty && !_allPointsReset)) ? null : () {
@@ -788,11 +789,11 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
         }),
         IconButton(icon: const Icon(Icons.refresh), onPressed: !widget.isHost ? null : () {
           showDialog(context: context, builder: (c) => AlertDialog(
-            title: const Text('Reset Match?'),
-            content: const Text('All progress will be lost. This cannot be undone.'),
+            title: Text('Reset Match?'.tr),
+            content: Text('All progress will be lost. This cannot be undone.'.tr),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-              TextButton(onPressed: () { Navigator.pop(c); _resetMatch(); }, child: const Text('Reset', style: TextStyle(color: Colors.red))),
+              TextButton(onPressed: () => Navigator.pop(c), child: Text('Cancel'.tr)),
+              TextButton(onPressed: () { Navigator.pop(c); _resetMatch(); }, child: Text('Reset'.tr, style: const TextStyle(color: Colors.red))),
             ],
           ));
         }),
@@ -803,14 +804,14 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
               Navigator.pop(context);
             }
           },
-          itemBuilder: (c) => [if (widget.isHost) const PopupMenuItem(value: 'discard', child: Text('Discard Match', style: TextStyle(color: Colors.red)))],
+          itemBuilder: (c) => [if (widget.isHost) PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red)))],
         )
       ]),
       body: Column(children: [
         BadmintonSuspensionBanner(logs: logs, isDoubles: widget.isDoubles, p1Name: widget.p1Name, p3Name: widget.p3Name),
         if (timerEndTime != null) BadmintonTimerBanner(title: timerTitle, endTime: timerEndTime!, isHost: widget.isHost, onSkip: _stopTimer),
         const SizedBox(height: 20),
-        Text('Best of ${widget.gamesToWin * 2 - 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+        Text('Best of ${widget.gamesToWin * 2 - 1} games'.tr, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
         const SizedBox(height: 10),
         Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
           BadmintonTeamColumn(
@@ -852,7 +853,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             await _clearPersistedMatch(); 
             if (!context.mounted) return; 
             Navigator.pop(context); 
-            ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(isBlackedMatch ? 'Match concluded and saved (Disqualification).' : 'Match finished and saved successfully!')));
+            ScaffoldMessenger.of(context)..clearSnackBars()..showSnackBar(SnackBar(content: Text(isBlackedMatch ? 'Match concluded and saved (Disqualification).'.tr : 'Match finished and saved successfully!'.tr)));
           } : null,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(55), 
@@ -863,7 +864,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
             elevation: (p1Games >= widget.gamesToWin || p2Games >= widget.gamesToWin || isBlackedMatch) ? 8 : 0, 
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
           ),
-          child: Text((p1Games >= widget.gamesToWin || p2Games >= widget.gamesToWin || isBlackedMatch) ? 'CONCLUDE MATCH' : 'Finish Match', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: (p1Games >= widget.gamesToWin || p2Games >= widget.gamesToWin || isBlackedMatch) ? 1.2 : 0)),
+          child: Text((p1Games >= widget.gamesToWin || p2Games >= widget.gamesToWin || isBlackedMatch) ? 'CONCLUDE MATCH'.tr : 'Finish Match'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: (p1Games >= widget.gamesToWin || p2Games >= widget.gamesToWin || isBlackedMatch) ? 1.2 : 0)),
         )),
         const SizedBox(height: 40),
       ]),

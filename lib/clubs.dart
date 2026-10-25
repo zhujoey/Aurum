@@ -478,7 +478,7 @@ class _ClubsPageState extends State<ClubsPage> {
                           children: [
                             Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const Spacer(),
-                            Text('${t['sport'] ?? "Sport"} • ${t['rankingPoints'] ?? 1000} pts', style: const TextStyle(color: Colors.blue, fontSize: 11)),
+                            Text('${(t['sport'] as String? ?? "Sport").tr} • ${t['rankingPoints'] ?? 1000} ${"pts".tr}', style: const TextStyle(color: Colors.blue, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -577,7 +577,7 @@ class _ClubsPageState extends State<ClubsPage> {
                       username: m['username'],
                     ),
                     title: Text(m['username'] ?? 'Unknown'),
-                    subtitle: Text(isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')),
+                    subtitle: Text((isOwner ? 'Owner' : (isManager ? 'Manager' : 'Member')).tr),
                     onTap: () {
                       if (mUid.isNotEmpty && !isRegisteredMember) {
                         showUserProfileSheet(
@@ -600,12 +600,12 @@ class _ClubsPageState extends State<ClubsPage> {
                                       if (val == 'promote') {
                                         await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: mUid, newRole: 'manager');
                                         if (context.mounted) {
-                                          _showAppSnackBar(context, const SnackBar(content: Text('Promoted to Manager!')));
+                                          _showAppSnackBar(context, SnackBar(content: Text('Promoted to Manager!'.tr)));
                                         }
                                       } else if (val == 'demote') {
                                         await _authService.updateMemberRole(clubId: clubDoc.id, memberUid: mUid, newRole: 'member');
                                         if (context.mounted) {
-                                          _showAppSnackBar(context, const SnackBar(content: Text('Demoted to Member')));
+                                          _showAppSnackBar(context, SnackBar(content: Text('Demoted to Member'.tr)));
                                         }
                                       }
                                     } catch (e) {
@@ -617,14 +617,14 @@ class _ClubsPageState extends State<ClubsPage> {
                                   itemBuilder: (context) => [
                                     PopupMenuItem(
                                       value: isManager ? 'demote' : 'promote',
-                                      child: Text(isManager ? 'Demote to Member' : 'Promote to Manager'),
+                                      child: Text((isManager ? 'Demote to Member' : 'Promote to Manager').tr),
                                     ),
                                   ],
                                 ),
                               IconButton(
                                 icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                                 onPressed: () => _showKickMemberDialog(clubDoc.id, mUid, m['username'] ?? 'Unknown'),
-                                tooltip: 'Remove from Club',
+                                tooltip: 'Remove from Club'.tr,
                               ),
                             ],
                           ),

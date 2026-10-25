@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aurum/language_service.dart';
 import '../badminton_models.dart';
 
 class BadmintonTeamColumn extends StatelessWidget {
@@ -134,7 +135,7 @@ class BadmintonTeamColumn extends StatelessWidget {
             color: Colors.blue.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text('Games: $games', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+          child: Text('${'Games'.tr}: $games', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
         ),
         const SizedBox(height: 20),
         GestureDetector(
@@ -173,7 +174,7 @@ class BadmintonTeamColumn extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
-            side, 
+            side.tr, 
             style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1),
           ),
         ),

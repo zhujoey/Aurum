@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aurum/language_service.dart';
 
 class TennisTeamColumn extends StatelessWidget {
   final int teamNum;
@@ -61,7 +62,7 @@ class TennisTeamColumn extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(8)),
-                  child: Text(servingCourt, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  child: Text(servingCourt.tr, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                 ),
               ],
             ],
@@ -77,7 +78,7 @@ class TennisTeamColumn extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
                 ),
-                child: Text('Sets: $sets', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+                child: Text('${'Sets'.tr}: $sets', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
               ),
               const SizedBox(width: 6),
               Container(
@@ -87,7 +88,7 @@ class TennisTeamColumn extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.blue.withValues(alpha: 0.5)),
                 ),
-                child: Text('Games: $games', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                child: Text('${'Games'.tr}: $games', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
               ),
             ],
           ),
@@ -112,7 +113,7 @@ class TennisTeamColumn extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                   ),
-                  const Text('POINTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  Text('POINTS'.tr, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                 ],
               ),
             ),
@@ -128,13 +129,13 @@ class TennisTeamColumn extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: onCodeViolation,
-                    child: const FittedBox(
+                    child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Row(
                         children: [
-                          Icon(Icons.warning, size: 12, color: Colors.orange),
-                          SizedBox(width: 2),
-                          Text('Code', style: TextStyle(fontSize: 11)),
+                          const Icon(Icons.warning, size: 12, color: Colors.orange),
+                          const SizedBox(width: 2),
+                          Text('Code'.tr, style: const TextStyle(fontSize: 11)),
                         ],
                       ),
                     ),
@@ -148,13 +149,13 @@ class TennisTeamColumn extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: onMedicalTimeout,
-                    child: const FittedBox(
+                    child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Row(
                         children: [
-                          Icon(Icons.medical_services, size: 12, color: Colors.red),
-                          SizedBox(width: 2),
-                          Text('Medical', style: TextStyle(fontSize: 11)),
+                          const Icon(Icons.medical_services, size: 12, color: Colors.red),
+                          const SizedBox(width: 2),
+                          Text('Medical'.tr, style: const TextStyle(fontSize: 11)),
                         ],
                       ),
                     ),

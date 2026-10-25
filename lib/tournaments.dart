@@ -274,7 +274,7 @@ class _ClubTournamentsView extends StatelessWidget {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.notifications_outlined),
-                        tooltip: 'Tournament Invitations',
+                        tooltip: 'Tournament Invitations'.tr,
                         onPressed: () {
                           Navigator.push(
                             context,
@@ -329,7 +329,7 @@ class _ClubTournamentsView extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final t = tournaments[index];
                   final data = t.data() as Map<String, dynamic>;
-                  final name = data['name'] ?? 'Tournament';
+                  final name = ((data['name'] as String?) ?? 'Tournament').tr;
                   final description = data['description'] as String? ?? '';
                   final sport = data['sport'] ?? 'Multiple';
                   final int rankingPoints = data['rankingPoints'] ?? 1000;
@@ -918,7 +918,7 @@ class TournamentDetailsPage extends StatelessWidget {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
-        final String name = data['name'] ?? 'Tournament';
+        final String name = ((data['name'] as String?) ?? 'Tournament').tr;
         final String description = data['description'] as String? ?? '';
         final String sport = data['sport'] ?? 'Multiple';
         final int rankingPoints = data['rankingPoints'] ?? 1000;
@@ -1078,7 +1078,7 @@ class TournamentDetailsPage extends StatelessWidget {
                   ] else if (isOpen || isOwnerOrManager) ...[
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add),
-                      label: const Text('Join Tournament', style: TextStyle(fontSize: 16)),
+                      label: Text('Join Tournament'.tr, style: const TextStyle(fontSize: 16)),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: Colors.green,
@@ -1089,7 +1089,7 @@ class TournamentDetailsPage extends StatelessWidget {
                           await authService.joinTournament(clubId: clubId, tournamentId: tournamentId);
                           if (context.mounted) {
                             _showAppSnackBar(context, 
-                              const SnackBar(content: Text('Successfully joined the tournament!')),
+                              SnackBar(content: Text('Successfully joined the tournament!'.tr)),
                             );
                           }
                         } catch (e) {
@@ -1114,7 +1114,7 @@ class TournamentDetailsPage extends StatelessWidget {
                           final reqDoc = reqSnapshot.data!.docs.first;
                           return ElevatedButton.icon(
                             icon: const Icon(Icons.check, color: Colors.white),
-                            label: const Text('Accept Tournament Invitation', style: TextStyle(fontSize: 16)),
+                            label: Text('Accept Tournament Invitation'.tr, style: const TextStyle(fontSize: 16)),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               backgroundColor: Colors.green,
@@ -1125,7 +1125,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                 await authService.acceptTournamentRequest(reqDoc.id, clubId, tournamentId);
                                 if (context.mounted) {
                                   _showAppSnackBar(context, 
-                                    const SnackBar(content: Text('Accepted tournament invitation!')),
+                                    SnackBar(content: Text('Accepted tournament invitation!'.tr)),
                                   );
                                 }
                               } catch (e) {
@@ -1296,7 +1296,7 @@ class TournamentDetailsPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1309,7 +1309,7 @@ class TournamentDetailsPage extends StatelessWidget {
                 if (context.mounted) {
                   Navigator.pop(context); // Close dialog
                   _showAppSnackBar(context, 
-                    const SnackBar(content: Text('Left tournament.')),
+                    SnackBar(content: Text('Left tournament.'.tr)),
                   );
                 }
               } catch (e) {
@@ -1334,7 +1334,7 @@ class TournamentDetailsPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1452,7 +1452,7 @@ class TournamentDetailsPage extends StatelessWidget {
         title: const Text('Remove Doubles Pair?'),
         content: const Text('Are you sure you want to remove this confirmed doubles partnership?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
@@ -1465,7 +1465,7 @@ class TournamentDetailsPage extends StatelessWidget {
                 if (context.mounted) {
                   Navigator.pop(context);
                   _showAppSnackBar(context, 
-                    const SnackBar(content: Text('Doubles pair removed.')),
+                    SnackBar(content: Text('Doubles pair removed.'.tr)),
                   );
                 }
               } catch (e) {
@@ -1596,7 +1596,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                     );
                                     if (context.mounted) {
                                       _showAppSnackBar(context, 
-                                        const SnackBar(content: Text('Doubles partnership accepted!')),
+                                        SnackBar(content: Text('Doubles partnership accepted!'.tr)),
                                       );
                                     }
                                   } catch (e) {
@@ -1708,7 +1708,7 @@ class TournamentDetailsPage extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
             ElevatedButton(
               onPressed: selectedPartnerUid == null ? null : () async {
                 try {
@@ -1803,7 +1803,7 @@ class TournamentDetailsPage extends StatelessWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
               onPressed: () async {
@@ -1816,7 +1816,7 @@ class TournamentDetailsPage extends StatelessWidget {
                   if (context.mounted) {
                     Navigator.pop(context);
                     _showAppSnackBar(context, 
-                      SnackBar(content: Text('Added $botCount test players to the tournament!')),
+                      SnackBar(content: Text('${"Added".tr} $botCount ${"test players to the tournament!".tr}')),
                     );
                   }
                 } catch (e) {
@@ -1898,11 +1898,11 @@ class TournamentDetailsPage extends StatelessWidget {
             if (step == 1)
               TextButton(
                 onPressed: () => setDialogState(() => step = 0),
-                child: const Text('Back'),
+                child: Text('Back'.tr),
               ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text('Cancel'.tr),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
@@ -1920,7 +1920,7 @@ class TournamentDetailsPage extends StatelessWidget {
                     if (context.mounted) {
                       Navigator.pop(context); // Close dialog
                       _showAppSnackBar(context, 
-                        const SnackBar(content: Text('Tournament started successfully!')),
+                        SnackBar(content: Text('Tournament started successfully!'.tr)),
                       );
                     }
                   } catch (e) {
@@ -2008,7 +2008,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                       );
                                       if (context.mounted) {
                                         _showAppSnackBar(context, 
-                                          const SnackBar(content: Text('Invitation retracted.')),
+                                          SnackBar(content: Text('Invitation retracted.'.tr)),
                                         );
                                       }
                                     } catch (e) {
@@ -2020,7 +2020,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                 );
                               } else {
                                 trailingWidget = ElevatedButton(
-                                  child: const Text('Invite'),
+                                  child: Text('Invite'.tr),
                                   onPressed: () async {
                                     try {
                                       await authService.inviteMemberToTournament(
@@ -2032,7 +2032,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                       );
                                       if (context.mounted) {
                                         _showAppSnackBar(context, 
-                                          SnackBar(content: Text('Invitation sent to $mName!')),
+                                          SnackBar(content: Text('${"Invitation sent to".tr} $mName!')),
                                         );
                                       }
                                     } catch (e) {
@@ -2051,7 +2051,7 @@ class TournamentDetailsPage extends StatelessWidget {
                                   username: mName,
                                 ),
                                 title: Text(mName),
-                                subtitle: Text(m['role'] ?? 'member'),
+                                subtitle: Text((((m['role'] as String?) == 'owner') ? 'Owner' : (((m['role'] as String?) == 'manager') ? 'Manager' : 'Member')).tr),
                                 trailing: trailingWidget,
                                 onTap: () {
                                   if (mUid.isNotEmpty) {
@@ -2225,7 +2225,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text('Cancel'.tr),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
@@ -2326,11 +2326,11 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
             if (step == 1)
               TextButton(
                 onPressed: () => setDialogState(() => step = 0),
-                child: const Text('Back'),
+                child: Text('Back'.tr),
               ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text('Cancel'.tr),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -2367,6 +2367,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -2384,24 +2385,24 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'General Info',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              'General Info'.tr,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Tournament Name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Tournament Name'.tr,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description / Subheading',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Description / Subheading'.tr,
+                border: const OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
@@ -2409,17 +2410,17 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
             DropdownButtonFormField<String>(
               isExpanded: true,
               initialValue: _selectedPreset,
-              decoration: const InputDecoration(
-                labelText: 'Points Template / Preset',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Points Template / Preset'.tr,
+                border: const OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Grand Tournament (2000 Pts)', child: Text('Grand Tournament (2000 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Major Tournament (1000 Pts)', child: Text('Major Tournament (1000 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Premier Tournament (600 Pts)', child: Text('Premier Tournament (600 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Regional Tournament (400 Pts)', child: Text('Regional Tournament (400 Pts)', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'Local Tournament (250 Pts)', child: Text('Local Tournament (250 Pts)', overflow: TextOverflow.ellipsis)),
+              items: [
+                DropdownMenuItem(value: 'Custom', child: Text('Custom Breakdown'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Grand Tournament (2000 Pts)', child: Text('Grand Tournament (2000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Major Tournament (1000 Pts)', child: Text('Major Tournament (1000 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Premier Tournament (600 Pts)', child: Text('Premier Tournament (600 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Regional Tournament (400 Pts)', child: Text('Regional Tournament (400 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'Local Tournament (250 Pts)', child: Text('Local Tournament (250 Pts)'.tr, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
                 if (val == null) return;
@@ -2481,7 +2482,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _winnerPointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Winner Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'Winner Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2489,7 +2490,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _finalistPointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Finalist Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'Finalist Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -2501,7 +2502,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _sfPointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Semifinal Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'Semifinal Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2509,7 +2510,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _qfPointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Quarterfinal Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'Quarterfinal Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -2521,7 +2522,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _r16PointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'R16 Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'R16 Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2529,7 +2530,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _r32PointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'R32 Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'R32 Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2537,7 +2538,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   child: TextField(
                     controller: _r64PointsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'R64 Pts', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'R64 Pts'.tr, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -2673,9 +2674,9 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 initialValue: _getValidTeamMatchSystem(widget.currentData['sport'] ?? 'Table Tennis', _teamType, _teamMatchSystem),
-                decoration: const InputDecoration(
-                  labelText: 'Team Match System Format',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'Team Match System Format'.tr,
+                  border: const OutlineInputBorder(),
                 ),
                 items: _getTeamMatchSystemItems(widget.currentData['sport'] ?? 'Table Tennis', _teamType),
                 onChanged: (val) {
@@ -2706,13 +2707,13 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 initialValue: _seedingMethod,
-                decoration: const InputDecoration(
-                  labelText: 'Seeding Method',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'Seeding Method'.tr,
+                  border: const OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'ITTF Seeded', child: Text('ITTF Seeded (Top seeds meet in final)', overflow: TextOverflow.ellipsis)),
-                  DropdownMenuItem(value: 'Random', child: Text('Random Draw', overflow: TextOverflow.ellipsis)),
+                items: [
+                  DropdownMenuItem(value: 'ITTF Seeded', child: Text('ITTF Seeded (Top seeds meet in final)'.tr, overflow: TextOverflow.ellipsis)),
+                  DropdownMenuItem(value: 'Random', child: Text('Random Draw'.tr, overflow: TextOverflow.ellipsis)),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _seedingMethod = val);
@@ -2721,12 +2722,12 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Include 3rd Place Playoff', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Bronze medal match between semifinal losers', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('Include 3rd Place Playoff'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Bronze medal match between semifinal losers'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                       ],
                     ),
                   ),
@@ -2739,20 +2740,15 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
             ],
             const SizedBox(height: 24),
             const Divider(),
-            const SizedBox(height: 12),
-            const Text(
-              'Access',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
             const SizedBox(height: 16),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Open Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Allow members to join directly without requiring an invite', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text('Open Tournament'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Allow members to join directly without requiring an invite'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ),
@@ -2765,16 +2761,16 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            const Text(
-              'Danger Zone',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+            Text(
+              'Danger Zone'.tr,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.delete_forever),
-                label: const Text('Delete Tournament'),
+                label: Text('Delete Tournament'.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
@@ -2832,28 +2828,28 @@ class RoundRobinPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = tournamentData['name'] ?? 'Tournament';
+    final name = ((tournamentData['name'] as String?) ?? 'Tournament').tr;
     List participants = List.from(tournamentData['participants'] ?? []);
 
     return Scaffold(
-      appBar: AppBar(title: Text('$name - Round Robin')),
+      appBar: AppBar(title: Text('$name - ${'Round Robin'.tr}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Format: Round Robin (Every participant plays every other participant)', style: TextStyle(fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Format: Round Robin (Every participant plays every other participant)'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 16),
-            const Text('Match Fixtures (All-Play-All)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Match Fixtures (All-Play-All)'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             ..._buildRoundRobinFixtures(context, participants),
             const SizedBox(height: 24),
-            const Text('Live Standings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Live Standings'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildStandingsTable(participants),
           ],
@@ -2881,7 +2877,7 @@ class RoundRobinPage extends StatelessWidget {
             child: ListTile(
               leading: CircleAvatar(child: Text('$matchNum')),
               title: Text('$p1 vs $p2'),
-              subtitle: const Text('Tap to record result or play live match'),
+              subtitle: Text('Tap to record result or play live match'.tr),
               trailing: const Icon(Icons.sports_tennis, color: Colors.blue),
               onTap: () {
                 showMatchActionModal(
@@ -2904,7 +2900,7 @@ class RoundRobinPage extends StatelessWidget {
         matchNum++;
       }
     }
-    return fixtures.isEmpty ? [const Text('Need at least 2 participants for fixtures.')] : fixtures;
+    return fixtures.isEmpty ? [Text('Need at least 2 participants for fixtures.'.tr)] : fixtures;
   }
 
   Widget _buildStandingsTable(List participants) {
@@ -2917,13 +2913,13 @@ class RoundRobinPage extends StatelessWidget {
         3: FlexColumnWidth(2),
       },
       children: [
-        const TableRow(
-          decoration: BoxDecoration(color: Colors.blueGrey),
+        TableRow(
+          decoration: const BoxDecoration(color: Colors.blueGrey),
           children: [
-            Padding(padding: EdgeInsets.all(8.0), child: Text('Rank', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
-            Padding(padding: EdgeInsets.all(8.0), child: Text('Player', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
-            Padding(padding: EdgeInsets.all(8.0), child: Text('Played', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
-            Padding(padding: EdgeInsets.all(8.0), child: Text('Pts', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text('Rank'.tr, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text('Player'.tr, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text('Played'.tr, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+            Padding(padding: const EdgeInsets.all(8.0), child: Text('Pts'.tr, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
           ],
         ),
         ...participants.asMap().entries.map((entry) {
@@ -2953,28 +2949,28 @@ class DoubleEliminationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = tournamentData['name'] ?? 'Tournament';
+    final name = ((tournamentData['name'] as String?) ?? 'Tournament').tr;
     return Scaffold(
-      appBar: AppBar(title: Text('$name - Double Elimination')),
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+      appBar: AppBar(title: Text('$name - ${'Double Elimination'.tr}')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Format: Double Elimination (Participants must lose two matches to be eliminated)', style: TextStyle(fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Format: Double Elimination (Participants must lose two matches to be eliminated)'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
-            SizedBox(height: 20),
-            Text('Winners Bracket', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
-            Card(child: ListTile(title: Text('Winners Round 1 Fixtures'), subtitle: Text('Standard Double Elimination pairing tree'))),
-            SizedBox(height: 20),
-            Text('Losers Bracket', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
-            SizedBox(height: 12),
-            Card(child: ListTile(title: Text('Losers Round 1 Fixtures'), subtitle: Text('Elimination matching tree'))),
+            const SizedBox(height: 20),
+            Text('Winners Bracket'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Card(child: ListTile(title: Text('Winners Round 1 Fixtures'.tr), subtitle: Text('Standard Double Elimination pairing tree'.tr))),
+            const SizedBox(height: 20),
+            Text('Losers Bracket'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
+            const SizedBox(height: 12),
+            Card(child: ListTile(title: Text('Losers Round 1 Fixtures'.tr), subtitle: Text('Elimination matching tree'.tr))),
           ],
         ),
       ),
@@ -2991,24 +2987,24 @@ class SwissSystemPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = tournamentData['name'] ?? 'Tournament';
+    final name = ((tournamentData['name'] as String?) ?? 'Tournament').tr;
     return Scaffold(
-      appBar: AppBar(title: Text('$name - Swiss System')),
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+      appBar: AppBar(title: Text('$name - ${'Swiss System'.tr}')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Format: Swiss System (Non-elimination rounds pairing players with similar records)', style: TextStyle(fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Format: Swiss System (Non-elimination rounds pairing players with similar records)'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
-            SizedBox(height: 20),
-            Text('Round 1 Pairings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
-            Card(child: ListTile(title: Text('Swiss Round 1'), subtitle: Text('Initial pairings generated'))),
+            const SizedBox(height: 20),
+            Text('Round 1 Pairings'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Card(child: ListTile(title: Text('Swiss Round 1'.tr), subtitle: Text('Initial pairings generated'.tr))),
           ],
         ),
       ),
@@ -3025,28 +3021,28 @@ class WorldCupPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = tournamentData['name'] ?? 'Tournament';
+    final name = ((tournamentData['name'] as String?) ?? 'Tournament').tr;
     return Scaffold(
-      appBar: AppBar(title: Text('$name - World Cup (Groups + KO)')),
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+      appBar: AppBar(title: Text('$name - ${'World Cup (Group Stage + KO)'.tr}')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Format: World Cup Style (Group Stage followed by Knockout Stage)', style: TextStyle(fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Format: World Cup Style (Group Stage followed by Knockout Stage)'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
-            SizedBox(height: 20),
-            Text('Group Stage', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
-            Card(child: ListTile(title: Text('Group A & Group B Standings'), subtitle: Text('Top 2 from each group advance to Knockout'))),
-            SizedBox(height: 20),
-            Text('Knockout Stage', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-            SizedBox(height: 12),
-            Card(child: ListTile(title: Text('Quarterfinals / Semifinals'), subtitle: Text('Single elimination bracket for group qualifiers'))),
+            const SizedBox(height: 20),
+            Text('Group Stage'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Card(child: ListTile(title: Text('Group A & Group B Standings'.tr), subtitle: Text('Top 2 from each group advance to Knockout'.tr))),
+            const SizedBox(height: 20),
+            Text('Knockout Stage'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+            const SizedBox(height: 12),
+            Card(child: ListTile(title: Text('Quarterfinals / Semifinals'.tr), subtitle: Text('Single elimination bracket for group qualifiers'.tr))),
           ],
         ),
       ),
@@ -3069,25 +3065,25 @@ class TournamentBracketPage extends StatelessWidget {
   String _getRoundTitle(int bracketSize) {
     switch (bracketSize) {
       case 2:
-        return 'Finals';
+        return 'Finals'.tr;
       case 4:
-        return 'Semifinals';
+        return 'Semifinals'.tr;
       case 8:
-        return 'Quarterfinals';
+        return 'Quarterfinals'.tr;
       case 16:
-        return 'Round of 16';
+        return 'Round of 16'.tr;
       case 32:
-        return 'Round of 32';
+        return 'Round of 32'.tr;
       case 64:
-        return 'Round of 64';
+        return 'Round of 64'.tr;
       default:
-        return 'Knockout Bracket ($bracketSize Players)';
+        return '${'Knockout Bracket'.tr} ($bracketSize ${'Players'.tr})';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String name = tournamentData['name'] ?? 'Tournament';
+    final String name = ((tournamentData['name'] as String?) ?? 'Tournament').tr;
     final List participants = List.from(tournamentData['participants'] ?? []);
     final String seedingMethod = tournamentData['seedingMethod'] ?? 'ITTF Seeded';
     final bool hasThirdPlace = tournamentData['hasThirdPlacePlayoff'] ?? true;
@@ -3112,7 +3108,7 @@ class TournamentBracketPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('$name - Bracket'),
+        title: Text('$name - ${'Bracket'.tr}'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -3383,7 +3379,7 @@ class TournamentBracketPage extends StatelessWidget {
                                                 actions: [
                                                   TextButton(
                                                     onPressed: () => Navigator.pop(context, false),
-                                                    child: const Text('Cancel'),
+                                                    child: Text('Cancel'.tr),
                                                   ),
                                                   ElevatedButton(
                                                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
@@ -3784,12 +3780,12 @@ void showMatchActionModal({
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
+                                child: Text('Cancel'.tr),
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                                 onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Confirm'),
+                                child: Text('Confirm'.tr),
                               ),
                             ],
                           ),

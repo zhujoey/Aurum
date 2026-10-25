@@ -67,7 +67,7 @@ class ClubRequestsPage extends StatelessWidget {
                     return ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.groups)),
                       title: Text(clubName),
-                      subtitle: const Text('Invited you to join their club'),
+                      subtitle: Text('Invited you to join their club'.tr),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -141,21 +141,21 @@ class ClubRequestsPage extends StatelessWidget {
                       .where('toUid', isEqualTo: user.uid)
                       .where('status', isEqualTo: 'pending')
                       .snapshots(),
-                  emptyMessage: 'No incoming doubles partner requests.',
+                  emptyMessage: 'No incoming doubles partner requests.'.tr,
                   itemBuilder: (context, req) {
                     final data = req.data() as Map<String, dynamic>;
                     final fromName = data['fromUsername'] ?? 'Player';
                     final eventType = data['eventType'] ?? 'Doubles';
 
-                    String eventDisplay = 'Doubles Event';
-                    if (eventType == 'mixed') eventDisplay = 'Mixed Doubles (1 Male + 1 Female)';
-                    if (eventType == 'open_doubles') eventDisplay = 'Open Doubles (2 Players)';
-                    if (eventType == 'mens_doubles') eventDisplay = "Men's Doubles (2 Players)";
-                    if (eventType == 'womens_doubles') eventDisplay = "Women's Doubles (2 Players)";
-                    if (eventType == 'open_team') eventDisplay = 'Open Team (5 Players)';
-                    if (eventType == 'mens_team') eventDisplay = "Men's Team (5 Male Players)";
-                    if (eventType == 'womens_team') eventDisplay = "Women's Team (5 Female Players)";
-                    if (eventType == 'mixed_team') eventDisplay = 'Mixed Team (4 Males + 4 Females)';
+                    String eventDisplay = 'Doubles Event'.tr;
+                    if (eventType == 'mixed') eventDisplay = 'Mixed Doubles (1 Male + 1 Female)'.tr;
+                    if (eventType == 'open_doubles') eventDisplay = 'Open Doubles (2 Players)'.tr;
+                    if (eventType == 'mens_doubles') eventDisplay = "Men's Doubles (2 Players)".tr;
+                    if (eventType == 'womens_doubles') eventDisplay = "Women's Doubles (2 Players)".tr;
+                    if (eventType == 'open_team') eventDisplay = 'Open Team (5 Players)'.tr;
+                    if (eventType == 'mens_team') eventDisplay = "Men's Team (5 Male Players)".tr;
+                    if (eventType == 'womens_team') eventDisplay = "Women's Team (5 Female Players)".tr;
+                    if (eventType == 'mixed_team') eventDisplay = 'Mixed Team (4 Males + 4 Females)'.tr;
 
                     final String clubId = req.reference.parent.parent!.parent.parent!.id;
                     final String tournamentId = req.reference.parent.parent!.id;
@@ -168,8 +168,8 @@ class ClubRequestsPage extends StatelessWidget {
                         uid: fromUid,
                         username: fromName,
                       ),
-                      title: Text('$fromName requested to partner with you'),
-                      subtitle: Text('Event: $eventDisplay'),
+                      title: Text('$fromName ${"requested to partner with you".tr}'),
+                      subtitle: Text('${'Event'.tr}: $eventDisplay'),
                       onTap: () {
                         if (fromUid.isNotEmpty) {
                           showUserProfileSheet(
@@ -193,7 +193,7 @@ class ClubRequestsPage extends StatelessWidget {
                                   requestId: req.id,
                                 );
                                 if (context.mounted) {
-                                  _showAppSnackBar(context, const SnackBar(content: Text('Accepted doubles partner request!')));
+                                  _showAppSnackBar(context, SnackBar(content: Text('Accepted doubles partner request!'.tr)));
                                 }
                               } catch (e) {
                                 if (context.mounted) {

@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'badminton_models.dart';
 import 'badminton_scoreboard.dart';
 import '../table_tennis/widgets/tt_invitation_waiting.dart';
+import 'package:aurum/widgets/active_match_banner.dart';
 
 class BadmintonSetup extends StatefulWidget {
   const BadmintonSetup({super.key});
@@ -183,9 +184,9 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Error'),
+        title: Text('Error'.tr),
         content: Text(message),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'.tr))],
       ),
     );
   }
@@ -220,7 +221,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
 
     String currentUsername = _authService.currentUser?.displayName ?? '';
     List<String> activeNames = _isDoubles ? [n1, n2, n3, n4] : [n1, n3];
-    if (Set.from(activeNames).length != activeNames.length) { _showError('All player names must be unique.'); return; }
+    if (Set.from(activeNames).length != activeNames.length) { _showError('All player names must be unique.'.tr); return; }
 
     List<String> invalidNames = [];
     List<String> inMatchNames = [];
@@ -291,7 +292,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
           activeMatchDoc = snapshot.data!.docs.first;
         }
         return Scaffold(
-          appBar: AppBar(title: const Text('Badminton Setup')),
+          appBar: AppBar(title: Text('Badminton Setup'.tr)),
           body: SafeArea(child: _buildSetupForm(activeMatchDoc)),
         );
       }
@@ -305,7 +306,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (inMatch) _buildActiveCloudMatchBanner(activeMatchDoc)
+          if (inMatch) ActiveMatchBanner(matchDoc: activeMatchDoc)
           else if (_savedMatch != null && (_savedMatch!['matchId'] ?? '').isEmpty) ...[
             _buildActiveMatchCard(),
             const SizedBox(height: 20),
@@ -317,7 +318,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
               opacity: inMatch ? 0.5 : 1.0,
               child: Column(
                 children: [
-                  const Text('Game Type', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Game Type'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     _typeButton('Singles', false),
@@ -325,7 +326,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
                     _typeButton('Doubles', true),
                   ]),
                   const Divider(height: 40),
-                  const Text('Match Format', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Match Format'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   Center(
                     child: SingleChildScrollView(
@@ -343,20 +344,20 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
                     ),
                   ),
                   const Divider(height: 40),
-                  const Text('Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Players'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   if (!_isDoubles) ...[
-                    _buildPlayerSection(0, _p1Controller, 'Player 1', Icons.person),
+                    _buildPlayerSection(0, _p1Controller, 'Player 1'.tr, Icons.person),
                     const SizedBox(height: 20),
-                    _buildPlayerSection(2, _p3Controller, 'Player 2', Icons.person_outline),
+                    _buildPlayerSection(2, _p3Controller, 'Player 2'.tr, Icons.person_outline),
                   ] else ...[
-                    _buildPlayerSection(0, _p1Controller, 'Team 1 - P1', Icons.person),
+                    _buildPlayerSection(0, _p1Controller, 'Team 1 - P1'.tr, Icons.person),
                     const SizedBox(height: 12),
-                    _buildPlayerSection(1, _p2Controller, 'Team 1 - P2', Icons.person),
+                    _buildPlayerSection(1, _p2Controller, 'Team 1 - P2'.tr, Icons.person),
                     const Divider(height: 30),
-                    _buildPlayerSection(2, _p3Controller, 'Team 2 - P1', Icons.person_outline),
+                    _buildPlayerSection(2, _p3Controller, 'Team 2 - P1'.tr, Icons.person_outline),
                     const SizedBox(height: 12),
-                    _buildPlayerSection(3, _p4Controller, 'Team 2 - P2', Icons.person_outline),
+                    _buildPlayerSection(3, _p4Controller, 'Team 2 - P2'.tr, Icons.person_outline),
                   ],
                   const Divider(height: 40),
                   Text('Timer Options'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -383,46 +384,10 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
     );
   }
 
-  Widget _buildActiveCloudMatchBanner(DocumentSnapshot matchDoc) {
-    final data = matchDoc.data() as Map<String, dynamic>;
-    final String activeSport = data['sport'] ?? '';
-    bool isHost = data['hostUid'] == _authService.currentUser?.uid;
 
-    if (activeSport != 'Badminton') {
-      return Card(
-        color: Colors.red.withValues(alpha: 0.1),
-        margin: const EdgeInsets.only(bottom: 24),
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: ListTile(
-          leading: const Icon(Icons.warning, color: Colors.red),
-          title: Text('Active $activeSport Match', style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: const Text('You must finish your current match before managing Badminton.'),
-        ),
-      );
-    }
-
-    return Card(
-      color: Colors.amber.withValues(alpha: 0.1),
-      margin: const EdgeInsets.only(bottom: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(children: [
-          const ListTile(leading: Icon(Icons.lock_clock, color: Colors.amber), title: Text('Match in Progress', style: TextStyle(fontWeight: FontWeight.bold))),
-          if (isHost) Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            TextButton(onPressed: () => _authService.deleteActiveMatch(matchDoc.id), child: const Text('Discard', style: TextStyle(color: Colors.red))),
-            ElevatedButton(onPressed: () => _resumeMatch(cloudDoc: matchDoc), child: const Text('Resume')),
-          ])
-          else ElevatedButton(onPressed: () {}, child: const Text('View Match'))
-        ]),
-      ),
-    );
-  }
 
   Widget _buildActiveMatchCard() {
-    return Card(color: Colors.blue.withValues(alpha: 0.1), child: ListTile(title: const Text('Local Match Saved'), trailing: ElevatedButton(onPressed: _resumeMatch, child: const Text('Resume'))));
+    return Card(color: Colors.blue.withValues(alpha: 0.1), child: ListTile(title: Text('Local Match Saved'.tr), trailing: ElevatedButton(onPressed: _resumeMatch, child: Text('Resume'.tr))));
   }
 
   Widget _typeButton(String label, bool value) {
@@ -462,7 +427,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
         backgroundColor: isSelected ? Colors.blue : Colors.grey[800],
         foregroundColor: Colors.white,
       ),
-      child: Text(label),
+      child: Text(label.tr),
     );
   }
 
@@ -474,7 +439,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
         backgroundColor: isCustom ? Colors.blue : Colors.grey[800],
         foregroundColor: Colors.white,
       ),
-      child: Text(isCustom ? 'First to $_gamesToWin' : 'Custom'),
+      child: Text(isCustom ? '${'First to'.tr} $_gamesToWin ${'games'.tr}' : 'Custom'.tr),
     );
   }
 
@@ -483,14 +448,14 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Custom Games to Win'),
+        title: Text('Custom Games to Win'.tr),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: 'Enter number of games'),
+          decoration: InputDecoration(hintText: 'Enter number of games'.tr),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
           TextButton(
             onPressed: () {
               final val = int.tryParse(controller.text);
@@ -499,7 +464,7 @@ class _BadmintonSetupState extends State<BadmintonSetup> {
               }
               Navigator.pop(context);
             },
-            child: const Text('OK'),
+            child: Text('OK'.tr),
           ),
         ],
       ),

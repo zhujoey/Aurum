@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aurum/language_service.dart';
 import '../tennis_models.dart';
 
 class TennisTimerBanner extends StatefulWidget {
@@ -58,7 +59,7 @@ class _TennisTimerBannerState extends State<TennisTimerBanner> {
               const Icon(Icons.timer, color: Colors.amber, size: 20),
               const SizedBox(width: 8),
               Text(
-                '${widget.title}: $timeStr',
+                '${widget.title.tr}: $timeStr',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
@@ -66,7 +67,7 @@ class _TennisTimerBannerState extends State<TennisTimerBanner> {
           if (widget.isHost)
             TextButton(
               onPressed: widget.onSkip,
-              child: const Text('SKIP', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+              child: Text('Skip'.tr, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -106,7 +107,7 @@ class TennisPenaltyBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Code Violation ($pName): ${latest.cardType?.toUpperCase() ?? "WARNING"} - ${latest.reason ?? "Unsportsmanlike Conduct"}',
+              '${'Code Violation'.tr} ($pName): ${latest.cardType?.toUpperCase().tr ?? "Warning".tr} - ${latest.reason?.tr ?? "Unsportsmanlike Conduct".tr}',
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),

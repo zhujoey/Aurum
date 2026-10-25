@@ -233,14 +233,14 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
     
     if (isDoubles) {
       if (currentUsername.toLowerCase() == p2Name.toLowerCase()) {
-        teamInfo = "\nYou will be on Team 1 with $p1Name.";
+        teamInfo = "\n${"You will be on Team 1 with".tr} $p1Name.";
       } else if (currentUsername.toLowerCase() == p3Name.toLowerCase()) {
-        teamInfo = "\nYou will be on Team 2 with $p4Name.";
+        teamInfo = "\n${"You will be on Team 2 with".tr} $p4Name.";
       } else if (currentUsername.toLowerCase() == p4Name.toLowerCase()) {
-        teamInfo = "\nYou will be on Team 2 with $p3Name.";
+        teamInfo = "\n${"You will be on Team 2 with".tr} $p3Name.";
       }
     } else {
-      teamInfo = "\nYou will be playing against $p1Name.";
+      teamInfo = "\n${"You will be playing against".tr} $p1Name.";
     }
 
     _activeDialogRequestIds.add(doc.id);
@@ -266,12 +266,12 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
             }
 
             return AlertDialog(
-              title: Text('$sport Request'),
+              title: Text('${sport.tr} ${"Request".tr}'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('$fromUser invited you to a ${isDoubles ? "Doubles" : "Singles"} match (First to $setsToWin sets).'),
+                  Text('$fromUser ${"invited you to a".tr} ${(isDoubles ? "Doubles" : "Singles").tr} ${"match".tr} (${("First to $setsToWin sets").tr}).'),
                   const SizedBox(height: 12),
                   if (teamInfo.isNotEmpty)
                     Text(teamInfo, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),

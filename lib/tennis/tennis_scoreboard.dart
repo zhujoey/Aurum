@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
+import 'package:aurum/language_service.dart';
 import 'tennis_models.dart';
 import 'widgets/tennis_banners.dart';
 import 'widgets/tennis_history.dart';
@@ -247,9 +248,9 @@ class _TennisMatchState extends State<TennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: const Text('Coin Toss Result'),
-        content: Text('$winnerName won the coin toss!'),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Continue'))],
+        title: Text('Coin Toss Result'.tr),
+        content: Text('$winnerName ${'won the coin toss!'.tr}'),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text('Continue'.tr))],
       ),
     );
 
@@ -258,10 +259,10 @@ class _TennisMatchState extends State<TennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (c) => AlertDialog(
-        title: Text('$winnerName: Choose Option'),
+        title: Text('$winnerName: ${'Choose Option'.tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, 1), child: const Text('Serve First')),
-          TextButton(onPressed: () => Navigator.pop(c, 2), child: const Text('Receive First')),
+          TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+          TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
         ],
       ),
     );
@@ -276,7 +277,7 @@ class _TennisMatchState extends State<TennisMatch> {
       });
     }
 
-    _startTimer('5-Min Warmup', 300);
+    _startTimer('5-Min Warmup'.tr, 300);
   }
 
   void _startTimer(String title, int seconds) {
@@ -436,19 +437,19 @@ class _TennisMatchState extends State<TennisMatch> {
     final count = playerViolations.length + 1;
 
     String cardType = 'warning';
-    String desc = '1st Violation: Warning';
+    String desc = '1st Violation: Warning'.tr;
 
     if (count == 2) {
       cardType = 'point';
-      desc = '2nd Violation: Point Penalty (+1 Point to Opponent)';
+      desc = '2nd Violation: Point Penalty (+1 Point to Opponent)'.tr;
       _addPoint(3 - playerNum);
     } else if (count == 3) {
       cardType = 'game';
-      desc = '3rd Violation: Game Penalty (+1 Game to Opponent)';
+      desc = '3rd Violation: Game Penalty (+1 Game to Opponent)'.tr;
       _winGame(3 - playerNum);
     } else if (count >= 4) {
       cardType = 'default';
-      desc = '4th Violation: Disqualification / Default';
+      desc = '4th Violation: Disqualification / Default'.tr;
       isFinished = true;
     }
 
@@ -526,31 +527,25 @@ class _TennisMatchState extends State<TennisMatch> {
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Discard Match?'),
-                    content: const Text('Are you sure you want to discard this match? Progress will be lost.'),
+                    title: Text('Discard Match?'.tr),
+                    content: Text('Are you sure you want to discard this match? Progress will be lost.'.tr),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                         onPressed: () {
                           Navigator.pop(context);
                           Navigator.pop(context);
                         },
-                        child: const Text('Discard'),
+                        child: Text('Discard'.tr),
                       ),
                     ],
                   ),
                 );
-              } else if (val == 'toss') {
-                _promptToss();
-              } else if (val == 'warmup') {
-                _startTimer('5-Min Warmup', 300);
               }
             },
             itemBuilder: (context) => [
-              if (_isHost) const PopupMenuItem(value: 'toss', child: Text('Coin Toss')),
-              if (_isHost) const PopupMenuItem(value: 'warmup', child: Text('Start 5-Min Warmup')),
-              if (_isHost) const PopupMenuItem(value: 'discard', child: Text('Discard Match', style: TextStyle(color: Colors.red))),
+              if (_isHost) PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red))),
             ],
           ),
         ],
@@ -570,7 +565,7 @@ class _TennisMatchState extends State<TennisMatch> {
                 ),
               const SizedBox(height: 12),
               Text(
-                'ITF Best of ${widget.setsToWin * 2 - 1} Sets • Server: $serverName (${_getServingCourt()} Court)',
+                '${'ITF Best of ${widget.setsToWin * 2 - 1} Sets'.tr} • ${'Server'.tr}: $serverName (${_getServingCourt().tr} ${'Court'.tr})',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
               ),
               const SizedBox(height: 16),
@@ -590,7 +585,7 @@ class _TennisMatchState extends State<TennisMatch> {
                     isFinished: isFinished,
                     onPointAdd: () => _addPoint(1),
                     onCodeViolation: () => _issueCodeViolation(1),
-                    onMedicalTimeout: () => _startTimer('Medical Timeout (P1)', 180),
+                    onMedicalTimeout: () => _startTimer('Medical Timeout (P1)'.tr, 180),
                   ),
                   TennisTeamColumn(
                     teamNum: 2,
@@ -605,7 +600,7 @@ class _TennisMatchState extends State<TennisMatch> {
                     isFinished: isFinished,
                     onPointAdd: () => _addPoint(2),
                     onCodeViolation: () => _issueCodeViolation(2),
-                    onMedicalTimeout: () => _startTimer('Medical Timeout (P2)', 180),
+                    onMedicalTimeout: () => _startTimer('Medical Timeout (P2)'.tr, 180),
                   ),
                 ],
               ),
@@ -617,13 +612,13 @@ class _TennisMatchState extends State<TennisMatch> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.check),
-                      label: const Text('Confirm & Finish Match', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      label: Text('Confirm & Finish Match'.tr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
                       onPressed: () async {
                         await _recordMatchResult();
                         if (context.mounted) {
                           Navigator.pop(context);
-                          _showAppSnackBar(context, const SnackBar(content: Text('Tennis match concluded and saved successfully!')));
+                          _showAppSnackBar(context, SnackBar(content: Text('Tennis match concluded and saved successfully!'.tr)));
                         }
                       },
                     ),

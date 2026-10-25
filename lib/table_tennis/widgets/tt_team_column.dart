@@ -210,7 +210,7 @@ class TeamColumn extends StatelessWidget {
                                     ? Colors.white.withValues(alpha: 0.1)
                                     : null)))))),
         const SizedBox(height: 8),
-        Text('SIDE: $playerSide',
+        Text('${'SIDE'.tr}: ${playerSide.tr}',
             style: const TextStyle(
                 color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
       ]),

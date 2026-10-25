@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aurum/language_service.dart';
 import '../badminton_models.dart';
 
 class BadmintonSuspensionBanner extends StatelessWidget {
@@ -85,12 +86,12 @@ class BadmintonTimerBanner extends StatelessWidget {
             const Icon(Icons.timer, color: Colors.blue),
             const SizedBox(width: 12),
             Text(
-              '$title: ${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}',
+              '${title.tr}: ${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}',
               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
             ),
             const Spacer(),
             if (isHost)
-              TextButton(onPressed: onSkip, child: const Text('Skip')),
+              TextButton(onPressed: onSkip, child: Text('Skip'.tr)),
           ]),
         );
       }

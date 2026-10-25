@@ -398,9 +398,13 @@ class AuthService {
   Future<void> removeMemberFromClub(String clubId, String userUid) async {
     final batch = _db.batch();
     batch.delete(_db.collection('clubs').doc(clubId).collection('members').doc(userUid));
-    batch.update(_db.collection('users').doc(userUid), {
-      'joinedClubId': FieldValue.delete(),
-    });
+    if (userUid.startsWith('member_')) {
+      batch.delete(_db.collection('users').doc(userUid));
+    } else {
+      batch.update(_db.collection('users').doc(userUid), {
+        'joinedClubId': FieldValue.delete(),
+      });
+    }
     await batch.commit();
   }
 
@@ -410,9 +414,13 @@ class AuthService {
 
     final batch = _db.batch();
     batch.delete(_db.collection('clubs').doc(clubId).collection('members').doc(user.uid));
-    batch.update(_db.collection('users').doc(user.uid), {
-      'joinedClubId': FieldValue.delete(),
-    });
+    if (user.uid.startsWith('member_')) {
+      batch.delete(_db.collection('users').doc(user.uid));
+    } else {
+      batch.update(_db.collection('users').doc(user.uid), {
+        'joinedClubId': FieldValue.delete(),
+      });
+    }
     await batch.commit();
   }
 
@@ -427,8 +435,10 @@ class AuthService {
     
     for (var doc in membersSnap.docs) {
       final mUid = doc.id;
-      // Clear joinedClubId for members
-      if (doc.data()['role'] == 'member') {
+      // Delete user doc if local club registered member, otherwise clear joinedClubId for real members
+      if (mUid.startsWith('member_')) {
+        batch.delete(_db.collection('users').doc(mUid));
+      } else if (doc.data()['role'] == 'member') {
         batch.update(_db.collection('users').doc(mUid), {
           'joinedClubId': FieldValue.delete(),
         });

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../auth_service.dart';
+import '../../language_service.dart';
 
 class InvitationWaitingDialog extends StatefulWidget {
   final List<Map<String, dynamic>> invitations;
@@ -60,25 +61,26 @@ class _InvitationWaitingDialogState extends State<InvitationWaitingDialog> {
     bool anyRejected = _statuses.values.any((s) => s == 'rejected');
 
     return AlertDialog(
-      title: const Text('Waiting for Players'),
+      title: Text('Waiting for Players'.tr),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(anyRejected 
-            ? 'Invitation declined. Correct the username and try again.' 
-            : 'Match will start once everyone accepts.'),
+            ? 'Invitation declined. Correct the username and try again.'.tr 
+            : 'Match will start once everyone accepts.'.tr),
           const SizedBox(height: 20),
           ...widget.invitations.map((invite) {
             String name = invite['name'];
             String status = _statuses[invite['id']] ?? 'pending';
             Color color = status == 'accepted' ? Colors.green : (status == 'rejected' ? Colors.red : Colors.orange);
+            String statusText = status == 'accepted' ? 'Accepted'.tr : (status == 'rejected' ? 'Declined'.tr : 'Pending'.tr);
             return ListTile(
               leading: Icon(
                 status == 'accepted' ? Icons.check_circle : (status == 'rejected' ? Icons.cancel : Icons.hourglass_empty), 
                 color: color
               ),
               title: Text(name),
-              trailing: Text(status.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
+              trailing: Text(statusText.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
             );
           }),
         ],
@@ -86,7 +88,7 @@ class _InvitationWaitingDialogState extends State<InvitationWaitingDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false), 
-          child: const Text('Cancel')
+          child: Text('Cancel'.tr)
         ),
       ],
     );

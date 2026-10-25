@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aurum/language_service.dart';
 import '../tt_models.dart';
 
 class SuspensionBanner extends StatelessWidget {
@@ -90,12 +91,12 @@ class TimerBanner extends StatelessWidget {
           const Icon(Icons.timer, color: Colors.blue),
           const SizedBox(width: 12),
           Text(
-              '$title: ${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
+              '${title.tr}: ${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}',
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.blue)),
           const Spacer(),
           if (onSkip != null)
-            TextButton(onPressed: onSkip, child: const Text('Skip')),
+            TextButton(onPressed: onSkip, child: Text('Skip'.tr)),
         ]));
   }
 }
@@ -109,7 +110,7 @@ class ExpediteBanner extends StatelessWidget {
         width: double.infinity,
         color: Colors.red,
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: const Text('!!! EXPEDITE SYSTEM ACTIVE: SERVE EVERY POINT !!!',
+        child: Text('!!! EXPEDITE SYSTEM ACTIVE: SERVE EVERY POINT !!!'.tr,
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: Colors.white,

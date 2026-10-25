@@ -234,9 +234,9 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Match Ended'),
-              content: const Text('A participant has forfeited the match.'),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+              title: Text('Match Ended'.tr),
+              content: Text('A participant has forfeited the match.'.tr),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'.tr))],
             ),
           );
         }
@@ -406,11 +406,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Match Ready'),
-        content: const Text('Would you like to start the official 2-minute warmup?'),
+        title: Text('Match Ready'.tr),
+        content: Text('Would you like to start the official 2-minute warmup?'.tr),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Skip Warmup')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Start Warmup')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Skip Warmup'.tr)),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text('Start Warmup'.tr)),
         ],
       ),
     );
@@ -616,12 +616,12 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('$winnerDisplay won the toss!'),
-        content: const Text('What would you like to do?'),
+        title: Text('$winnerDisplay ${"won the toss!".tr}'),
+        content: Text('What would you like to do?'.tr),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Choose Service')),
-          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Choose Side (Home/Away)')),
-          TextButton(onPressed: () => Navigator.pop(context, 3), child: const Text('Let Opponent Choose')),
+          TextButton(onPressed: () => Navigator.pop(context, 1), child: Text('Choose Service'.tr)),
+          TextButton(onPressed: () => Navigator.pop(context, 2), child: Text('Choose Side (Home/Away)'.tr)),
+          TextButton(onPressed: () => Navigator.pop(context, 3), child: Text('Let Opponent Choose'.tr)),
         ],
       ),
     );
@@ -637,11 +637,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: Text('$loserDisplay: Opponent deferred to you!'),
-          content: const Text('What would you like to choose?'),
+          title: Text('$loserDisplay: ${"Opponent deferred to you!".tr}'),
+          content: Text('What would you like to choose?'.tr),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Choose Service')),
-            TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Choose Side (Home/Away)')),
+            TextButton(onPressed: () => Navigator.pop(context, 1), child: Text('Choose Service'.tr)),
+            TextButton(onPressed: () => Navigator.pop(context, 2), child: Text('Choose Side (Home/Away)'.tr)),
           ],
         ),
       );
@@ -674,10 +674,10 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('$display: Serve or Receive?'),
+        title: Text('$display: ${"Serve or Receive?".tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Serve First')),
-          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Receive First')),
+          TextButton(onPressed: () => Navigator.pop(context, 1), child: Text('Serve First'.tr)),
+          TextButton(onPressed: () => Navigator.pop(context, 2), child: Text('Receive First'.tr)),
         ],
       ),
     );
@@ -689,10 +689,10 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('$display: Which side to start at? (Home/Away)'),
+        title: Text('$display: ${"Which side to start at? (Home/Away)".tr}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, 1), child: const Text('Home Side')),
-          TextButton(onPressed: () => Navigator.pop(context, 2), child: const Text('Away Side')),
+          TextButton(onPressed: () => Navigator.pop(context, 1), child: Text('Home Side'.tr)),
+          TextButton(onPressed: () => Navigator.pop(context, 2), child: Text('Away Side'.tr)),
         ],
       ),
     );
@@ -852,7 +852,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       }
       logs.add(MatchLogEntry(type: 'timeout', playerNum: playerNum, setNum: setSummaries.length + 1, p1Score: player1Score, p2Score: player2Score));
     });
-    _startMatchTimer('Timeout', 60);
+    _startMatchTimer('Timeout'.tr, 60);
   }
 
   void _issuePenalty(int playerNum, String type) async {
@@ -866,7 +866,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       int? selected = await showDialog<int>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Which player?'),
+          title: Text('Which player?'.tr),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               ListTile(title: Text(teamNum == 1 ? widget.p1Name : widget.p3Name), onTap: () => Navigator.pop(context, teamNum == 1 ? 1 : 3)),
@@ -882,29 +882,29 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     int teamPenalties = logs.where((p) => p.type == 'penalty' && ((teamNum == 1 && (widget.isDoubles ? (p.playerNum == 1 || p.playerNum == 2) : p.playerNum == 1)) || (teamNum == 2 && (widget.isDoubles ? (p.playerNum == 3 || p.playerNum == 4) : p.playerNum == 2)))).length;
     if (teamPenalties >= 4) return;
 
-    String cardName = teamPenalties == 0 ? 'Yellow Card (Warning)' : teamPenalties == 1 ? 'Yellow + Red Card (+1 point)' : teamPenalties == 2 ? 'Yellow + Red Card (+2 points)' : 'Red Card (Suspension Warning)';
+    String cardName = teamPenalties == 0 ? 'Yellow Card (Warning)'.tr : teamPenalties == 1 ? 'Yellow + Red Card (+1 point)'.tr : teamPenalties == 2 ? 'Yellow + Red Card (+2 points)'.tr : 'Red Card (Suspension Warning)'.tr;
     if (!mounted) return;
     final dialogCtx = context;
     if (!dialogCtx.mounted) return;
     String? reason = await showDialog<String>(
       context: dialogCtx, 
       builder: (context) => AlertDialog(
-        title: Text('Issue $cardName'), 
+        title: Text('${"Issue".tr} $cardName'), 
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: reasonController, 
-                decoration: const InputDecoration(hintText: 'Reason (Optional)', border: OutlineInputBorder()), 
+                decoration: InputDecoration(hintText: 'Reason (Optional)'.tr, border: const OutlineInputBorder()), 
                 autofocus: true,
               ),
             ],
           ),
         ), 
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
-          ElevatedButton(onPressed: () => Navigator.pop(context, reasonController.text.trim()), child: const Text('Confirm'))
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)), 
+          ElevatedButton(onPressed: () => Navigator.pop(context, reasonController.text.trim()), child: Text('Confirm'.tr))
         ],
       ),
     );
@@ -1195,11 +1195,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                   bool? confirm = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Discard Match?'),
-                      content: const Text('This will delete all match data. This action cannot be undone.'),
+                      title: Text('Discard Match?'.tr),
+                      content: Text('This will delete all match data. This action cannot be undone.'.tr),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Discard', style: TextStyle(color: Colors.red))),
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Discard'.tr, style: const TextStyle(color: Colors.red))),
                       ],
                     ),
                   );
@@ -1215,11 +1215,11 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                   bool? confirm = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Forfeit Match?'),
-                      content: const Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'),
+                      title: Text('Forfeit Match?'.tr),
+                      content: Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'.tr),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Forfeit', style: TextStyle(color: Colors.red))),
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red))),
                       ],
                     ),
                   );
@@ -1247,7 +1247,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
             if (_activeTimerSeconds > 0) TimerBanner(title: _activeTimerTitle, seconds: _activeTimerSeconds, onSkip: _isHost ? _stopMatchTimer : null),
             if (expediteActive) const ExpediteBanner(),
             const SizedBox(height: 20),
-            Text('First to ${widget.setsToWin} sets', style: const TextStyle(fontSize: 16, color: Colors.blue, fontWeight: FontWeight.bold)),
+            Text('First to ${widget.setsToWin} sets'.tr, style: const TextStyle(fontSize: 16, color: Colors.blue, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               _buildTeamCol(1, p1Won, p1TimeoutUsed),
@@ -1278,27 +1278,27 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
 
   Widget _buildMatchRulesDialog(BuildContext dialogContext) {
     return AlertDialog(
-      title: const Text('Match Rules & Expedite Info'),
+      title: Text('Match Rules & Expedite Info'.tr),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('General Scoring & Conduct', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            Text('General Scoring & Conduct'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 6),
-            const Text('• Game: First to 11 points (must win by 2 points).'),
-            const Text('• Misconduct Cards: 1st Yellow = Warning, 2nd Yellow/Red = Fault + 1 point to opponent, 3rd = Fault + 2 points, 4th Red = Disqualification.'),
+            Text('• Game: First to 11 points (must win by 2 points).'.tr),
+            Text('• Misconduct Cards: 1st Yellow = Warning, 2nd Yellow/Red = Fault + 1 point to opponent, 3rd = Fault + 2 points, 4th Red = Disqualification.'.tr),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            const Text('Expedite System Rule', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue)),
+            Text('Expedite System Rule'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue)),
             const SizedBox(height: 6),
-            const Text(
-              'The Expedite System is an official ITTF rule designed to shorten overlong sets:\n\n'
-              '• Automatic Activation: Automatically triggers if a set reaches 10 minutes (600s) of play and fewer than 18 total points have been scored.\n\n'
-              '• Service Rotation: Once active, service changes after EVERY single point.\n\n'
-              '• 13-Return Rule: The receiving player/pair wins the point if they successfully make 13 returns in a rally.',
-              style: TextStyle(fontSize: 13, height: 1.3),
+            Text(
+              'The Expedite System is an official ITTF rule designed to shorten overlong sets:\n\n'.tr +
+              '• Automatic Activation: Automatically triggers if a set reaches 10 minutes (600s) of play and fewer than 18 total points have been scored.\n\n'.tr +
+              '• Service Rotation: Once active, service changes after EVERY single point.\n\n'.tr +
+              '• 13-Return Rule: The receiving player/pair wins the point if they successfully make 13 returns in a rally.'.tr,
+              style: const TextStyle(fontSize: 13, height: 1.3),
             ),
             const SizedBox(height: 16),
             _ExpediteInfoWidget(
@@ -1317,7 +1317,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Close'),
+          child: Text('Close'.tr),
         ),
       ],
     );
@@ -1420,19 +1420,19 @@ class _ExpediteInfoWidgetState extends State<_ExpediteInfoWidget> {
           ),
           const SizedBox(height: 8),
           if (widget.expediteActive)
-            const Row(
+            Row(
               children: [
-                Icon(Icons.bolt, color: Colors.orange, size: 18),
-                SizedBox(width: 6),
-                Text('Status: ACTIVE ⚡', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                const Icon(Icons.bolt, color: Colors.orange, size: 18),
+                const SizedBox(width: 6),
+                Text('${'Status'.tr}: ${'ACTIVE ⚡'.tr}', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
               ],
             )
           else if (widget.totalPoints >= 18)
-            const Text('Status: Exempt (18+ total points scored in this set)', style: TextStyle(color: Colors.grey, fontSize: 12))
+            Text('Status: Exempt (18+ total points scored in this set)'.tr, style: const TextStyle(color: Colors.grey, fontSize: 12))
           else ...[
-            Text('Countdown to Auto-Expedite: $timeStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue)),
+            Text('${'Countdown to Auto-Expedite'.tr}: $timeStr', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue)),
             const SizedBox(height: 4),
-            Text('Current Set Duration: ${_currentGameTime ~/ 60}:${(_currentGameTime % 60).toString().padLeft(2, '0')} / 10:00', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text('${'Current Set Duration'.tr}: ${_currentGameTime ~/ 60}:${(_currentGameTime % 60).toString().padLeft(2, '0')} / 10:00', style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
           if (widget.isHost && !widget.expediteActive) ...[
             const SizedBox(height: 12),
@@ -1440,7 +1440,7 @@ class _ExpediteInfoWidgetState extends State<_ExpediteInfoWidget> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.bolt),
-                label: const Text('Force Expedite System'),
+                label: Text('Force Expedite System'.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
