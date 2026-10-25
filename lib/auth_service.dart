@@ -339,11 +339,16 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Check if user already owns a club (users can only create 1 club)
-    final userDoc = await _db.collection('users').doc(user.uid).get();
+    final userRef = _db.collection('users').doc(user.uid);
+    final userDoc = await userRef.get();
     final data = userDoc.data();
     if (data?['ownedClubId'] != null) {
       throw 'You already own a club. You can only create 1 club, but you can join as many clubs as you wish.';
+    }
+
+    String username = user.displayName ?? '';
+    if (username.isEmpty) {
+      username = data?['username'] ?? 'Unknown';
     }
 
     // 2. Check if a club with the same name already exists system-wide (case-insensitive)
@@ -359,22 +364,25 @@ class AuthService {
       'name': name,
       'sport': sport,
       'ownerUid': user.uid,
-      'ownerName': user.displayName ?? 'Unknown',
+      'ownerName': username,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     // 2. Add owner as the first member
     await docRef.collection('members').doc(user.uid).set({
       'uid': user.uid,
-      'username': user.displayName ?? 'Unknown',
+      'username': username,
       'role': 'owner',
       'joinedAt': FieldValue.serverTimestamp(),
     });
 
-    // 3. Mark user as owner in their profile
-    await _db.collection('users').doc(user.uid).update({
+    // 3. Mark user as owner in their profile (using merge: true to prevent NOT_FOUND if doc is missing)
+    await userRef.set({
       'ownedClubId': docRef.id,
-    });
+      'uid': user.uid,
+      'email': user.email ?? '',
+      'username': username,
+    }, SetOptions(merge: true));
   }
 
   Stream<QuerySnapshot> get myOwnedClubs {
