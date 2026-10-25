@@ -100,57 +100,69 @@ class _ClubsPageState extends State<ClubsPage> {
           if (!userSnap.hasData) return const Center(child: CircularProgressIndicator());
           final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
 
-          final String? ownedClubId = userData['ownedClubId'] as String?;
-          final List joinedClubIds = List.from(userData['joinedClubIds'] ?? []);
-          final String? singleJoinedId = userData['joinedClubId'] as String?;
+          return StreamBuilder<QuerySnapshot>(
+            stream: _db.collection('clubs').where('ownerUid', isEqualTo: uid).snapshots(),
+            builder: (context, ownedClubsSnap) {
+              final ownedClubIdsFromQuery = ownedClubsSnap.hasData
+                  ? ownedClubsSnap.data!.docs.map((doc) => doc.id).toList()
+                  : <String>[];
 
-          final Set<String> allUserClubIds = {};
-          if (ownedClubId != null && ownedClubId.isNotEmpty) {
-            allUserClubIds.add(ownedClubId);
-          }
-          for (var id in joinedClubIds) {
-            if (id != null && id.toString().isNotEmpty) allUserClubIds.add(id.toString());
-          }
-          if (singleJoinedId != null && singleJoinedId.isNotEmpty) {
-            allUserClubIds.add(singleJoinedId);
-          }
+              final String? ownedClubId = userData['ownedClubId'] as String?;
+              final List joinedClubIds = List.from(userData['joinedClubIds'] ?? []);
+              final String? singleJoinedId = userData['joinedClubId'] as String?;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (ownedClubId == null) ...[
-                  Card(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.add_business, size: 36, color: Colors.blue),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Establish Your Club'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                Text('Create and manage your own club (1 club limit)'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                              ],
-                            ),
+              final Set<String> allUserClubIds = {};
+              if (ownedClubId != null && ownedClubId.isNotEmpty) {
+                allUserClubIds.add(ownedClubId);
+              }
+              for (var cId in ownedClubIdsFromQuery) {
+                if (cId.isNotEmpty) allUserClubIds.add(cId);
+              }
+              for (var id in joinedClubIds) {
+                if (id != null && id.toString().isNotEmpty) allUserClubIds.add(id.toString());
+              }
+              if (singleJoinedId != null && singleJoinedId.isNotEmpty) {
+                allUserClubIds.add(singleJoinedId);
+              }
+
+              final bool hasOwnedClub = (ownedClubId != null && ownedClubId.isNotEmpty) || ownedClubIdsFromQuery.isNotEmpty;
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!hasOwnedClub) ...[
+                      Card(
+                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.add_business, size: 36, color: Colors.blue),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Establish Your Club'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    Text('Create and manage your own club (1 club limit)'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                                onPressed: _showCreateClubDialog,
+                                child: Text('Create'.tr),
+                              ),
+                            ],
                           ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                            onPressed: _showCreateClubDialog,
-                            child: Text('Create'.tr),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                      const SizedBox(height: 16),
+                    ],
 
-                if (allUserClubIds.isEmpty) ...[
+                    if (allUserClubIds.isEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 40.0),
                     child: Center(
@@ -235,6 +247,8 @@ class _ClubsPageState extends State<ClubsPage> {
                 ],
               ],
             ),
+          );
+            },
           );
         },
       ),
