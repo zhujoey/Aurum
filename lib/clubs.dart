@@ -710,13 +710,26 @@ class _ClubsPageState extends State<ClubsPage> {
             ElevatedButton(
               onPressed: () async {
                 final name = nameController.text.trim();
-                if (name.isEmpty) return;
+                if (name.isEmpty) {
+                  _showAppSnackBar(
+                    context,
+                    SnackBar(
+                      content: Text('Please enter a club name.'.tr),
+                    ),
+                  );
+                  return;
+                }
                 try {
                   await _authService.createClub(name, selectedSport);
                   if (context.mounted) Navigator.pop(context);
                 } catch (e) {
                   if (context.mounted) {
-                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
+                    _showAppSnackBar(
+                      context,
+                      SnackBar(
+                        content: Text('$e'),
+                      ),
+                    );
                   }
                 }
               },
