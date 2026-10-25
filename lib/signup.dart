@@ -81,13 +81,20 @@ class _SignUpState extends State<SignUp> {
       );
 
       if (user != null) {
-        // Set the username (displayName) immediately after sign up
+        // Set the username (displayName) and sync data in parallel for instant signup!
         final username = _usernameController.text.trim();
-        await user.updateDisplayName(username);
-        await _authService.syncUserData(user, username: username, isLogin: true);
-        await _authService.updateUserGender(_selectedGender);
-        await _authService.sendEmailVerification();
-        await user.reload();
+        await Future.wait([
+          user.updateDisplayName(username),
+          _authService.syncUserData(
+            user, 
+            username: username, 
+            gender: _selectedGender, 
+            isLogin: true
+          ),
+          _authService.sendEmailVerification().catchError((e) {
+            debugPrint("Email verification notice: $e");
+          }),
+        ]);
         
         if (!mounted) return;
         _showAppSnackBar(context, 

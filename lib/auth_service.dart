@@ -56,7 +56,7 @@ class AuthService {
   }
 
   // Sync user data to Firestore
-  Future<void> syncUserData(User? user, {String? username, bool isLogin = false}) async {
+  Future<void> syncUserData(User? user, {String? username, String? gender, bool isLogin = false}) async {
     if (user == null) return;
     
     if (isLogin) _ignoreSessionCheck = true;
@@ -90,6 +90,7 @@ class AuthService {
           'email': user.email,
           'username': finalUsername,
           'username_search': finalUsername.toLowerCase(),
+          if (gender != null) 'gender': gender,
           'lastActive': FieldValue.serverTimestamp(),
         };
 
