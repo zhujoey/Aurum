@@ -254,20 +254,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       return Column(
                         children: [
                           ListTile(
+                            title: Text('Dark Mode (recommended)'.tr),
+                            trailing: Icon(
+                              mode == ThemeMode.dark ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                              color: mode == ThemeMode.dark ? Theme.of(context).colorScheme.primary : Colors.grey,
+                            ),
+                            onTap: () => _themeService.setTheme(ThemeMode.dark),
+                          ),
+                          ListTile(
                             title: Text('Light Mode'.tr),
                             trailing: Icon(
                               mode == ThemeMode.light ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                               color: mode == ThemeMode.light ? Theme.of(context).colorScheme.primary : Colors.grey,
                             ),
                             onTap: () => _themeService.setTheme(ThemeMode.light),
-                          ),
-                          ListTile(
-                            title: Text('Dark Mode'.tr),
-                            trailing: Icon(
-                              mode == ThemeMode.dark ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                              color: mode == ThemeMode.dark ? Theme.of(context).colorScheme.primary : Colors.grey,
-                            ),
-                            onTap: () => _themeService.setTheme(ThemeMode.dark),
                           ),
                           ListTile(
                             title: Text('System Default'.tr),

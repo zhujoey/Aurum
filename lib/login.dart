@@ -42,6 +42,7 @@ class _LoginState extends State<Login> {
   final _authService = AuthService();
 
   bool _isLoading = false;
+  bool _isGoogleSigningIn = false;
   bool _rememberMe = false;
 
   @override
@@ -107,7 +108,10 @@ class _LoginState extends State<Login> {
   }
 
   void _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isGoogleSigningIn = true;
+    });
     try {
       // Force session reset on fresh login
       _authService.resetSessionId();
@@ -122,14 +126,20 @@ class _LoginState extends State<Login> {
         );
       } else {
         if (!mounted) return;
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isGoogleSigningIn = false;
+        });
         _showAppSnackBar(context, 
           SnackBar(content: Text('Google Sign-In was cancelled or failed.'.tr)),
         );
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _isGoogleSigningIn = false;
+      });
       _showAppSnackBar(context, 
         SnackBar(content: Text('Error: ${e.toString()}'.tr)),
       );
@@ -198,18 +208,28 @@ class _LoginState extends State<Login> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset('assets/logo.png', height: 200),
-                const SizedBox(height: 12),
-                Text(
-                  'Aurum',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                if (!_isGoogleSigningIn) ...[
+                  Image.asset(
+                    Theme.of(context).brightness == Brightness.dark
+                        ? 'assets/logo_dark.png'
+                        : 'assets/logo_light.png',
+                    height: 220,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset('assets/logo_light.png', height: 220);
+                    },
                   ),
-                ),
-                const SizedBox(height: 32),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Aurum',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,

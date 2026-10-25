@@ -10,6 +10,39 @@
 		<string>Sports Pro</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIcons</key>
+		<dict>
+			<key>CFBundlePrimaryIcon</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>logo_light</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>CFBundleAlternateIcons</key>
+			<dict>
+				<key>logo_dark</key>
+				<dict>
+					<key>CFBundleIconFiles</key>
+					<array>
+						<string>logo_dark</string>
+					</array>
+					<key>UIPrerenderedIcon</key>
+					<false/>
+				</dict>
+				<key>logo_light</key>
+				<dict>
+					<key>CFBundleIconFiles</key>
+					<array>
+						<string>logo_light</string>
+					</array>
+					<key>UIPrerenderedIcon</key>
+					<false/>
+				</dict>
+			</dict>
+		</dict>
 		<key>CFBundleIdentifier</key>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 		<key>CFBundleInfoDictionaryVersion</key>

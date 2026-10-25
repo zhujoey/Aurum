@@ -55,8 +55,34 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    ThemeService().updateAppIcon(ThemeService().themeMode.value);
+    ThemeService().updateNativeNightMode(ThemeService().themeMode.value);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    ThemeService().updateAppIcon(ThemeService().themeMode.value);
+    ThemeService().updateNativeNightMode(ThemeService().themeMode.value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +107,15 @@ class MyApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(
               seedColor: color,
               brightness: Brightness.light,
+              surface: Colors.white,
             ),
+            scaffoldBackgroundColor: Colors.white,
+            cardColor: Colors.white,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+            ),
+            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
             useMaterial3: true,
           ),
           darkTheme: ThemeData(

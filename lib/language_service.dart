@@ -20,6 +20,7 @@ class LanguageService {
   static const Map<String, Map<String, String>> supportedLanguages = {
     'en': {'name': 'English', 'native': 'English', 'flag': '🇺🇸 🇬🇧'},
     'fr': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Vous n\'êtes dans aucun club. Rejoignez ou créez un club pour participer aux tournois.',
       'Friend Requests': 'Demandes d\'amis',
       'No pending requests.': 'Aucune demande en attente.',
       'wants to be your friend': 'veut être votre ami',
@@ -35,6 +36,7 @@ class LanguageService {
       'Tournament Details': 'Détails du Tournoi',
       'Tournament Settings': 'Paramètres du Tournoi','name': 'French', 'native': 'Français', 'flag': '🇫🇷'},
     'es': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'No estás en un club. Únete o crea un club para participar en torneos.',
       'Friend Requests': 'Solicitudes de amistad',
       'No pending requests.': 'No hay solicitudes pendientes.',
       'wants to be your friend': 'quiere ser tu amigo',
@@ -50,6 +52,7 @@ class LanguageService {
       'Tournament Details': 'Detalles del Torneo',
       'Tournament Settings': 'Configuración del Torneo','name': 'Spanish', 'native': 'Español', 'flag': '🇪🇸'},
     'ar': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'أنت لست في نادٍ. انضم إلى نادٍ أو أنشئ نادياً للمشاركة في البطولات.',
       'Friend Requests': 'طلبات الصداقة',
       'No pending requests.': 'لا توجد طلبات معلقة.',
       'wants to be your friend': 'يريد أن يكون صديقك',
@@ -65,6 +68,7 @@ class LanguageService {
       'Tournament Details': 'تفاصيل البطولة',
       'Tournament Settings': 'إعدادات البطولة','name': 'Arabic', 'native': 'العربية', 'flag': '🇸🇦'},
     'zh': {
+      'You are not in a club. Join or create a club to participate in tournaments.': '您尚未加入俱乐部。请加入或创建俱乐部以参加赛事。',
       'Friend Requests': '好友请求',
       'No pending requests.': '无待处理请求。',
       'wants to be your friend': '想加您为好友',
@@ -96,6 +100,7 @@ class LanguageService {
       'Active Match in Progress': '进行中的比赛',
       'View Match': '查看比赛','name': 'Chinese (Simplified)', 'native': '简体中文', 'flag': '🇨🇳'},
     'zh-TW': {
+      'You are not in a club. Join or create a club to participate in tournaments.': '您尚未加入俱樂部。請加入或建立俱樂部以參加賽事。',
       'Friend Requests': '好友請求',
       'No pending requests.': '無待處理請求。',
       'wants to be your friend': '想加您為好友',
@@ -127,6 +132,7 @@ class LanguageService {
       'Active Match in Progress': '進行中的比賽',
       'View Match': '檢視比賽','name': 'Chinese (Traditional)', 'native': '繁體中文', 'flag': '🇹🇼'},
     'ru': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Вы не состоите в клубе. Вступите в клуб или создайте его, чтобы участвовать в турнирах.',
       'Friend Requests': 'Заявки в друзья',
       'No pending requests.': 'Нет ожидающих запросов.',
       'wants to be your friend': 'хочет стать вашим другом',
@@ -142,6 +148,7 @@ class LanguageService {
       'Tournament Details': 'Детали турнира',
       'Tournament Settings': 'Настройки турнира','name': 'Russian', 'native': 'Русский', 'flag': '🇷🇺'},
     'id': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Anda belum bergabung dengan klub. Bergabung atau buat klub untuk mengikuti turnamen.',
       'Friend Requests': 'Permintaan Pertemanan',
       'No pending requests.': 'Tidak ada permintaan tertunda.',
       'wants to be your friend': 'ingin menjadi teman Anda',
@@ -157,6 +164,7 @@ class LanguageService {
       'Tournament Details': 'Detail Turnamen',
       'Tournament Settings': 'Pengaturan Turnamen','name': 'Indonesian', 'native': 'Bahasa Indonesia', 'flag': '🇮🇩'},
     'bn': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'আপনি কোনো ক্লাবে নেই। টুর্নামেন্টে অংশ নিতে একটি ক্লাবে যোগ দিন বা তৈরি করুন।',
       'Friend Requests': 'বন্ধুর অনুরোধ',
       'No pending requests.': 'কোনো মুলতুবি অনুরোধ নেই।',
       'wants to be your friend': 'আপনার বন্ধু হতে চায়',
@@ -172,6 +180,7 @@ class LanguageService {
       'Tournament Details': 'টুর্নামেন্টের বিবরণ',
       'Tournament Settings': 'টুর্নামেন্ট সেটিংস','name': 'Bengali', 'native': 'বাংলা', 'flag': '🇧🇩'},
     'de': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Du bist in keinem Club. Tritt einem Club bei oder erstelle einen, um an Turnieren teilzunehmen.',
       'Friend Requests': 'Freundschaftsanfragen',
       'No pending requests.': 'Keine ausstehenden Anfragen.',
       'wants to be your friend': 'möchte dein Freund sein',
@@ -187,6 +196,7 @@ class LanguageService {
       'Tournament Details': 'Turnierdetails',
       'Tournament Settings': 'Turniereinstellungen','name': 'German', 'native': 'Deutsch', 'flag': '🇩🇪'},
     'it': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Non fai parte di un club. Unisciti o crea un club per partecipare ai tornei.',
       'Friend Requests': 'Richieste di amicizia',
       'No pending requests.': 'Nessuna richiesta in sospeso.',
       'wants to be your friend': 'vuole essere tuo amico',
@@ -202,6 +212,7 @@ class LanguageService {
       'Tournament Details': 'Dettagli Torneo',
       'Tournament Settings': 'Impostazioni Torneo','name': 'Italian', 'native': 'Italiano', 'flag': '🇮🇹'},
     'tr': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Bir kulüpte değilsiniz. Turnuvalara katılmak için bir kulübe katılın veya oluşturun.',
       'Friend Requests': 'Arkadaşlık İstekleri',
       'No pending requests.': 'Bekleyen istek yok.',
       'wants to be your friend': 'seninle arkadaş olmak istiyor',
@@ -217,6 +228,7 @@ class LanguageService {
       'Tournament Details': 'Turnuva Detayları',
       'Tournament Settings': 'Turnuva Ayarları','name': 'Turkish', 'native': 'Türkçe', 'flag': '🇹🇷'},
     'ja': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'クラブに参加していません。トーナメントに参加するには、クラブに参加するか作成してください。',
       'Friend Requests': 'フレンドリクエスト',
       'No pending requests.': '保留中のリクエストはありません。',
       'wants to be your friend': 'あなたとフレンドになりたがっています',
@@ -232,6 +244,7 @@ class LanguageService {
       'Tournament Details': 'トーナメント詳細',
       'Tournament Settings': 'トーナメント設定','name': 'Japanese', 'native': '日本語', 'flag': '🇯🇵'},
     'ko': {
+      'You are not in a club. Join or create a club to participate in tournaments.': '클럽에 소속되어 있지 않습니다. 토너먼트에 참가하려면 클럽에 가입하거나 만드세요.',
       'Friend Requests': '친구 요청',
       'No pending requests.': '대기 중인 요청이 없습니다.',
       'wants to be your friend': '당신의 친구가 되고 싶어합니다',
@@ -247,6 +260,7 @@ class LanguageService {
       'Tournament Details': '토너먼트 상세 정보',
       'Tournament Settings': '토너먼트 설정','name': 'Korean', 'native': '한국어', 'flag': '🇰🇷'},
     'pt': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Você não está em um clube. Junte-se ou crie um clube para participar de torneios.',
       'Friend Requests': 'Solicitações de amizade',
       'No pending requests.': 'Nenhuma solicitação pendente.',
       'wants to be your friend': 'quer ser seu amigo',
@@ -262,6 +276,7 @@ class LanguageService {
       'Tournament Details': 'Detalhes do Torneio',
       'Tournament Settings': 'Configurações do Torneio','name': 'Portuguese', 'native': 'Português', 'flag': '🇧🇷'},
     'hi': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'आप किसी क्लब में नहीं हैं। टूर्नामेंट में भाग लेने के लिए किसी क्लब में शामिल हों या बनाएं।',
       'Friend Requests': 'मित्र अनुरोध',
       'No pending requests.': 'कोई लंबित अनुरोध नहीं।',
       'wants to be your friend': 'आपका मित्र बनना चाहता है',
@@ -386,6 +401,7 @@ class LanguageService {
 
   static const Map<String, Map<String, String>> _staticTranslations = {
     'es': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'No estás en un club. Únete o crea un club para participar en torneos.',
       'Friend Requests': 'Solicitudes de amistad',
       'No pending requests.': 'No hay solicitudes pendientes.',
       'wants to be your friend': 'quiere ser tu amigo',
@@ -535,6 +551,7 @@ class LanguageService {
       'Force Expedite System': 'Forzar sistema acelerado',
     },
     'fr': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Vous n\'êtes dans aucun club. Rejoignez ou créez un club pour participer aux tournois.',
       'Friend Requests': 'Demandes d\'amis',
       'No pending requests.': 'Aucune demande en attente.',
       'wants to be your friend': 'veut être votre ami',
@@ -675,6 +692,7 @@ class LanguageService {
       'Force Expedite System': 'Forcer le système accéléré',
     },
     'de': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Du bist in keinem Club. Tritt einem Club bei oder erstelle einen, um an Turnieren teilzunehmen.',
       'Friend Requests': 'Freundschaftsanfragen',
       'No pending requests.': 'Keine ausstehenden Anfragen.',
       'wants to be your friend': 'möchte dein Freund sein',
@@ -797,6 +815,7 @@ class LanguageService {
       'Force Expedite System': 'Beschleunigungssystem erzwingen',
     },
     'zh': {
+      'You are not in a club. Join or create a club to participate in tournaments.': '您尚未加入俱乐部。请加入或创建俱乐部以参加赛事。',
       'Friend Requests': '好友请求',
       'No pending requests.': '无待处理请求。',
       'wants to be your friend': '想加您为好友',
@@ -1124,6 +1143,7 @@ class LanguageService {
       'Table Tennis Match': '乒乓球比赛',
     },
     'zh-TW': {
+      'You are not in a club. Join or create a club to participate in tournaments.': '您尚未加入俱樂部。請加入或建立俱樂部以參加賽事。',
       'Friend Requests': '好友請求',
       'No pending requests.': '無待處理請求。',
       'wants to be your friend': '想加您為好友',
@@ -1451,6 +1471,7 @@ class LanguageService {
       'Table Tennis Match': '乒乓球比賽',
     },
     'ja': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'クラブに参加していません。トーナメントに参加するには、クラブに参加するか作成してください。',
       'Friend Requests': 'フレンドリクエスト',
       'No pending requests.': '保留中のリクエストはありません。',
       'wants to be your friend': 'あなたとフレンドになりたがっています',
@@ -1573,6 +1594,7 @@ class LanguageService {
       'Force Expedite System': '促進ルールを強制適用',
     },
     'ko': {
+      'You are not in a club. Join or create a club to participate in tournaments.': '클럽에 소속되어 있지 않습니다. 토너먼트에 참가하려면 클럽에 가입하거나 만드세요.',
       'Friend Requests': '친구 요청',
       'No pending requests.': '대기 중인 요청이 없습니다.',
       'wants to be your friend': '당신의 친구가 되고 싶어합니다',
@@ -1695,6 +1717,7 @@ class LanguageService {
       'Force Expedite System': '촉진 제도 강제 적용',
     },
     'pt': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Você não está em um clube. Junte-se ou crie um clube para participar de torneios.',
       'Friend Requests': 'Solicitações de amizade',
       'No pending requests.': 'Nenhuma solicitação pendente.',
       'wants to be your friend': 'quer ser seu amigo',
@@ -1817,6 +1840,7 @@ class LanguageService {
       'Force Expedite System': 'Forçar sistema acelerado',
     },
     'ar': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'أنت لست في نادٍ. انضم إلى نادٍ أو أنشئ نادياً للمشاركة في البطولات.',
       'Friend Requests': 'طلبات الصداقة',
       'No pending requests.': 'لا توجد طلبات معلقة.',
       'wants to be your friend': 'يريد أن يكون صديقك',
@@ -1939,6 +1963,7 @@ class LanguageService {
       'Force Expedite System': 'فرض نظام التعجيل',
     },
     'ru': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Вы не состоите в клубе. Вступите в клуб или создайте его, чтобы участвовать в турнирах.',
       'Friend Requests': 'Заявки в друзья',
       'No pending requests.': 'Нет ожидающих запросов.',
       'wants to be your friend': 'хочет стать вашим другом',
@@ -2061,6 +2086,7 @@ class LanguageService {
       'Force Expedite System': 'Принудительное ускорение',
     },
     'id': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Anda belum bergabung dengan klub. Bergabung atau buat klub untuk mengikuti turnamen.',
       'Friend Requests': 'Permintaan Pertemanan',
       'No pending requests.': 'Tidak ada permintaan tertunda.',
       'wants to be your friend': 'ingin menjadi teman Anda',
@@ -2183,6 +2209,7 @@ class LanguageService {
       'Force Expedite System': 'Paksa Sistem Cepat',
     },
     'tr': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Bir kulüpte değilsiniz. Turnuvalara katılmak için bir kulübe katılın veya oluşturun.',
       'Friend Requests': 'Arkadaşlık İstekleri',
       'No pending requests.': 'Bekleyen istek yok.',
       'wants to be your friend': 'seninle arkadaş olmak istiyor',
@@ -2305,6 +2332,7 @@ class LanguageService {
       'Force Expedite System': 'Hızlandırma Sistemini Zorla',
     },
     'it': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'Non fai parte di un club. Unisciti o crea un club per partecipare ai tornei.',
       'Friend Requests': 'Richieste di amicizia',
       'No pending requests.': 'Nessuna richiesta in sospeso.',
       'wants to be your friend': 'vuole essere tuo amico',
@@ -2427,6 +2455,7 @@ class LanguageService {
       'Force Expedite System': 'Forza sistema accelerato',
     },
     'bn': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'আপনি কোনো ক্লাবে নেই। টুর্নামেন্টে অংশ নিতে একটি ক্লাবে যোগ দিন বা তৈরি করুন।',
       'Friend Requests': 'বন্ধুর অনুরোধ',
       'No pending requests.': 'কোনো মুলতুবি অনুরোধ নেই।',
       'wants to be your friend': 'আপনার বন্ধু হতে চায়',
@@ -2530,6 +2559,7 @@ class LanguageService {
       'Force Expedite System': 'জোরপূর্বক দ্রুত পদ্ধতি চালু করুন',
     },
     'hi': {
+      'You are not in a club. Join or create a club to participate in tournaments.': 'आप किसी क्लब में नहीं हैं। टूर्नामेंट में भाग लेने के लिए किसी क्लब में शामिल हों या बनाएं।',
       'Friend Requests': 'मित्र अनुरोध',
       'No pending requests.': 'कोई लंबित अनुरोध नहीं।',
       'wants to be your friend': 'आपका मित्र बनना चाहता है',

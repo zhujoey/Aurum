@@ -199,9 +199,30 @@ class _ClubsPageState extends State<ClubsPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => Scaffold(
-                                    appBar: AppBar(title: Text(clubData['name'] ?? 'Club Details')),
-                                    body: isOwner ? _buildClubManagementView(clubSnap.data!) : _buildJoinedClubView(clubSnap.data!),
+                                  builder: (context) => StreamBuilder<DocumentSnapshot>(
+                                    stream: _db.collection('clubs').doc(cId).snapshots(),
+                                    builder: (context, clubStreamSnap) {
+                                      if (!clubStreamSnap.hasData || !clubStreamSnap.data!.exists) {
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (Navigator.canPop(context)) {
+                                            Navigator.pop(context);
+                                          }
+                                        });
+                                        return Scaffold(
+                                          appBar: AppBar(title: Text('Club Details'.tr)),
+                                          body: Center(child: Text('Club has been disbanded.'.tr)),
+                                        );
+                                      }
+
+                                      final freshClubDoc = clubStreamSnap.data!;
+                                      final freshData = freshClubDoc.data() as Map<String, dynamic>? ?? {};
+                                      final bool freshIsOwner = (freshData['ownerUid'] == uid);
+
+                                      return Scaffold(
+                                        appBar: AppBar(title: Text(freshData['name'] ?? 'Club Details')),
+                                        body: freshIsOwner ? _buildClubManagementView(freshClubDoc) : _buildJoinedClubView(freshClubDoc),
+                                      );
+                                    },
                                   ),
                                 ),
                               );
@@ -797,6 +818,9 @@ class _ClubsPageState extends State<ClubsPage> {
               Navigator.pop(context); // Pop dialog first
               try {
                 await _authService.leaveClub(clubId);
+                if (context.mounted) {
+                  Navigator.pop(context); // Pop club details page
+                }
               } catch (e) {
                 if (context.mounted) {
                   _showAppSnackBar(context, SnackBar(content: Text('$e')));
@@ -891,6 +915,9 @@ class _ClubsPageState extends State<ClubsPage> {
                 if (context.mounted) Navigator.pop(context); // Pop the disband dialog first
                 try {
                   await _authService.deleteClub(clubId);
+                  if (context.mounted) {
+                    Navigator.pop(context); // Pop the club details page
+                  }
                 } catch (e) {
                   if (context.mounted) {
                     _showAppSnackBar(context, SnackBar(content: Text('$e')));

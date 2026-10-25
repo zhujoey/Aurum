@@ -205,7 +205,11 @@ class TournamentsPage extends StatelessWidget {
               final profileData = profileSnapshot.data!.data() as Map<String, dynamic>?;
               final String? ownedClubId = profileData?['ownedClubId'];
               final String? joinedClubId = profileData?['joinedClubId'];
-              final String? clubId = ownedClubId ?? joinedClubId;
+              final List joinedClubIds = List.from(profileData?['joinedClubIds'] ?? []);
+              String? clubId = ownedClubId ?? joinedClubId;
+              if (clubId == null && joinedClubIds.isNotEmpty) {
+                clubId = joinedClubIds.first.toString();
+              }
 
               if (clubId == null) {
                 return Scaffold(
@@ -213,10 +217,17 @@ class TournamentsPage extends StatelessWidget {
                   body: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32.0),
-                      child: Text(
-                        'You must be in a club to view or create tournaments.'.tr,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey, fontSize: 18),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.groups_outlined, size: 64, color: Colors.grey),
+                          const SizedBox(height: 16),
+                          Text(
+                            'You are not in a club. Join or create a club to participate in tournaments.'.tr,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey, fontSize: 18),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -232,7 +243,7 @@ class TournamentsPage extends StatelessWidget {
                   final String role = memberData?['role'] ?? 'member';
                   final bool isOwnerOrManager = role == 'owner' || role == 'manager';
 
-                  return _ClubTournamentsView(clubId: clubId, isOwnerOrManager: isOwnerOrManager);
+                  return _ClubTournamentsView(clubId: clubId!, isOwnerOrManager: isOwnerOrManager);
                 },
               );
             },
