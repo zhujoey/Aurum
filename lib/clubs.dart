@@ -214,7 +214,13 @@ class _ClubsPageState extends State<ClubsPage> {
                                   builder: (context) => StreamBuilder<DocumentSnapshot>(
                                     stream: _db.collection('clubs').doc(cId).snapshots(),
                                     builder: (context, clubStreamSnap) {
-                                      if (!clubStreamSnap.hasData || !clubStreamSnap.data!.exists) {
+                                      if (!clubStreamSnap.hasData) {
+                                        return Scaffold(
+                                          appBar: AppBar(title: Text('Club Details'.tr)),
+                                          body: const Center(child: CircularProgressIndicator()),
+                                        );
+                                      }
+                                      if (!clubStreamSnap.data!.exists) {
                                         WidgetsBinding.instance.addPostFrameCallback((_) {
                                           if (Navigator.canPop(context)) {
                                             Navigator.pop(context);
