@@ -60,7 +60,6 @@ flutter:
   assets:
     - assets/logo_light.png
     - assets/logo_dark.png
-    - assets/zh_tw.png
 
 flutter_native_splash:
   color: "#ffffff"

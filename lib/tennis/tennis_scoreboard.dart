@@ -221,6 +221,25 @@ class _TennisMatchState extends State<TennisMatch> {
 
   void _undo() {
     if (_history.isEmpty) return;
+    _redoHistory.add(TennisMatchState(
+      p1PointText: _getPointDisplay(1),
+      p2PointText: _getPointDisplay(2),
+      p1Games: p1Games,
+      p2Games: p2Games,
+      p1Sets: p1Sets,
+      p2Sets: p2Sets,
+      isTiebreak: isTiebreak,
+      p1TiebreakPts: p1TiebreakPts,
+      p2TiebreakPts: p2TiebreakPts,
+      setSummaries: List.from(setSummaries),
+      serverPlayerNum: serverPlayerNum,
+      servingCourt: _getServingCourt(),
+      p1OnLeft: p1OnLeft,
+      logs: List.from(logs),
+      matchTimeSeconds: matchTimeSeconds,
+      timerEndTime: timerEndTime,
+      timerTitle: timerTitle,
+    ));
     final last = _history.removeLast();
     setState(() {
       p1Games = last.p1Games;
@@ -234,9 +253,82 @@ class _TennisMatchState extends State<TennisMatch> {
       p1OnLeft = last.p1OnLeft;
       setSummaries = List.from(last.setSummaries);
       logs = List.from(last.logs);
+      matchTimeSeconds = last.matchTimeSeconds;
       timerEndTime = last.timerEndTime;
       timerTitle = last.timerTitle;
     });
+  }
+
+  void _redo() {
+    if (_redoHistory.isEmpty) return;
+    _history.add(TennisMatchState(
+      p1PointText: _getPointDisplay(1),
+      p2PointText: _getPointDisplay(2),
+      p1Games: p1Games,
+      p2Games: p2Games,
+      p1Sets: p1Sets,
+      p2Sets: p2Sets,
+      isTiebreak: isTiebreak,
+      p1TiebreakPts: p1TiebreakPts,
+      p2TiebreakPts: p2TiebreakPts,
+      setSummaries: List.from(setSummaries),
+      serverPlayerNum: serverPlayerNum,
+      servingCourt: _getServingCourt(),
+      p1OnLeft: p1OnLeft,
+      logs: List.from(logs),
+      matchTimeSeconds: matchTimeSeconds,
+      timerEndTime: timerEndTime,
+      timerTitle: timerTitle,
+    ));
+    final next = _redoHistory.removeLast();
+    setState(() {
+      p1Games = next.p1Games;
+      p2Games = next.p2Games;
+      p1Sets = next.p1Sets;
+      p2Sets = next.p2Sets;
+      isTiebreak = next.isTiebreak;
+      p1TiebreakPts = next.p1TiebreakPts;
+      p2TiebreakPts = next.p2TiebreakPts;
+      serverPlayerNum = next.serverPlayerNum;
+      p1OnLeft = next.p1OnLeft;
+      setSummaries = List.from(next.setSummaries);
+      logs = List.from(next.logs);
+      matchTimeSeconds = next.matchTimeSeconds;
+      timerEndTime = next.timerEndTime;
+      timerTitle = next.timerTitle;
+    });
+  }
+
+  void _resetMatch() async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Reset Match?'.tr),
+        content: Text('All progress will be lost. This cannot be undone.'.tr),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Reset'.tr, style: const TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      _saveState();
+      setState(() {
+        p1Pts = 0;
+        p2Pts = 0;
+        p1Games = 0;
+        p2Games = 0;
+        p1Sets = 0;
+        p2Sets = 0;
+        isTiebreak = false;
+        p1TiebreakPts = 0;
+        p2TiebreakPts = 0;
+        setSummaries.clear();
+        gameWinnersInCurrentSet.clear();
+        logs.clear();
+        isFinished = false;
+      });
+    }
   }
 
   Future<void> _promptToss() async {
@@ -500,56 +592,96 @@ class _TennisMatchState extends State<TennisMatch> {
   Widget build(BuildContext context) {
     final String serverName = serverPlayerNum == 1 ? widget.p1Name : widget.p2Name;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.p1Name} vs ${widget.p2Name}'),
-        actions: [
-          IconButton(icon: const Icon(Icons.undo), onPressed: _history.isNotEmpty ? _undo : null),
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                builder: (_) => TennisMatchHistoryBottomSheet(
-                  allSets: setSummaries,
-                  logs: logs,
-                  p1Name: widget.p1Name,
-                  p2Name: widget.p2Name,
-                ),
-              );
-            },
-          ),
-          PopupMenuButton<String>(
-            onSelected: (val) {
-              if (val == 'discard') {
-                showDialog(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('${widget.p1Name} vs ${widget.p2Name}'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: 'Point history'.tr,
+              onPressed: () {
+                showModalBottomSheet(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text('Discard Match?'.tr),
-                    content: Text('Are you sure you want to discard this match? Progress will be lost.'.tr),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.pop(context);
-                        },
-                        child: Text('Discard'.tr),
-                      ),
-                    ],
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (_) => TennisMatchHistoryBottomSheet(
+                    allSets: setSummaries,
+                    logs: logs,
+                    p1Name: widget.p1Name,
+                    p2Name: widget.p2Name,
                   ),
                 );
-              }
-            },
-            itemBuilder: (context) => [
-              if (_isHost) PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red))),
-            ],
-          ),
-        ],
-      ),
+              },
+            ),
+            IconButton(
+              onPressed: (!_isHost || _history.isEmpty) ? null : _undo,
+              icon: const Icon(Icons.undo),
+              tooltip: 'Undo'.tr,
+            ),
+            IconButton(
+              onPressed: (!_isHost || _redoHistory.isEmpty) ? null : _redo,
+              icon: const Icon(Icons.redo),
+              tooltip: 'Redo'.tr,
+            ),
+            IconButton(
+              onPressed: _isHost ? _resetMatch : null,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Reset Match'.tr,
+            ),
+            PopupMenuButton<String>(
+              onSelected: (val) async {
+                if (val == 'discard') {
+                  bool? confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Discard Match?'.tr),
+                      content: Text('This will delete all match data. This action cannot be undone.'.tr),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Discard'.tr, style: const TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    if (widget.matchId.isNotEmpty) {
+                      await _authService.deleteActiveMatch(widget.matchId);
+                    }
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                  }
+                } else if (val == 'forfeit') {
+                  bool? confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Forfeit Match?'.tr),
+                      content: Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'.tr),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    if (widget.matchId.isNotEmpty) {
+                      await _authService.updateMatchStatus(widget.matchId, 'forfeited');
+                    }
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                  }
+                }
+              },
+              itemBuilder: (context) => [
+                if (_isHost) PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red))),
+                if (_isHost) PopupMenuItem(value: 'forfeit', child: Text('Forfeit Match'.tr, style: const TextStyle(color: Colors.red))),
+              ],
+            ),
+          ],
+        ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 24),
@@ -628,6 +760,7 @@ class _TennisMatchState extends State<TennisMatch> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

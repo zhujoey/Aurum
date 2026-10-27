@@ -237,7 +237,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     builder: (context, locale, child) {
                       final info = LanguageService().currentLanguageInfo;
                       return ListTile(
-                        leading: _buildFlagWidget(locale.languageCode, info['flag']),
                         title: Text('${info['native']} (${info['name']})'),
                         trailing: const Icon(Icons.language),
                         onTap: _showSelectLanguageDialog,
@@ -766,7 +765,6 @@ class _SettingsPageState extends State<SettingsPage> {
               final bool isSelected = LanguageService().currentLocale.value.languageCode == code;
 
               return ListTile(
-                leading: _buildFlagWidget(code, info['flag']),
                 title: Text('${info['native']} (${info['name']})'),
                 trailing: isSelected ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
                 onTap: () {
@@ -785,30 +783,5 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildFlagWidget(String code, String? flagEmoji) {
-    if (code == 'zh-TW') {
-      return Container(
-        width: 32,
-        height: 22,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: Image.asset(
-            'assets/zh_tw.png',
-            width: 32,
-            height: 22,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return Text(flagEmoji ?? '🇹🇼', style: const TextStyle(fontSize: 18));
-            },
-          ),
-        ),
-      );
-    }
-    return Text(flagEmoji ?? '🌐', style: const TextStyle(fontSize: 24));
-  }
+
 }
