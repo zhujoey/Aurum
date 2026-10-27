@@ -47,17 +47,3 @@
 - **Low Barrier to Entry**: Works smoothly across mobile devices, allowing players without specialized hardware to access professional-grade tournament management and live scoring right from their smartphones.
 
 ---
-
-## Getting Started
-
-This project is built with Flutter. To get started with development:
-
-1. Clone the repository.
-2. Install dependencies:
-   ```bash
-   flutter pub get
-   ```
-3. Run the app:
-   ```bash
-   flutter run
-   ```
