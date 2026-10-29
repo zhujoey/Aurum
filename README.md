@@ -4,7 +4,7 @@
 
 ---
 
-## 🌟 Key Features
+##Key Features
 
 - **Multi-Sport Live Scoreboards**: 
   - Real-time scoring, set tracking, deuce handling, and match statistics tailored for **Table Tennis**, **Tennis**, and **Badminton**.
@@ -18,13 +18,13 @@
 - **Social & Connection System**:
   - Add friends, view player profiles, send doubles partnership requests, and accept/decline club invitations.
 - **Multilingual Support**:
-  - Fully localized user interface supporting English and Traditional Chinese (`zh_tw`).
+  - Fully localized user interface.
 - **Real-Time Synchronization**:
   - Powered by Firebase Cloud Firestore, ensuring instant updates across club rosters, tournament standings, and live scores.
 
 ---
 
-## 🌍 Impact on the Local Community
+##Impact on the Local Community
 
 - **Grassroots Sports Empowerment**: Aurum bridges the gap between casual players and organized local sports leagues, providing robust tools previously locked behind expensive commercial software.
 - **Fostering Social Connections**: By enabling easy club creation, friend connections, and team match coordination, Aurum builds active, tight-knit local sports communities.
@@ -32,7 +32,7 @@
 
 ---
 
-## 💰 Financial & Economic Impact
+##Financial & Economic Impact
 
 - **Zero-Cost Administration**: Eliminates high software licensing and subscription fees for community recreation centers, local clubs, and amateur sports associations.
 - **Efficient Resource Management**: Optimizes club facility utilization (such as table tennis tables and tennis/badminton courts) through structured tournament scheduling and live match tracking.
@@ -40,9 +40,9 @@
 
 ---
 
-## ♿ Accessibility & Inclusivity
+##Accessibility & Inclusivity
 
-- **Multilingual Inclusivity**: Built-in localization ensures players from diverse linguistic backgrounds (such as English and Traditional Chinese speakers) can navigate, officiate, and participate effortlessly.
+- **Multilingual Inclusivity**: Built-in localization ensures players from diverse linguistic backgrounds can navigate, officiate, and participate effortlessly.
 - **Responsive & Intuitive UI**: Features high-contrast themes (Light and Dark modes), clear typography, accessible touch targets, and instant feedback via floating snackbar notifications.
 - **Low Barrier to Entry**: Works smoothly across mobile devices, allowing players without specialized hardware to access professional-grade tournament management and live scoring right from their smartphones.
 
