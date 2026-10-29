@@ -12,9 +12,9 @@ class TennisTeamColumn extends StatelessWidget {
   final String side; // 'HOME' or 'AWAY'
   final bool isHost;
   final bool isFinished;
+  final bool isTimerRunning;
   final VoidCallback onPointAdd;
   final VoidCallback onCodeViolation;
-  final VoidCallback onMedicalTimeout;
 
   const TennisTeamColumn({
     super.key,
@@ -28,9 +28,9 @@ class TennisTeamColumn extends StatelessWidget {
     required this.side,
     required this.isHost,
     required this.isFinished,
+    required this.isTimerRunning,
     required this.onPointAdd,
     required this.onCodeViolation,
-    required this.onMedicalTimeout,
   });
 
   @override
@@ -93,76 +93,65 @@ class TennisTeamColumn extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          GestureDetector(
-            onTap: (isHost && !isFinished) ? onPointAdd : null,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-                border: isServing ? Border.all(color: Colors.green, width: 2) : null,
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    pointText,
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
+          if (isHost && !isFinished)
+            SizedBox(
+              width: columnWidth * 0.7,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: onCodeViolation,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.warning, size: 12, color: Colors.orange),
+                      const SizedBox(width: 2),
+                      Text('Code Violation'.tr, style: const TextStyle(fontSize: 11)),
+                    ],
                   ),
-                  Text('POINTS'.tr, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ),
+              ),
+            ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: (isHost && !isFinished && !isTimerRunning) ? onPointAdd : null,
+            child: Container(
+              width: columnWidth * 0.8,
+              height: columnWidth * 0.8,
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isServing ? Colors.white : Colors.blue.withValues(alpha: 0.5),
+                  width: 3,
+                ),
+                boxShadow: [
+                  if (isServing && !isFinished && !isTimerRunning)
+                    BoxShadow(color: Colors.white.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 3),
                 ],
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      pointText,
+                      style: TextStyle(
+                        fontSize: columnWidth * 0.32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text('POINTS'.tr, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          if (isHost && !isFinished)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: onCodeViolation,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning, size: 12, color: Colors.orange),
-                          const SizedBox(width: 2),
-                          Text('Code'.tr, style: const TextStyle(fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: onMedicalTimeout,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.medical_services, size: 12, color: Colors.red),
-                          const SizedBox(width: 2),
-                          Text('Medical'.tr, style: const TextStyle(fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 8),
+          Text('${'SIDE'.tr}: ${side.tr}', style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
         ],
       ),
     );

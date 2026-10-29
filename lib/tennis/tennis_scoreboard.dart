@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
 import 'tennis_models.dart';
@@ -41,6 +43,23 @@ class TennisMatch extends StatefulWidget {
   final String matchId;
   final bool initialKeepRunningTimers;
   final bool? isHost;
+  final int initialP1Pts;
+  final int initialP2Pts;
+  final int initialP1Games;
+  final int initialP2Games;
+  final int initialP1Sets;
+  final int initialP2Sets;
+  final bool initialIsTiebreak;
+  final int initialP1TiebreakPts;
+  final int initialP2TiebreakPts;
+  final int initialServerPlayerNum;
+  final bool initialP1OnLeft;
+  final bool initialIsFinished;
+  final List<TennisSetSummary> initialSetSummaries;
+  final List<TennisLogEntry> initialLogs;
+  final int initialMatchTimeSeconds;
+  final int? activeTimerEndTime;
+  final String activeTimerTitle;
 
   const TennisMatch({
     super.key,
@@ -53,6 +72,23 @@ class TennisMatch extends StatefulWidget {
     this.matchId = '',
     this.initialKeepRunningTimers = true,
     this.isHost,
+    this.initialP1Pts = 0,
+    this.initialP2Pts = 0,
+    this.initialP1Games = 0,
+    this.initialP2Games = 0,
+    this.initialP1Sets = 0,
+    this.initialP2Sets = 0,
+    this.initialIsTiebreak = false,
+    this.initialP1TiebreakPts = 0,
+    this.initialP2TiebreakPts = 0,
+    this.initialServerPlayerNum = 1,
+    this.initialP1OnLeft = true,
+    this.initialIsFinished = false,
+    this.initialSetSummaries = const [],
+    this.initialLogs = const [],
+    this.initialMatchTimeSeconds = 0,
+    this.activeTimerEndTime,
+    this.activeTimerTitle = '',
   });
 
   @override
@@ -93,6 +129,84 @@ class _TennisMatchState extends State<TennisMatch> {
 
   final List<TennisMatchState> _history = [];
   final List<TennisMatchState> _redoHistory = [];
+  int _lastSavedTimestamp = 0;
+
+  Future<void> _persistMatch() async {
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
+    final prefs = await SharedPreferences.getInstance();
+    final data = jsonEncode({
+      'p1Name': widget.p1Name,
+      'p2Name': widget.p2Name,
+      'p3Name': widget.p3Name,
+      'p4Name': widget.p4Name,
+      'isDoubles': widget.isDoubles,
+      'setsToWin': widget.setsToWin,
+      'p1Pts': p1Pts,
+      'p2Pts': p2Pts,
+      'p1Games': p1Games,
+      'p2Games': p2Games,
+      'p1Sets': p1Sets,
+      'p2Sets': p2Sets,
+      'isTiebreak': isTiebreak,
+      'p1TiebreakPts': p1TiebreakPts,
+      'p2TiebreakPts': p2TiebreakPts,
+      'serverPlayerNum': serverPlayerNum,
+      'p1OnLeft': p1OnLeft,
+      'isFinished': isFinished,
+      'setSummaries': setSummaries.map((s) => s.toMap()).toList(),
+      'logs': logs.map((l) => l.toMap()).toList(),
+      'matchTimeSeconds': matchTimeSeconds,
+      'timerEndTime': timerEndTime,
+      'timerTitle': timerTitle,
+      'keepRunningTimers': keepRunningTimers,
+      'lastSavedTimestamp': _lastSavedTimestamp,
+      'matchId': widget.matchId,
+    });
+    await prefs.setString('active_tennis_match', data);
+    if (_isHost && widget.matchId.isNotEmpty) _pushToCloud();
+  }
+
+  Future<void> _pushToCloud() async {
+    _lastSavedTimestamp = DateTime.now().millisecondsSinceEpoch;
+    await FirebaseFirestore.instance.collection('active_matches').doc(widget.matchId).set({
+      'sport': 'Tennis',
+      'hostUid': _authService.currentUser?.uid ?? '',
+      'status': isFinished ? 'completed' : 'active',
+      'matchData': {
+        'p1Name': widget.p1Name,
+        'p2Name': widget.p2Name,
+        'p3Name': widget.p3Name,
+        'p4Name': widget.p4Name,
+        'isDoubles': widget.isDoubles,
+        'setsToWin': widget.setsToWin,
+        'p1Pts': p1Pts,
+        'p2Pts': p2Pts,
+        'p1Games': p1Games,
+        'p2Games': p2Games,
+        'p1Sets': p1Sets,
+        'p2Sets': p2Sets,
+        'isTiebreak': isTiebreak,
+        'p1TiebreakPts': p1TiebreakPts,
+        'p2TiebreakPts': p2TiebreakPts,
+        'serverPlayerNum': serverPlayerNum,
+        'p1OnLeft': p1OnLeft,
+        'isFinished': isFinished,
+        'setSummaries': setSummaries.map((s) => s.toMap()).toList(),
+        'logs': logs.map((l) => l.toMap()).toList(),
+        'matchTimeSeconds': matchTimeSeconds,
+        'timerEndTime': timerEndTime,
+        'timerTitle': timerTitle,
+        'keepRunningTimers': keepRunningTimers,
+        'lastSavedTimestamp': _lastSavedTimestamp,
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _clearPersistedMatch() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('active_tennis_match');
+  }
 
   @override
   void initState() {
@@ -100,10 +214,28 @@ class _TennisMatchState extends State<TennisMatch> {
     keepRunningTimers = widget.initialKeepRunningTimers;
     _isHost = widget.isHost ?? (widget.matchId.isEmpty || widget.matchId.startsWith('tour_'));
 
+    p1Pts = widget.initialP1Pts;
+    p2Pts = widget.initialP2Pts;
+    p1Games = widget.initialP1Games;
+    p2Games = widget.initialP2Games;
+    p1Sets = widget.initialP1Sets;
+    p2Sets = widget.initialP2Sets;
+    isTiebreak = widget.initialIsTiebreak;
+    p1TiebreakPts = widget.initialP1TiebreakPts;
+    p2TiebreakPts = widget.initialP2TiebreakPts;
+    serverPlayerNum = widget.initialServerPlayerNum;
+    p1OnLeft = widget.initialP1OnLeft;
+    isFinished = widget.initialIsFinished;
+    setSummaries = List.from(widget.initialSetSummaries);
+    logs = List.from(widget.initialLogs);
+    matchTimeSeconds = widget.initialMatchTimeSeconds;
+    timerEndTime = widget.activeTimerEndTime;
+    timerTitle = widget.activeTimerTitle;
+
     _startMatchClock();
     _listenToMatchStatus();
 
-    if (_isHost) {
+    if (_isHost && p1Pts == 0 && p2Pts == 0 && p1Games == 0 && p2Games == 0 && p1Sets == 0 && p2Sets == 0 && !isFinished) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _promptToss();
       });
@@ -257,6 +389,7 @@ class _TennisMatchState extends State<TennisMatch> {
       timerEndTime = last.timerEndTime;
       timerTitle = last.timerTitle;
     });
+    _persistMatch();
   }
 
   void _redo() {
@@ -297,6 +430,7 @@ class _TennisMatchState extends State<TennisMatch> {
       timerEndTime = next.timerEndTime;
       timerTitle = next.timerTitle;
     });
+    _persistMatch();
   }
 
   void _resetMatch() async {
@@ -328,6 +462,7 @@ class _TennisMatchState extends State<TennisMatch> {
         logs.clear();
         isFinished = false;
       });
+      _persistMatch();
     }
   }
 
@@ -429,7 +564,7 @@ class _TennisMatchState extends State<TennisMatch> {
   }
 
   void _addPoint(int playerNum) {
-    if (isFinished || !_isHost) return;
+    if (isFinished || !_isHost || timerEndTime != null) return;
     _saveState();
 
     if (isTiebreak) {
@@ -466,6 +601,7 @@ class _TennisMatchState extends State<TennisMatch> {
       }
     }
     setState(() {});
+    _persistMatch();
   }
 
   void _winGame(int winnerTeam) {
@@ -518,15 +654,43 @@ class _TennisMatchState extends State<TennisMatch> {
 
     if (p1Sets >= widget.setsToWin || p2Sets >= widget.setsToWin) {
       isFinished = true;
+      _clearPersistedMatch();
       _recordMatchResult();
     } else {
       _startTimer('120s Set Break Rest', 120);
     }
   }
 
-  void _issueCodeViolation(int playerNum) {
+  Future<void> _issueCodeViolation(int playerNum) async {
+    final playerName = playerNum == 1 ? widget.p1Name : widget.p2Name;
     final playerViolations = logs.where((l) => l.type == 'code_violation' && l.playerNum == playerNum).toList();
     final count = playerViolations.length + 1;
+
+    String previewDesc = count == 1
+        ? '1st Violation: Warning'
+        : count == 2
+            ? '2nd Violation: Point Penalty (+1 Point to Opponent)'
+            : count == 3
+                ? '3rd Violation: Game Penalty (+1 Game to Opponent)'
+                : '4th Violation: Disqualification / Default';
+
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirm Code Violation'.tr),
+        content: Text('${"Issue code violation to".tr} $playerName?\n\n${previewDesc.tr}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Confirm'.tr),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
 
     String cardType = 'warning';
     String desc = '1st Violation: Warning'.tr;
@@ -558,6 +722,7 @@ class _TennisMatchState extends State<TennisMatch> {
     ));
 
     setState(() {});
+    _persistMatch();
   }
 
   Future<void> _recordMatchResult() async {
@@ -654,30 +819,16 @@ class _TennisMatchState extends State<TennisMatch> {
                     if (!context.mounted) return;
                     Navigator.pop(context);
                   }
-                } else if (val == 'forfeit') {
-                  bool? confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text('Forfeit Match?'.tr),
-                      content: Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'.tr),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  );
-                  if (confirm == true) {
-                    if (widget.matchId.isNotEmpty) {
-                      await _authService.updateMatchStatus(widget.matchId, 'forfeited');
-                    }
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
-                  }
+                } else if (val == 'med1') {
+                  _startTimer('Medical Timeout (${widget.p1Name})'.tr, 180);
+                } else if (val == 'med2') {
+                  _startTimer('Medical Timeout (${widget.p2Name})'.tr, 180);
                 }
               },
               itemBuilder: (context) => [
                 if (_isHost) PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red))),
-                if (_isHost) PopupMenuItem(value: 'forfeit', child: Text('Forfeit Match'.tr, style: const TextStyle(color: Colors.red))),
+                if (_isHost) PopupMenuItem(value: 'med1', child: Text('${"Medical Timeout".tr} (${widget.p1Name})')),
+                if (_isHost) PopupMenuItem(value: 'med2', child: Text('${"Medical Timeout".tr} (${widget.p2Name})')),
               ],
             ),
           ],
@@ -697,7 +848,7 @@ class _TennisMatchState extends State<TennisMatch> {
                 ),
               const SizedBox(height: 12),
               Text(
-                '${'ITF Best of ${widget.setsToWin * 2 - 1} Sets'.tr} • ${'Server'.tr}: $serverName (${_getServingCourt().tr} ${'Court'.tr})',
+                '${'Best of ${widget.setsToWin * 2 - 1} sets'.tr} • ${'Server'.tr}: $serverName (${_getServingCourt().tr} ${'Court'.tr})',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
               ),
               const SizedBox(height: 16),
@@ -715,9 +866,9 @@ class _TennisMatchState extends State<TennisMatch> {
                     side: p1OnLeft ? 'HOME' : 'AWAY',
                     isHost: _isHost,
                     isFinished: isFinished,
+                    isTimerRunning: timerEndTime != null,
                     onPointAdd: () => _addPoint(1),
                     onCodeViolation: () => _issueCodeViolation(1),
-                    onMedicalTimeout: () => _startTimer('Medical Timeout (P1)'.tr, 180),
                   ),
                   TennisTeamColumn(
                     teamNum: 2,
@@ -730,9 +881,9 @@ class _TennisMatchState extends State<TennisMatch> {
                     side: p1OnLeft ? 'AWAY' : 'HOME',
                     isHost: _isHost,
                     isFinished: isFinished,
+                    isTimerRunning: timerEndTime != null,
                     onPointAdd: () => _addPoint(2),
                     onCodeViolation: () => _issueCodeViolation(2),
-                    onMedicalTimeout: () => _startTimer('Medical Timeout (P2)'.tr, 180),
                   ),
                 ],
               ),

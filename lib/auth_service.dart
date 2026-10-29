@@ -544,6 +544,7 @@ class AuthService {
     String teamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)',
     String pointsExpiration = '1_year',
     bool keepRunningTimers = true,
+    bool ratingSystemsEnabled = false,
     Map<String, dynamic>? pointsBreakdown,
   }) async {
     final user = currentUser;
@@ -602,6 +603,7 @@ class AuthService {
       'teamMatchSystem': teamMatchSystem,
       'pointsExpiration': pointsExpiration,
       'keepRunningTimers': keepRunningTimers,
+      'ratingSystemsEnabled': ratingSystemsEnabled,
       'pointsBreakdown': breakdown,
       'hasMixedDoubles': resolvedMixedDoubles,
       'hasGenderDoubles': resolvedGenderDoubles,
@@ -648,6 +650,7 @@ class AuthService {
     String teamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)',
     String pointsExpiration = '1_year',
     bool keepRunningTimers = true,
+    bool ratingSystemsEnabled = false,
     Map<String, dynamic>? pointsBreakdown,
   }) async {
     final docRef = _db
@@ -699,6 +702,7 @@ class AuthService {
       'teamMatchSystem': teamMatchSystem,
       'pointsExpiration': pointsExpiration,
       'keepRunningTimers': keepRunningTimers,
+      'ratingSystemsEnabled': ratingSystemsEnabled,
       'pointsBreakdown': breakdown,
       'hasMixedDoubles': resolvedMixedDoubles,
       'hasGenderDoubles': resolvedGenderDoubles,

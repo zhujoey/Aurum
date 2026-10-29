@@ -443,6 +443,8 @@ class _ClubTournamentsView extends StatelessWidget {
     String selectedTeamType = 'none';
     String selectedTeamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
     String selectedPointsExpiration = '1_year';
+    bool ratingSystemsEnabled = false;
+    final customExpirationController = TextEditingController();
     bool hasThirdPlacePlayoff = false;
     bool isOpen = false;
     bool keepRunningTimers = true;
@@ -491,12 +493,22 @@ class _ClubTournamentsView extends StatelessWidget {
                     DropdownMenuItem(value: 'Premier Tournament (600 Pts)', child: Text('Premier Tournament (600 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: 'Regional Tournament (400 Pts)', child: Text('Regional Tournament (400 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: 'Local Tournament (250 Pts)', child: Text('Local Tournament (250 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'No Point Awards (0 Pts)', child: Text('No Point Awards (0 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val == null) return;
                     setDialogState(() {
                       selectedPreset = val;
-                      if (val == 'Grand Tournament (2000 Pts)') {
+                      if (val == 'No Point Awards (0 Pts)') {
+                        pointsController.text = '0';
+                        winnerPointsController.text = '0';
+                        finalistPointsController.text = '0';
+                        sfPointsController.text = '0';
+                        qfPointsController.text = '0';
+                        r16PointsController.text = '0';
+                        r32PointsController.text = '0';
+                        r64PointsController.text = '0';
+                      } else if (val == 'Grand Tournament (2000 Pts)') {
                         pointsController.text = '2000';
                         winnerPointsController.text = '2000';
                         finalistPointsController.text = '1400';
@@ -544,6 +556,14 @@ class _ClubTournamentsView extends StatelessWidget {
                       }
                     });
                   },
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: Text('Enable Elo / Glicko / Glicko-2 Rating Systems'.tr),
+                  subtitle: Text('If on, all 3 rating systems will be used for matches.'.tr),
+                  value: ratingSystemsEnabled,
+                  onChanged: (val) => setDialogState(() => ratingSystemsEnabled = val),
+                  contentPadding: EdgeInsets.zero,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -757,10 +777,11 @@ class _ClubTournamentsView extends StatelessWidget {
                     border: const OutlineInputBorder(),
                   ),
                   items: [
-                    DropdownMenuItem(value: '1_year', child: Text('1 Year (Default - ITTF Standard)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: '1_year', child: Text('1 Year'.tr, overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: '6_months', child: Text('6 Months'.tr, overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: '2_years', child: Text('2 Years'.tr, overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: 'never', child: Text('Never Expire'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'custom', child: Text('Custom'.tr, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedPointsExpiration = val);
@@ -866,8 +887,11 @@ class _ClubTournamentsView extends StatelessWidget {
                     doublesType: selectedDoublesType,
                     teamType: selectedTeamType,
                     teamMatchSystem: selectedTeamMatchSystem,
-                    pointsExpiration: selectedPointsExpiration,
+                    pointsExpiration: selectedPointsExpiration == 'custom'
+                        ? 'custom_${customExpirationController.text.trim()}'
+                        : selectedPointsExpiration,
                     keepRunningTimers: keepRunningTimers,
+                    ratingSystemsEnabled: ratingSystemsEnabled,
                     pointsBreakdown: breakdown,
                   );
                   if (context.mounted) Navigator.pop(context);
@@ -1193,16 +1217,6 @@ class TournamentDetailsPage extends StatelessWidget {
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () => _showInviteMembersModal(context, authService, participantUids, name),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.smart_toy, color: Colors.purple),
-                      label: Text('Add Test Players (Testing Tool)'.tr, style: const TextStyle(color: Colors.purple, fontSize: 15)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Colors.purple),
-                      ),
-                      onPressed: () => _showAddTestPlayersDialog(context, authService),
                     ),
                   ],
                 ],
@@ -1786,66 +1800,6 @@ class TournamentDetailsPage extends StatelessWidget {
     );
   }
 
-  void _showAddTestPlayersDialog(BuildContext context, AuthService authService) {
-    int botCount = 7;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Test Participants'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Generate test players with configured genders and ratings to test brackets, matchmaking, and rankings without creating real accounts.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              Text('Number of test players to add: $botCount', style: const TextStyle(fontWeight: FontWeight.bold)),
-              Slider(
-                value: botCount.toDouble(),
-                min: 1,
-                max: 63,
-                divisions: 62,
-                label: '$botCount Players',
-                onChanged: (val) => setDialogState(() => botCount = val.toInt()),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
-              onPressed: () async {
-                try {
-                  await authService.addTestParticipantsToTournament(
-                    clubId: clubId,
-                    tournamentId: tournamentId,
-                    count: botCount,
-                  );
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    _showAppSnackBar(context, 
-                      SnackBar(content: Text('${"Added".tr} $botCount ${"test players to the tournament!".tr}')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    _showAppSnackBar(context, 
-                      SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
-                    );
-                  }
-                }
-              },
-              child: const Text('Add Players'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showStartTournamentDialog(BuildContext context, AuthService authService, Map<String, dynamic> data, int participantCount) {
     int step = 0; // 0 = Review, 1 = Final Confirmation
     final List participants = List.from(data['participants'] ?? []);
@@ -2002,33 +1956,8 @@ class TournamentDetailsPage extends StatelessWidget {
                               final bool isInvited = pendingUids.contains(mUid);
 
                               Widget trailingWidget;
-                              if (isAlreadyIn) {
+                              if (isAlreadyIn || isInvited) {
                                 trailingWidget = const Text('Joined ✓', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold));
-                              } else if (isInvited) {
-                                trailingWidget = OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.orange,
-                                    side: const BorderSide(color: Colors.orange),
-                                  ),
-                                  child: const Text('Retract'),
-                                  onPressed: () async {
-                                    try {
-                                      await authService.retractTournamentInvitation(
-                                        tournamentId: tournamentId,
-                                        targetUid: mUid,
-                                      );
-                                      if (context.mounted) {
-                                        _showAppSnackBar(context, 
-                                          SnackBar(content: Text('Invitation retracted.'.tr)),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        _showAppSnackBar(context, SnackBar(content: Text('$e')));
-                                      }
-                                    }
-                                  },
-                                );
                               } else {
                                 trailingWidget = ElevatedButton(
                                   child: Text('Invite'.tr),
@@ -2128,6 +2057,8 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
   late String _teamType;
   late String _teamMatchSystem;
   late String _pointsExpiration;
+  bool _ratingSystemsEnabled = false;
+  late TextEditingController _customExpirationController;
   late bool _isOpen;
   bool _isSaving = false;
 
@@ -2164,7 +2095,15 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
       _teamType = 'none';
     }
     _teamMatchSystem = widget.currentData['teamMatchSystem'] ?? 'Olympic System (1 Doubles + 4 Singles)';
-    _pointsExpiration = widget.currentData['pointsExpiration'] ?? '1_year';
+    _ratingSystemsEnabled = widget.currentData['ratingSystemsEnabled'] ?? false;
+    String rawExp = widget.currentData['pointsExpiration'] ?? '1_year';
+    if (rawExp.startsWith('custom_')) {
+      _pointsExpiration = 'custom';
+      _customExpirationController = TextEditingController(text: rawExp.substring(7));
+    } else {
+      _pointsExpiration = rawExp;
+      _customExpirationController = TextEditingController();
+    }
     _isOpen = widget.currentData['isOpen'] ?? !(widget.currentData['needsPermission'] ?? false);
   }
 
@@ -2180,6 +2119,7 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
     _r16PointsController.dispose();
     _r32PointsController.dispose();
     _r64PointsController.dispose();
+    _customExpirationController.dispose();
     super.dispose();
   }
 
@@ -2269,6 +2209,10 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
         'roundOf64': int.tryParse(_r64PointsController.text.trim()) ?? (points * 0.015).round(),
       };
 
+      final String finalExpiration = _pointsExpiration == 'custom'
+          ? 'custom_${_customExpirationController.text.trim()}'
+          : _pointsExpiration;
+
       await authService.updateTournamentSettings(
         clubId: widget.clubId,
         tournamentId: widget.tournamentId,
@@ -2283,7 +2227,8 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
         doublesType: _doublesType,
         teamType: _teamType,
         teamMatchSystem: _teamMatchSystem,
-        pointsExpiration: _pointsExpiration,
+        pointsExpiration: finalExpiration,
+        ratingSystemsEnabled: _ratingSystemsEnabled,
         pointsBreakdown: breakdown,
       );
       if (mounted) {
@@ -2378,28 +2323,56 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
+    final bool isStarted = widget.currentData['isStarted'] ?? false;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Tournament Settings'.tr),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _isSaving ? null : _saveSettings,
-            tooltip: 'Save Settings'.tr,
-          ),
+          if (!isStarted)
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: _isSaving ? null : _saveSettings,
+              tooltip: 'Save Settings'.tr,
+            ),
         ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'General Info'.tr,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+        child: AbsorbPointer(
+          absorbing: isStarted,
+          child: Opacity(
+            opacity: isStarted ? 0.6 : 1.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isStarted)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lock, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'This tournament has already started. Settings cannot be modified.'.tr,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Text(
+                  'General Info'.tr,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
@@ -2432,12 +2405,22 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                 DropdownMenuItem(value: 'Premier Tournament (600 Pts)', child: Text('Premier Tournament (600 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'Regional Tournament (400 Pts)', child: Text('Regional Tournament (400 Pts)'.tr, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'Local Tournament (250 Pts)', child: Text('Local Tournament (250 Pts)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'No Point Awards (0 Pts)', child: Text('No Point Awards (0 Pts)'.tr, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
                 if (val == null) return;
                 setState(() {
                   _selectedPreset = val;
-                  if (val == 'Grand Tournament (2000 Pts)') {
+                  if (val == 'No Point Awards (0 Pts)') {
+                    _pointsController.text = '0';
+                    _winnerPointsController.text = '0';
+                    _finalistPointsController.text = '0';
+                    _sfPointsController.text = '0';
+                    _qfPointsController.text = '0';
+                    _r16PointsController.text = '0';
+                    _r32PointsController.text = '0';
+                    _r64PointsController.text = '0';
+                  } else if (val == 'Grand Tournament (2000 Pts)') {
                     _pointsController.text = '2000';
                     _winnerPointsController.text = '2000';
                     _finalistPointsController.text = '1400';
@@ -2485,6 +2468,14 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   }
                 });
               },
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: Text('Enable Elo / Glicko / Glicko-2 Rating Systems'.tr),
+              subtitle: Text('If on, all 3 rating systems will be used for matches.'.tr),
+              value: _ratingSystemsEnabled,
+              onChanged: (val) => setState(() => _ratingSystemsEnabled = val),
+              contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 12),
             Row(
@@ -2704,15 +2695,26 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                 border: const OutlineInputBorder(),
               ),
               items: [
-                DropdownMenuItem(value: '1_year', child: Text('1 Year (Default - ITTF Standard)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '1_year', child: Text('1 Year'.tr, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: '6_months', child: Text('6 Months'.tr, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: '2_years', child: Text('2 Years'.tr, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'never', child: Text('Never Expire'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'custom', child: Text('Custom'.tr, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _pointsExpiration = val);
               },
             ),
+            if (_pointsExpiration == 'custom') ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _customExpirationController,
+                decoration: InputDecoration(
+                  labelText: 'Custom Expiration (Days/Months)'.tr,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             if (_tournamentStyle == 'Single Elimination') ...[
               DropdownButtonFormField<String>(
@@ -2794,7 +2796,9 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 

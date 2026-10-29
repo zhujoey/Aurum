@@ -126,14 +126,37 @@ class _TennisSetupState extends State<TennisSetup> {
     super.dispose();
   }
 
-  void _startLocalMatch() {
+  Future<void> _startLocalMatch() async {
     String p1 = _p1Controller.text.trim(); if (p1.isEmpty) p1 = 'Player 1';
     String p2 = _p2Controller.text.trim(); if (p2.isEmpty) p2 = 'Player 2';
     String p3 = _p3Controller.text.trim(); if (p3.isEmpty) p3 = 'Player 3';
     String p4 = _p4Controller.text.trim(); if (p4.isEmpty) p4 = 'Player 4';
 
-    Navigator.push(
-      context,
+    final navigator = Navigator.of(context);
+
+    // End any old matches hosted by this user before starting a new one
+    final oldMatches = await FirebaseFirestore.instance
+        .collection('active_matches')
+        .where('hostUid', isEqualTo: _authService.currentUser!.uid)
+        .get();
+    for (var doc in oldMatches.docs) {
+      await _authService.deleteActiveMatch(doc.id);
+    }
+
+    String matchId = await _authService.createActiveMatch(
+      sport: 'Tennis',
+      participantUids: [_authService.currentUser!.uid],
+      hostUid: _authService.currentUser!.uid,
+      initialData: {
+        'p1Name': p1, 'p2Name': p2, 'p3Name': p3, 'p4Name': p4,
+        'isDoubles': _isDoubles, 'setsToWin': _setsToWin,
+        'keepRunningTimers': _keepRunningTimers,
+        'lastSavedTimestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
+    if (!mounted) return;
+    await navigator.push(
       MaterialPageRoute(
         builder: (context) => TennisMatch(
           p1Name: p1,
@@ -142,6 +165,7 @@ class _TennisSetupState extends State<TennisSetup> {
           p4Name: p4,
           isDoubles: _isDoubles,
           setsToWin: _setsToWin,
+          matchId: matchId,
           isHost: true,
         ),
       ),

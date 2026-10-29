@@ -9,7 +9,6 @@ class TeamColumn extends StatelessWidget {
   final String name2;
   final bool isDoubles;
   final bool hasWon;
-  final bool timeoutUsed;
   final bool isTimerRunning;
   final bool isFinished;
   final bool isAnySuspended;
@@ -19,7 +18,6 @@ class TeamColumn extends StatelessWidget {
   final bool hasRed;
   final bool isSuspended;
   final VoidCallback onScoreTap;
-  final VoidCallback onTimeoutTap;
   final VoidCallback onYellowTap;
   final VoidCallback onRedTap;
   final Widget Function(String, int, bool) playerNameBuilder;
@@ -34,7 +32,6 @@ class TeamColumn extends StatelessWidget {
     required this.name2,
     required this.isDoubles,
     required this.hasWon,
-    required this.timeoutUsed,
     required this.isTimerRunning,
     required this.isFinished,
     required this.isAnySuspended,
@@ -44,7 +41,6 @@ class TeamColumn extends StatelessWidget {
     required this.hasRed,
     required this.isSuspended,
     required this.onScoreTap,
-    required this.onTimeoutTap,
     required this.onYellowTap,
     required this.onRedTap,
     required this.playerNameBuilder,
@@ -88,21 +84,6 @@ class TeamColumn extends StatelessWidget {
                     color: hasWon ? Colors.amber : Colors.blue))),
         const SizedBox(height: 10),
         Row(mainAxisSize: MainAxisSize.min, children: [
-          ElevatedButton(
-              onPressed: (!isHost ||
-                      timeoutUsed ||
-                      isTimerRunning ||
-                      isFinished ||
-                      isAnySuspended)
-                  ? null
-                  : onTimeoutTap,
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: (timeoutUsed || !isHost) ? Colors.grey : Colors.blueGrey,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                  minimumSize: const Size(40, 25)),
-              child: const Text('T/O', style: TextStyle(fontSize: 9))),
-          const SizedBox(width: 8),
           GestureDetector(
               onTap: (!isHost || isTimerRunning || isFinished || hasYellow || isAnySuspended)
                   ? null
@@ -129,7 +110,7 @@ class TeamColumn extends StatelessWidget {
                               ]
                             : null)),
               )),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           GestureDetector(
               onTap: (!isHost ||
                       isTimerRunning ||

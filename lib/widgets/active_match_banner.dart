@@ -7,9 +7,9 @@ import 'package:aurum/table_tennis/tt_models.dart';
 import 'package:aurum/badminton/badminton_scoreboard.dart';
 import 'package:aurum/badminton/badminton_models.dart';
 import 'package:aurum/tennis/tennis_scoreboard.dart';
+import 'package:aurum/tennis/tennis_models.dart';
 
-class ActiveMatchBanner extends StatelessWidget
-{
+class ActiveMatchBanner extends StatelessWidget {
   final DocumentSnapshot matchDoc;
   final VoidCallback? onForfeit;
 
@@ -19,16 +19,14 @@ class ActiveMatchBanner extends StatelessWidget
     this.onForfeit,
   });
 
-  void _openMatch(BuildContext context)
-  {
+  void _openMatch(BuildContext context) {
     final AuthService authService = AuthService();
     final data = matchDoc.data() as Map<String, dynamic>;
     final String sport = data['sport'] ?? '';
     bool isHost = data['hostUid'] == authService.currentUser?.uid;
     final matchData = data['matchData'] ?? {};
 
-    if (sport == 'Table Tennis')
-    {
+    if (sport == 'Table Tennis') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -69,9 +67,7 @@ class ActiveMatchBanner extends StatelessWidget
           ),
         ),
       );
-    }
-    else if (sport == 'Badminton')
-    {
+    } else if (sport == 'Badminton') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -107,9 +103,7 @@ class ActiveMatchBanner extends StatelessWidget
           ),
         ),
       );
-    }
-    else if (sport == 'Tennis')
-    {
+    } else if (sport == 'Tennis') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -120,6 +114,27 @@ class ActiveMatchBanner extends StatelessWidget
             p4Name: matchData['p4Name'] ?? '',
             isDoubles: matchData['isDoubles'] ?? false,
             setsToWin: matchData['setsToWin'] ?? 2,
+            initialP1Pts: matchData['p1Pts'] ?? 0,
+            initialP2Pts: matchData['p2Pts'] ?? 0,
+            initialP1Games: matchData['p1Games'] ?? 0,
+            initialP2Games: matchData['p2Games'] ?? 0,
+            initialP1Sets: matchData['p1Sets'] ?? 0,
+            initialP2Sets: matchData['p2Sets'] ?? 0,
+            initialIsTiebreak: matchData['isTiebreak'] ?? false,
+            initialP1TiebreakPts: matchData['p1TiebreakPts'] ?? 0,
+            initialP2TiebreakPts: matchData['p2TiebreakPts'] ?? 0,
+            initialServerPlayerNum: matchData['serverPlayerNum'] ?? 1,
+            initialP1OnLeft: matchData['p1OnLeft'] ?? true,
+            initialIsFinished: matchData['isFinished'] ?? false,
+            initialSetSummaries: (matchData['setSummaries'] as List? ?? [])
+                .map((s) => TennisSetSummary.fromMap(Map<String, dynamic>.from(s)))
+                .toList(),
+            initialLogs: (matchData['logs'] as List? ?? [])
+                .map((l) => TennisLogEntry.fromMap(Map<String, dynamic>.from(l)))
+                .toList(),
+            initialMatchTimeSeconds: matchData['matchTimeSeconds'] ?? 0,
+            activeTimerEndTime: matchData['timerEndTime'],
+            activeTimerTitle: matchData['timerTitle'] ?? '',
             matchId: matchDoc.id,
             isHost: isHost,
             initialKeepRunningTimers: matchData['keepRunningTimers'] ?? true,
@@ -130,8 +145,7 @@ class ActiveMatchBanner extends StatelessWidget
   }
 
   @override
-  Widget build(BuildContext context)
-  {
+  Widget build(BuildContext context) {
     final AuthService authService = AuthService();
     final data = matchDoc.data() as Map<String, dynamic>;
     bool isHost = data['hostUid'] == authService.currentUser?.uid;
@@ -139,86 +153,86 @@ class ActiveMatchBanner extends StatelessWidget
     return Card(
       color: Colors.amber.withValues(alpha: 0.1),
       margin: const EdgeInsets.only(bottom: 24),
-      child: ListTile(
-        leading: const Icon(Icons.sports_tennis, color: Colors.amber),
-        title: Text('Active Match in Progress'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(isHost ? 'You are hosting a match.'.tr : 'You are participating in a match.'.tr),
-        onTap: () => _openMatch(context),
-        trailing: isHost 
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                TextButton(
-                  onPressed: () async
-                  {
-                    bool? confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text('Discard Match?'.tr),
-                        content: Text('This will delete all match data. This action cannot be undone.'.tr),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
-                          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Discard'.tr, style: const TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    );
-                    if (confirm == true)
-                    {
-                      await authService.deleteActiveMatch(matchDoc.id);
-                      onForfeit?.call();
-                    }
-                  },
-                  child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                ),
-                const SizedBox(width: 4),
-                ElevatedButton(
-                  onPressed: () => _openMatch(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, 
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                const Icon(Icons.sports_tennis, color: Colors.amber),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Active Match in Progress'.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 2),
+                      Text(isHost ? 'You are hosting a match.'.tr : 'You are participating in a match.'.tr, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    ],
                   ),
-                  child: Text('View Match'.tr, style: const TextStyle(fontSize: 12)),
-                ),
-              ],
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: () async
-                  {
-                    bool? confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text('Forfeit Match?'.tr),
-                        content: Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'.tr),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
-                          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    );
-                    if (confirm == true)
-                    {
-                      await authService.updateMatchStatus(matchDoc.id, 'forfeited');
-                      onForfeit?.call();
-                    }
-                  },
-                  child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                ),
-                const SizedBox(width: 4),
-                ElevatedButton(
-                  onPressed: () => _openMatch(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, 
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  child: Text('View Match'.tr, style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isHost)
+                  TextButton(
+                    onPressed: () async {
+                      bool? confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Discard Match?'.tr),
+                          content: Text('This will delete all match data. This action cannot be undone.'.tr),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Discard'.tr, style: const TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await authService.deleteActiveMatch(matchDoc.id);
+                        onForfeit?.call();
+                      }
+                    },
+                    child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red)),
+                  )
+                else
+                  TextButton(
+                    onPressed: () async {
+                      bool? confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Forfeit Match?'.tr),
+                          content: Text('You will be marked as forfeited and this match will end for everyone. This cannot be undone.'.tr),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await authService.updateMatchStatus(matchDoc.id, 'forfeited');
+                        onForfeit?.call();
+                      }
+                    },
+                    child: Text('Forfeit'.tr, style: const TextStyle(color: Colors.red)),
+                  ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => _openMatch(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('View Match'.tr),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

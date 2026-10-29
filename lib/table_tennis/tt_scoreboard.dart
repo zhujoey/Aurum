@@ -1230,11 +1230,23 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
                     if (!context.mounted) return;
                     Navigator.pop(context);
                   }
+                } else if (value == 'timeout1') {
+                  if (!p1TimeoutUsed && _activeTimerSeconds == 0 && !isSetOver) {
+                    _useTimeout(1);
+                  }
+                } else if (value == 'timeout2') {
+                  if (!p2TimeoutUsed && _activeTimerSeconds == 0 && !isSetOver) {
+                    _useTimeout(widget.isDoubles ? 3 : 2);
+                  }
                 }
               },
               itemBuilder: (context) => [
                 if (_isHost)
                   PopupMenuItem(value: 'discard', child: Text('Discard Match'.tr, style: const TextStyle(color: Colors.red))),
+                if (_isHost && !p1TimeoutUsed && !isFinished)
+                  PopupMenuItem(value: 'timeout1', child: Text('${"Timeout".tr} (${widget.p1Name})')),
+                if (_isHost && !p2TimeoutUsed && !isFinished)
+                  PopupMenuItem(value: 'timeout2', child: Text('${"Timeout".tr} (${widget.isDoubles ? widget.p3Name : widget.p2Name})')),
                 if (!_isHost)
                   PopupMenuItem(value: 'forfeit', child: Text('Forfeit Match'.tr, style: const TextStyle(color: Colors.red))),
               ],
@@ -1247,7 +1259,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
             if (_activeTimerSeconds > 0) TimerBanner(title: _activeTimerTitle, seconds: _activeTimerSeconds, onSkip: _isHost ? _stopMatchTimer : null),
             if (expediteActive) const ExpediteBanner(),
             const SizedBox(height: 20),
-            Text('First to ${widget.setsToWin} sets'.tr, style: const TextStyle(fontSize: 16, color: Colors.blue, fontWeight: FontWeight.bold)),
+            Text('Best of ${widget.setsToWin * 2 - 1} sets'.tr, style: const TextStyle(fontSize: 16, color: Colors.blue, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               _buildTeamCol(1, p1Won, p1TimeoutUsed),
@@ -1334,8 +1346,8 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
         : '';
 
     return TeamColumn(
-      teamNum: teamNum, score: teamNum == 1 ? player1Score : player2Score, sets: teamNum == 1 ? player1Sets : player2Sets, name1: displayName1, name2: displayName2, isDoubles: widget.isDoubles, hasWon: hasWon, timeoutUsed: timeoutUsed, isTimerRunning: _activeTimerSeconds > 0, isFinished: isFinished, isAnySuspended: _isAnySuspended, teamServing: widget.isDoubles ? (teamNum == 1 ? (_currentServer <= 2) : (_currentServer >= 3)) : (_currentServer == teamNum), playerSide: _getPlayerSide(p1Num), hasYellow: teamPenalties.isNotEmpty, hasRed: teamPenalties.length >= 2, isSuspended: teamPenalties.length >= 4, 
-      onScoreTap: () => _updateScore(teamNum, 1), onTimeoutTap: () => _useTimeout(p1Num), onYellowTap: () => _issuePenalty(p1Num, 'yellow'), onRedTap: () => _issuePenalty(p1Num, 'red'),
+      teamNum: teamNum, score: teamNum == 1 ? player1Score : player2Score, sets: teamNum == 1 ? player1Sets : player2Sets, name1: displayName1, name2: displayName2, isDoubles: widget.isDoubles, hasWon: hasWon, isTimerRunning: _activeTimerSeconds > 0, isFinished: isFinished, isAnySuspended: _isAnySuspended, teamServing: widget.isDoubles ? (teamNum == 1 ? (_currentServer <= 2) : (_currentServer >= 3)) : (_currentServer == teamNum), playerSide: _getPlayerSide(p1Num), hasYellow: teamPenalties.isNotEmpty, hasRed: teamPenalties.length >= 2, isSuspended: teamPenalties.length >= 4, 
+      onScoreTap: () => _updateScore(teamNum, 1), onYellowTap: () => _issuePenalty(p1Num, 'yellow'), onRedTap: () => _issuePenalty(p1Num, 'red'),
       isHost: _isHost,
       playerNameBuilder: (name, pNum, won) {
         bool isS = _currentServer == pNum; bool isR = _currentReceiver == pNum;
