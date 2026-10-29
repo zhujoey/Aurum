@@ -442,7 +442,7 @@ class _ClubTournamentsView extends StatelessWidget {
     String selectedDoublesType = 'none';
     String selectedTeamType = 'none';
     String selectedTeamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
-    String selectedPointsExpiration = '1_year';
+    String selectedPointsExpiration = '365_days';
     bool ratingSystemsEnabled = true;
     final customExpirationController = TextEditingController();
     bool hasThirdPlacePlayoff = false;
@@ -776,16 +776,28 @@ class _ClubTournamentsView extends StatelessWidget {
                     border: const OutlineInputBorder(),
                   ),
                   items: [
-                    DropdownMenuItem(value: '1_year', child: Text('1 Year'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: '6_months', child: Text('6 Months'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: '2_years', child: Text('2 Years'.tr, overflow: TextOverflow.ellipsis)),
-                    DropdownMenuItem(value: 'never', child: Text('Never Expire'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: '365_days', child: Text('365 Days (1 Year)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: '180_days', child: Text('180 Days (6 Months)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: '730_days', child: Text('730 Days (2 Years)'.tr, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'manual_removal', child: Text('Expire Manually'.tr, overflow: TextOverflow.ellipsis)),
                     DropdownMenuItem(value: 'custom', child: Text('Custom'.tr, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedPointsExpiration = val);
                   },
                 ),
+                if (selectedPointsExpiration == 'custom') ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: customExpirationController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Custom time in days'.tr,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 ListTile(
                   leading: const Icon(Icons.sports, color: Colors.blue),
@@ -2095,7 +2107,10 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
     }
     _teamMatchSystem = widget.currentData['teamMatchSystem'] ?? 'Olympic System (1 Doubles + 4 Singles)';
     _ratingSystemsEnabled = widget.currentData['ratingSystemsEnabled'] ?? false;
-    String rawExp = widget.currentData['pointsExpiration'] ?? '1_year';
+    String rawExp = widget.currentData['pointsExpiration'] ?? '365_days';
+    if (rawExp == '1_year') rawExp = '365_days';
+    if (rawExp == '6_months') rawExp = '180_days';
+    if (rawExp == '2_years') rawExp = '730_days';
     if (rawExp.startsWith('custom_')) {
       _pointsExpiration = 'custom';
       _customExpirationController = TextEditingController(text: rawExp.substring(7));
@@ -2693,10 +2708,10 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                 border: const OutlineInputBorder(),
               ),
               items: [
-                DropdownMenuItem(value: '1_year', child: Text('1 Year'.tr, overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: '6_months', child: Text('6 Months'.tr, overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: '2_years', child: Text('2 Years'.tr, overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: 'never', child: Text('Never Expire'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '365_days', child: Text('365 Days (1 Year)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '180_days', child: Text('180 Days (6 Months)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: '730_days', child: Text('730 Days (2 Years)'.tr, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: 'manual_removal', child: Text('Expire Manually'.tr, overflow: TextOverflow.ellipsis)),
                 DropdownMenuItem(value: 'custom', child: Text('Custom'.tr, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (val) {
@@ -2707,8 +2722,10 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
               const SizedBox(height: 16),
               TextField(
                 controller: _customExpirationController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  labelText: 'Custom Expiration (Days/Months)'.tr,
+                  labelText: 'Custom time in days'.tr,
                   border: const OutlineInputBorder(),
                 ),
               ),
