@@ -4,7 +4,7 @@
 
 ---
 
-##Key Features
+## Key Features
 
 - **Multi-Sport Live Scoreboards**: 
   - Real-time scoring, set tracking, deuce handling, and match statistics tailored for **Table Tennis**, **Tennis**, and **Badminton**.
@@ -24,15 +24,15 @@
 
 ---
 
-##Impact on the Local Community
+## Impact on the Local Community
 
-- **Grassroots Sports Empowerment**: Aurum bridges the gap between casual players and organized local sports leagues, providing robust tools previously locked behind expensive commercial software.
+- **Sports Empowerment**: Aurum bridges the gap between casual players and organized local sports leagues, providing robust tools previously locked behind expensive commercial software.
 - **Fostering Social Connections**: By enabling easy club creation, friend connections, and team match coordination, Aurum builds active, tight-knit local sports communities.
 - **Encouraging Active Lifestyles**: Simplifies the barrier to organizing matches and tournaments, motivating individuals of all ages and skill levels to stay active and engaged in racket sports.
 
 ---
 
-##Financial & Economic Impact
+## Financial & Economic Impact
 
 - **Zero-Cost Administration**: Eliminates high software licensing and subscription fees for community recreation centers, local clubs, and amateur sports associations.
 - **Efficient Resource Management**: Optimizes club facility utilization (such as table tennis tables and tennis/badminton courts) through structured tournament scheduling and live match tracking.
@@ -40,7 +40,7 @@
 
 ---
 
-##Accessibility & Inclusivity
+## Accessibility & Inclusivity
 
 - **Multilingual Inclusivity**: Built-in localization ensures players from diverse linguistic backgrounds can navigate, officiate, and participate effortlessly.
 - **Responsive & Intuitive UI**: Features high-contrast themes (Light and Dark modes), clear typography, accessible touch targets, and instant feedback via floating snackbar notifications.
