@@ -443,7 +443,7 @@ class _ClubTournamentsView extends StatelessWidget {
     String selectedTeamType = 'none';
     String selectedTeamMatchSystem = 'Olympic System (1 Doubles + 4 Singles)';
     String selectedPointsExpiration = '1_year';
-    bool ratingSystemsEnabled = false;
+    bool ratingSystemsEnabled = true;
     final customExpirationController = TextEditingController();
     bool hasThirdPlacePlayoff = false;
     bool isOpen = false;
@@ -557,14 +557,6 @@ class _ClubTournamentsView extends StatelessWidget {
                     });
                   },
                 ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: Text('Enable Elo / Glicko / Glicko-2 Rating Systems'.tr),
-                  subtitle: Text('If on, all 3 rating systems will be used for matches.'.tr),
-                  value: ratingSystemsEnabled,
-                  onChanged: (val) => setDialogState(() => ratingSystemsEnabled = val),
-                  contentPadding: EdgeInsets.zero,
-                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -632,6 +624,13 @@ class _ClubTournamentsView extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  title: Text('Elo / Glicko Systems'.tr),
+                  value: ratingSystemsEnabled,
+                  onChanged: (val) => setDialogState(() => ratingSystemsEnabled = val),
+                  contentPadding: EdgeInsets.zero,
                 ),
                 const SizedBox(height: 16),
                 Align(
@@ -2469,14 +2468,6 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                 });
               },
             ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: Text('Enable Elo / Glicko / Glicko-2 Rating Systems'.tr),
-              subtitle: Text('If on, all 3 rating systems will be used for matches.'.tr),
-              value: _ratingSystemsEnabled,
-              onChanged: (val) => setState(() => _ratingSystemsEnabled = val),
-              contentPadding: EdgeInsets.zero,
-            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -2544,6 +2535,13 @@ class _TournamentSettingsPageState extends State<TournamentSettingsPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              title: Text('Elo / Glicko Systems'.tr),
+              value: _ratingSystemsEnabled,
+              onChanged: (val) => setState(() => _ratingSystemsEnabled = val),
+              contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
             Align(
