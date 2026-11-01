@@ -92,11 +92,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         LanguageService().appLanguageVersion,
         ThemeService().themeMode,
         ThemeService().seedColor,
+        ThemeService().useTrueDark,
       ]),
       builder: (context, child) {
         final locale = LanguageService().currentLocale.value;
         final mode = ThemeService().themeMode.value;
         final color = ThemeService().seedColor.value;
+        final trueDark = ThemeService().useTrueDark.value;
+
+        final darkBg = trueDark ? Colors.black : const Color(0xFF0F172A);
+        final darkSurface = trueDark ? const Color(0xFF121212) : const Color(0xFF1E293B);
 
         return MaterialApp(
           title: 'Aurum'.tr,
@@ -122,15 +127,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             colorScheme: ColorScheme.fromSeed(
               seedColor: color,
               brightness: Brightness.dark,
-              surface: Colors.black,
+              surface: darkSurface,
             ),
-            scaffoldBackgroundColor: Colors.black,
-            cardColor: const Color(0xFF121212),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.black,
-              surfaceTintColor: Colors.black,
+            scaffoldBackgroundColor: darkBg,
+            cardColor: darkSurface,
+            appBarTheme: AppBarTheme(
+              backgroundColor: darkBg,
+              surfaceTintColor: darkBg,
             ),
-            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF121212)),
+            dialogTheme: DialogThemeData(backgroundColor: darkSurface),
             useMaterial3: true,
           ),
           themeMode: mode,
