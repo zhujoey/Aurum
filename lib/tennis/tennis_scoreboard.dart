@@ -470,6 +470,8 @@ class _TennisMatchState extends State<TennisMatch> {
     if (!_isHost) return;
     final int tossWinner = Random().nextBool() ? 1 : 2;
     final String winnerName = tossWinner == 1 ? widget.p1Name : widget.p2Name;
+    final int loserTeam = 3 - tossWinner;
+    final String loserName = loserTeam == 1 ? widget.p1Name : widget.p2Name;
 
     await showDialog(
       context: context,
@@ -490,19 +492,138 @@ class _TennisMatchState extends State<TennisMatch> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
           TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
+          TextButton(onPressed: () => Navigator.pop(c, 3), child: Text('Home Side'.tr)),
+          TextButton(onPressed: () => Navigator.pop(c, 4), child: Text('Away Side'.tr)),
+          TextButton(onPressed: () => Navigator.pop(c, 5), child: Text('Defer (Let Opponent Choose)'.tr)),
         ],
       ),
     );
 
-    if (choice != null) {
-      setState(() {
-        if (choice == 1) {
-          serverPlayerNum = tossWinner;
-        } else {
-          serverPlayerNum = 3 - tossWinner;
-        }
-      });
+    if (!mounted) return;
+
+    int servingPlayer = tossWinner;
+    bool p1Left = true;
+
+    if (choice == 1) {
+      servingPlayer = tossWinner;
+      if (!mounted) return;
+      int? sideChoice = await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text('$loserName: ${'Choose Side'.tr}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
+          ],
+        ),
+      );
+      p1Left = (sideChoice != 2);
+    } else if (choice == 2) {
+      servingPlayer = 3 - tossWinner;
+      if (!mounted) return;
+      int? sideChoice = await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text('$loserName: ${'Choose Side'.tr}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
+          ],
+        ),
+      );
+      p1Left = (sideChoice != 2);
+    } else if (choice == 3) {
+      p1Left = true;
+      if (!mounted) return;
+      int? serviceChoice = await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text('$loserName: ${'Serve or Receive?'.tr}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
+          ],
+        ),
+      );
+      servingPlayer = (serviceChoice == 1) ? loserTeam : tossWinner;
+    } else if (choice == 4) {
+      p1Left = false;
+      if (!mounted) return;
+      int? serviceChoice = await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text('$loserName: ${'Serve or Receive?'.tr}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
+          ],
+        ),
+      );
+      servingPlayer = (serviceChoice == 1) ? loserTeam : tossWinner;
+    } else if (choice == 5) {
+      // Defer: Loser gets all 4 choices first
+      if (!mounted) return;
+      int? loserChoice = await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text('$loserName: ${'Opponent deferred to you! Choose Option'.tr}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 3), child: Text('Home Side'.tr)),
+            TextButton(onPressed: () => Navigator.pop(c, 4), child: Text('Away Side'.tr)),
+          ],
+        ),
+      );
+
+      if (!mounted) return;
+
+      bool loserPickedSide = (loserChoice == 3 || loserChoice == 4);
+      if (loserChoice == 3) p1Left = true;
+      if (loserChoice == 4) p1Left = false;
+      if (loserChoice == 1) servingPlayer = loserTeam;
+      if (loserChoice == 2) servingPlayer = 3 - loserTeam;
+
+      // Now Winner makes the second choice (remaining category: 2 choices)
+      if (!mounted) return;
+      if (loserPickedSide) {
+        int? winnerServiceChoice = await showDialog<int>(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => AlertDialog(
+            title: Text('$winnerName: ${'Serve or Receive?'.tr}'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Serve First'.tr)),
+              TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Receive First'.tr)),
+            ],
+          ),
+        );
+        servingPlayer = (winnerServiceChoice == 1) ? tossWinner : loserTeam;
+      } else {
+        int? winnerSideChoice = await showDialog<int>(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => AlertDialog(
+            title: Text('$winnerName: ${'Choose Side'.tr}'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, 1), child: Text('Start on Home Side'.tr)),
+              TextButton(onPressed: () => Navigator.pop(c, 2), child: Text('Start on Away Side'.tr)),
+            ],
+          ),
+        );
+        p1Left = (winnerSideChoice != 2);
+      }
     }
+
+    setState(() {
+      serverPlayerNum = servingPlayer;
+      p1OnLeft = p1Left;
+    });
 
     _startTimer('5-Min Warmup'.tr, 300);
   }

@@ -682,7 +682,7 @@ class _ClubsPageState extends State<ClubsPage> {
   void _showCreateClubDialog() {
     final nameController = TextEditingController();
     String selectedSport = 'Table Tennis';
-    final List<String> sports = ['Table Tennis', 'Tennis', 'Badminton'];
+    final List<String> sports = ['Table Tennis', 'Tennis', 'Badminton', 'Pickleball'];
 
     showDialog(
       context: context,

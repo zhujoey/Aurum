@@ -5,6 +5,7 @@ import 'package:aurum/widgets/active_match_banner.dart';
 import 'table_tennis/tt_setup.dart';
 import 'badminton/badminton_setup.dart';
 import 'tennis/tennis_setup.dart';
+import 'pickleball/pickleball_setup.dart';
 
 import 'package:aurum/language_service.dart';
 
@@ -74,6 +75,20 @@ class NewMatch extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const TennisSetup()),
+                            );
+                          },
+                    ),
+                    _buildSportCard(
+                      context,
+                      'Pickleball',
+                      Icons.sports_volleyball,
+                      Colors.purple,
+                      hasActiveMatch 
+                        ? null 
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const PickleballSetup()),
                             );
                           },
                     ),

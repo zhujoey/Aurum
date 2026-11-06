@@ -8,6 +8,8 @@ import 'package:aurum/badminton/badminton_scoreboard.dart';
 import 'package:aurum/badminton/badminton_models.dart';
 import 'package:aurum/tennis/tennis_scoreboard.dart';
 import 'package:aurum/tennis/tennis_models.dart';
+import 'package:aurum/pickleball/pickleball_scoreboard.dart';
+import 'package:aurum/pickleball/pickleball_models.dart';
 
 class ActiveMatchBanner extends StatelessWidget {
   final DocumentSnapshot matchDoc;
@@ -138,6 +140,42 @@ class ActiveMatchBanner extends StatelessWidget {
             matchId: matchDoc.id,
             isHost: isHost,
             initialKeepRunningTimers: matchData['keepRunningTimers'] ?? true,
+          ),
+        ),
+      );
+    } else if (sport == 'Pickleball') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PickleballMatch(
+            p1Name: matchData['p1Name'] ?? 'P1',
+            p2Name: matchData['p2Name'] ?? '',
+            p3Name: matchData['p3Name'] ?? 'P2',
+            p4Name: matchData['p4Name'] ?? '',
+            isDoubles: matchData['isDoubles'] ?? false,
+            gamesToWin: matchData['gamesToWin'] ?? 2,
+            initialP1Score: matchData['p1Score'] ?? 0,
+            initialP2Score: matchData['p2Score'] ?? 0,
+            initialP1Games: matchData['p1Games'] ?? 0,
+            initialP2Games: matchData['p2Games'] ?? 0,
+            initialIsGameOver: matchData['isGameOver'] ?? false,
+            initialPointHistory: List<int>.from(matchData['pointHistory'] ?? []),
+            initialGameSummaries: (matchData['gameSummaries'] as List? ?? [])
+                .map((s) => PickleballGameSummary.fromMap(s))
+                .toList(),
+            initialCurrentServer: matchData['currentServer'] ?? 1,
+            initialServerNum: matchData['serverNum'] ?? 2,
+            initialP1OnLeft: matchData['p1OnLeft'] ?? true,
+            initialLogs: (matchData['logs'] as List? ?? [])
+                .map((p) => PickleballLogEntry.fromMap(p))
+                .toList(),
+            initialMatchTimeSeconds: matchData['matchTimeSeconds'] ?? 0,
+            activeTimerEndTime: matchData['timerEndTime'],
+            activeTimerTitle: matchData['timerTitle'] ?? '',
+            initialKeepRunningTimers: matchData['keepRunningTimers'] ?? false,
+            initialLastSavedTimestamp: matchData['lastSavedTimestamp'],
+            matchId: matchDoc.id,
+            isHost: isHost,
           ),
         ),
       );

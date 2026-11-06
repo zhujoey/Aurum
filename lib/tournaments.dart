@@ -7,6 +7,7 @@ import 'package:aurum/table_tennis/tt_scoreboard.dart';
 import 'package:aurum/table_tennis/tt_models.dart';
 import 'package:aurum/table_tennis/widgets/tt_history.dart';
 import 'package:aurum/badminton/badminton_scoreboard.dart';
+import 'package:aurum/pickleball/pickleball_scoreboard.dart';
 import 'package:aurum/language_service.dart';
 import 'package:aurum/widgets/user_avatar.dart';
 import 'package:aurum/widgets/user_profile_sheet.dart';
@@ -3918,6 +3919,22 @@ void showMatchActionModal({
                                 isDoubles: false,
                                 gamesToWin: isSemiOrFinal ? 3 : 2,
                                 matchId: liveMatchId,
+                              ),
+                            ),
+                          );
+                        } else if (sport == 'Pickleball') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PickleballMatch(
+                                p1Name: p1Name,
+                                p2Name: p2Name,
+                                p3Name: '',
+                                p4Name: '',
+                                isDoubles: false,
+                                gamesToWin: isSemiOrFinal ? 3 : 2,
+                                matchId: liveMatchId,
+                                isHost: false,
                               ),
                             ),
                           );
