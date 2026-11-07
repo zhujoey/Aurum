@@ -11,6 +11,7 @@ import 'package:aurum/language_service.dart';
 import 'package:aurum/widgets/active_match_banner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:aurum/ui_helpers.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -151,10 +152,7 @@ class _HomeState extends State<Home> {
               IconButton(
                 icon: const Icon(Icons.settings),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SettingsPage()),
-                  );
+                  UIHelpers.smoothPush(context, const SettingsPage());
                 },
               ),
             ],
@@ -194,10 +192,7 @@ class _HomeState extends State<Home> {
                       Icons.leaderboard,
                       Colors.orange,
                       () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RankingsPage()),
-                        );
+                        UIHelpers.smoothPush(context, const RankingsPage());
                       },
                     ),
                     _buildActionButton(
@@ -206,10 +201,7 @@ class _HomeState extends State<Home> {
                       Icons.groups,
                       Colors.blue,
                       () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const ClubsPage()),
-                        );
+                        UIHelpers.smoothPush(context, const ClubsPage());
                       },
                     ),
                     _buildActionButton(
@@ -218,10 +210,7 @@ class _HomeState extends State<Home> {
                       Icons.sports_tennis,
                       Colors.green,
                       () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const NewMatch()),
-                        );
+                        UIHelpers.smoothPush(context, const NewMatch());
                       },
                     ),
                     _buildActionButton(
@@ -230,10 +219,7 @@ class _HomeState extends State<Home> {
                       Icons.military_tech,
                       Colors.purple,
                       () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => TournamentsPage()),
-                        );
+                        UIHelpers.smoothPush(context, TournamentsPage());
                       },
                     ),
                   ],
