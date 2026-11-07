@@ -6,7 +6,7 @@ import 'table_tennis/tt_setup.dart';
 import 'badminton/badminton_setup.dart';
 import 'tennis/tennis_setup.dart';
 import 'pickleball/pickleball_setup.dart';
-
+import 'package:aurum/ui_helpers.dart';
 import 'package:aurum/language_service.dart';
 
 class NewMatch extends StatelessWidget {
@@ -104,7 +104,7 @@ class NewMatch extends StatelessWidget {
 
   Widget _buildSportCard(BuildContext context, String title, IconData icon, Color color, VoidCallback? onTap) {
     final bool isDisabled = onTap == null;
-    return Card(
+    final cardWidget = Card(
       elevation: isDisabled ? 1 : 4,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -120,9 +120,21 @@ class NewMatch extends StatelessWidget {
           ),
         ),
         trailing: Icon(Icons.arrow_forward_ios, color: isDisabled ? Colors.grey : null),
-        onTap: onTap,
+        onTap: null,
         enabled: !isDisabled,
       ),
+    );
+
+    if (isDisabled) {
+      return cardWidget;
+    }
+
+    return PressableCard(
+      onTap: () {
+        UIHelpers.hapticTap();
+        onTap();
+      },
+      child: cardWidget,
     );
   }
 }

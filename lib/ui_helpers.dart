@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/physics.dart';
 
 class UIHelpers {
   /// Navigates to a page with a buttery smooth fade and slide transition.
@@ -68,5 +69,80 @@ class UIHelpers {
   /// Triggers medium haptic feedback on scoring / confirmation.
   static void hapticScore() {
     HapticFeedback.mediumImpact();
+  }
+
+  /// Crisp selection tick (like tab switches)
+  static void hapticTick() {
+    HapticFeedback.selectionClick();
+  }
+
+  /// Double pulse haptic for active session recording / confirmations
+  static void hapticDoublePulse() async {
+    HapticFeedback.lightImpact();
+    await Future.delayed(const Duration(milliseconds: 60));
+    HapticFeedback.mediumImpact();
+  }
+}
+
+/// A card with spring physics scale animation (Stiffness: 300, Damping: 24, Mass: 0.8)
+class PressableCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const PressableCard({super.key, required this.child, required this.onTap});
+
+  @override
+  State<PressableCard> createState() => _PressableCardState();
+}
+
+class _PressableCardState extends State<PressableCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      lowerBound: 0.0,
+      upperBound: 1.0,
+    )..value = 0.0;
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _animateTo(double target) {
+    const spring = SpringDescription(
+      mass: 0.8,
+      stiffness: 300.0,
+      damping: 24.0,
+    );
+    final simulation = SpringSimulation(spring, _controller.value, target, 0.0);
+    _controller.animateWith(simulation);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _animateTo(1.0),
+      onTapUp: (_) {
+        _animateTo(0.0);
+        widget.onTap();
+      },
+      onTapCancel: () => _animateTo(0.0),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) => Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        ),
+        child: widget.child,
+      ),
+    );
   }
 }
