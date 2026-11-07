@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/ui_helpers.dart';
 import '../table_tennis/widgets/tt_stats.dart';
 import 'badminton_models.dart';
 import 'widgets/badminton_banners.dart';
@@ -542,6 +543,7 @@ class _BadmintonMatchState extends State<BadmintonMatch> {
     if (delta > 0) {
       _saveState();
     }
+    UIHelpers.hapticScore();
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     setState(() {
       if (team == 1) {

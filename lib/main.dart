@@ -121,6 +121,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               surfaceTintColor: Colors.white,
             ),
             dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+              },
+            ),
             useMaterial3: true,
           ),
           darkTheme: ThemeData(
@@ -136,6 +145,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               surfaceTintColor: darkBg,
             ),
             dialogTheme: DialogThemeData(backgroundColor: darkSurface),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+              },
+            ),
             useMaterial3: true,
           ),
           themeMode: mode,

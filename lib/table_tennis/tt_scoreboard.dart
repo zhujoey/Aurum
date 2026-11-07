@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/ui_helpers.dart';
 import 'tt_models.dart';
 import 'widgets/tt_banners.dart';
 import 'widgets/tt_history.dart';
@@ -800,6 +801,7 @@ class _TableTennisMatchState extends State<TableTennisMatch> {
     if (isFinished && delta > 0) return;
     if (_activeTimerSeconds > 0 && delta > 0) return; // Block changes during break
     if (!isPenalty) _saveState();
+    UIHelpers.hapticScore();
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     setState(() {
       if (isSetOver && delta > 0) _stopMatchTimer();

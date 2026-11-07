@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/ui_helpers.dart';
 import 'tennis_models.dart';
 import 'widgets/tennis_banners.dart';
 import 'widgets/tennis_history.dart';
@@ -687,6 +688,7 @@ class _TennisMatchState extends State<TennisMatch> {
   void _addPoint(int playerNum) {
     if (isFinished || !_isHost || timerEndTime != null) return;
     _saveState();
+    UIHelpers.hapticScore();
 
     if (isTiebreak) {
       if (playerNum == 1) {
