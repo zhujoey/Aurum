@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:aurum/firebase_options.dart';
@@ -121,7 +122,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               surfaceTintColor: Colors.white,
             ),
             dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
-            pageTransitionsTheme: const PageTransitionsTheme(
+            pageTransitionsTheme: PageTransitionsTheme(
               builders: {
                 TargetPlatform.android: CupertinoPageTransitionsBuilder(),
                 TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
@@ -145,7 +146,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               surfaceTintColor: darkBg,
             ),
             dialogTheme: DialogThemeData(backgroundColor: darkSurface),
-            pageTransitionsTheme: const PageTransitionsTheme(
+            pageTransitionsTheme: PageTransitionsTheme(
               builders: {
                 TargetPlatform.android: CupertinoPageTransitionsBuilder(),
                 TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
