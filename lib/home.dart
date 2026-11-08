@@ -215,7 +215,7 @@ class _HomeState extends State<Home> {
                             subtitle: 'Join a club to view rankings',
                             icon: Icons.leaderboard,
                             onTap: () => UIHelpers.smoothPush(context, const RankingsPage()),
-                            previewContent: const Text('No club joined', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                            previewContent: _previewText(context, 'No club joined'),
                           );
                         }
 
@@ -236,7 +236,7 @@ class _HomeState extends State<Home> {
                                 subtitle: 'No ranked members yet',
                                 icon: Icons.leaderboard,
                                 onTap: () => UIHelpers.smoothPush(context, const RankingsPage()),
-                                previewContent: const Text('No rankings available', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                                previewContent: _previewText(context, 'No rankings available'),
                               );
                             }
 
@@ -273,6 +273,7 @@ class _HomeState extends State<Home> {
                                   final uId = data['uid'] ?? doc.id;
                                   final bool isMe = uId == currentUid || doc.id == currentUid;
                                   return _buildRankRow(
+                                    context,
                                     '${idx + 1}',
                                     isMe ? '$name (You)' : name,
                                     '$pts pts',
@@ -301,7 +302,7 @@ class _HomeState extends State<Home> {
                             subtitle: 'No club joined',
                             icon: Icons.groups,
                             onTap: () => UIHelpers.smoothPush(context, const ClubsPage()),
-                            previewContent: const Text('Join or create a club', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                            previewContent: _previewText(context, 'Join or create a club'),
                           );
                         }
 
@@ -329,17 +330,7 @@ class _HomeState extends State<Home> {
                                   subtitle: '$memberCount Member(s) • $clubSport',
                                   icon: Icons.groups,
                                   onTap: () => UIHelpers.smoothPush(context, const ClubsPage()),
-                                  previewContent: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      'Tap to manage club & members',
-                                      style: TextStyle(fontSize: 11, color: Colors.white70),
-                                    ),
-                                  ),
+                                  previewContent: _previewBanner(context, 'Tap to manage club & members'),
                                 );
                               },
                             );
@@ -351,6 +342,8 @@ class _HomeState extends State<Home> {
                       stream: _authService.myActiveMatches,
                       builder: (context, matchSnap) {
                         final bool hasActiveMatch = matchSnap.hasData && matchSnap.data!.docs.isNotEmpty;
+                        final isDark = Theme.of(context).brightness == Brightness.dark;
+                        final matchColor = isDark ? Colors.greenAccent : const Color(0xFF047857);
                         return _buildHubCard(
                           context: context,
                           categoryTitle: 'Quick Match',
@@ -365,13 +358,13 @@ class _HomeState extends State<Home> {
                               Expanded(
                                 child: Text(
                                   hasActiveMatch ? 'Tap to Resume Match' : 'Ready to Play',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: matchColor),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(hasActiveMatch ? Icons.play_arrow : Icons.explore, color: Colors.greenAccent, size: 22),
+                              Icon(hasActiveMatch ? Icons.play_arrow : Icons.explore, color: matchColor, size: 22),
                             ],
                           ),
                         );
@@ -394,7 +387,7 @@ class _HomeState extends State<Home> {
                             subtitle: 'Join a club to view tournaments',
                             icon: Icons.military_tech,
                             onTap: () => UIHelpers.smoothPush(context, TournamentsPage()),
-                            previewContent: const Text('No active tournaments', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                            previewContent: _previewText(context, 'No active tournaments'),
                           );
                         }
 
@@ -456,12 +449,7 @@ class _HomeState extends State<Home> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      previewText,
-                                      style: const TextStyle(fontSize: 11, color: Colors.white70),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    child: _previewText(context, previewText),
                                   ),
                                   const SizedBox(width: 4),
                                   const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
@@ -484,6 +472,40 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Widget _previewText(BuildContext context, String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        color: isDark ? Colors.white70 : Colors.black87,
+        fontWeight: isDark ? FontWeight.normal : FontWeight.w600,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _previewBanner(BuildContext context, String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(10),
+        border: isDark ? null : Border.all(color: Colors.black.withValues(alpha: 0.1)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: isDark ? Colors.white70 : Colors.black87,
+          fontWeight: isDark ? FontWeight.normal : FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHubCard({
     required BuildContext context,
     required String categoryTitle,
@@ -494,6 +516,10 @@ class _HomeState extends State<Home> {
     required Widget previewContent,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtextColor = isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black87;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -517,12 +543,12 @@ class _HomeState extends State<Home> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: accentColor.withValues(alpha: 0.8),
+                  color: accentColor.withValues(alpha: isDark ? 0.8 : 0.6),
                   width: 1.8,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: accentColor.withValues(alpha: 0.28),
+                    color: accentColor.withValues(alpha: isDark ? 0.28 : 0.15),
                     blurRadius: 18,
                     spreadRadius: 1,
                     offset: const Offset(0, 8),
@@ -536,14 +562,24 @@ class _HomeState extends State<Home> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          accentColor.withValues(alpha: 0.30),
-                          accentColor.withValues(alpha: 0.06),
-                        ],
-                      ),
+                      color: isDark ? null : Theme.of(context).cardColor,
+                      gradient: isDark
+                          ? LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                accentColor.withValues(alpha: 0.30),
+                                accentColor.withValues(alpha: 0.06),
+                              ],
+                            )
+                          : LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                accentColor.withValues(alpha: 0.18),
+                                accentColor.withValues(alpha: 0.05),
+                              ],
+                            ),
                     ),
                     child: Stack(
                       children: [
@@ -553,7 +589,7 @@ class _HomeState extends State<Home> {
                           child: Icon(
                             icon,
                             size: 75,
-                            color: accentColor.withValues(alpha: 0.1),
+                            color: accentColor.withValues(alpha: isDark ? 0.10 : 0.15),
                           ),
                         ),
                         Column(
@@ -568,10 +604,10 @@ class _HomeState extends State<Home> {
                                     children: [
                                       Text(
                                         title,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w900,
-                                          color: Colors.white,
+                                          color: textColor,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -581,8 +617,8 @@ class _HomeState extends State<Home> {
                                         subtitle,
                                         style: TextStyle(
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white.withValues(alpha: 0.7),
+                                          fontWeight: FontWeight.w600,
+                                          color: subtextColor,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -590,7 +626,7 @@ class _HomeState extends State<Home> {
                                     ],
                                   ),
                                 ),
-                                Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                                Icon(Icons.chevron_right, color: subtextColor, size: 20),
                               ],
                             ),
                             const Spacer(),
@@ -609,7 +645,12 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildRankRow(String pos, String name, String rank) {
+  Widget _buildRankRow(BuildContext context, String pos, String name, String rank) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final posColor = isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black54;
+    final rankColor = isDark ? Colors.greenAccent : const Color(0xFF047857);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
@@ -618,12 +659,12 @@ class _HomeState extends State<Home> {
           Expanded(
             child: Row(
               children: [
-                Text(pos, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+                Text(pos, style: TextStyle(fontSize: 11, color: posColor)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     name,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -631,7 +672,7 @@ class _HomeState extends State<Home> {
               ],
             ),
           ),
-          Text(rank, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
+          Text(rank, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: rankColor)),
         ],
       ),
     );
