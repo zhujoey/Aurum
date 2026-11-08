@@ -91,7 +91,7 @@ class AuthService {
           'email': user.email,
           'username': finalUsername,
           'username_search': finalUsername.toLowerCase(),
-          if (gender != null) 'gender': gender,
+          'gender': ?gender,
           'lastActive': FieldValue.serverTimestamp(),
         };
 

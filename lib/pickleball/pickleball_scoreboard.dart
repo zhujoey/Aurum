@@ -785,10 +785,10 @@ class _PickleballMatchState extends State<PickleballMatch> with WidgetsBindingOb
             ],
             PopupMenuButton<String>(
               onSelected: (value) async {
-                final localContext = context;
+                final nav = Navigator.of(context);
                 if (value == 'discard') {
                   bool? confirm = await showDialog<bool>(
-                    context: localContext,
+                    context: context,
                     builder: (context) => AlertDialog(
                       title: Text('Discard Match?'.tr),
                       content: Text('This will delete all match data. This action cannot be undone.'.tr),
@@ -805,7 +805,7 @@ class _PickleballMatchState extends State<PickleballMatch> with WidgetsBindingOb
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.remove('active_pickleball_match');
                     if (mounted) {
-                      Navigator.pop(localContext);
+                      nav.pop();
                     }
                   }
                 } else if (value == 'timeout1') {
