@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <mask id="ribs" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+      <rect width="32" height="32" fill="#fff"/>
+      <path d="M12 5.5 L14 20 M16 4 V20 M20 5.5 L18 20" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <g transform="translate(16 16) rotate(40) translate(-16 -16)">
+    <path d="M6 8 Q16 2 26 8 L19.5 20 H12.5 Z" fill="#4ade80" mask="url(#ribs)"/>
+    <path d="M12.5 22 H19.5 V23.5 A3.5 3.5 0 0 1 12.5 23.5 Z" fill="#bbf7d0"/>
+  </g>
+</svg>

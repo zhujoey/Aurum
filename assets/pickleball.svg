@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <mask id="holes" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+      <rect width="32" height="32" fill="#fff"/>
+      <g fill="#000">
+        <circle cx="12" cy="8.5" r="1.2"/>
+        <circle cx="18" cy="8.5" r="1.2"/>
+        <circle cx="15" cy="12" r="1.2"/>
+        <circle cx="11.5" cy="14.5" r="1.2"/>
+        <circle cx="18.5" cy="14.5" r="1.2"/>
+      </g>
+    </mask>
+    <mask id="ballholes" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+      <rect width="32" height="32" fill="#fff"/>
+      <g fill="#000">
+        <circle cx="23.8" cy="24.2" r=".9"/>
+        <circle cx="26.2" cy="24.8" r=".9"/>
+        <circle cx="24.8" cy="27" r=".9"/>
+      </g>
+    </mask>
+  </defs>
+  <g transform="translate(16 16) rotate(45) scale(.95) translate(-16 -16)" mask="url(#holes)">
+    <rect x="7" y="3" width="16" height="17" rx="7" fill="#a855f7"/>
+    <rect x="13" y="20.5" width="4" height="7" rx="2" fill="#c084fc"/>
+  </g>
+  <circle cx="25" cy="25.5" r="4.6" fill="#e9d5ff" mask="url(#ballholes)"/>
+</svg>

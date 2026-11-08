@@ -243,12 +243,12 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
   }
 }
 
-/// Custom Badminton Birdie / Shuttlecock Icon
+/// Custom Badminton Birdie / Shuttlecock Icon matching user SVG
 class BadmintonIcon extends StatelessWidget {
   final double size;
-  final Color color;
+  final Color? color;
 
-  const BadmintonIcon({super.key, this.size = 24.0, this.color = Colors.green});
+  const BadmintonIcon({super.key, this.size = 24.0, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -260,61 +260,76 @@ class BadmintonIcon extends StatelessWidget {
 }
 
 class BadmintonBirdiePainter extends CustomPainter {
-  final Color color;
+  final Color? color;
 
-  const BadmintonBirdiePainter({required this.color});
+  const BadmintonBirdiePainter({this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.08
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final scale = size.width / 32.0;
+    canvas.save();
+    canvas.scale(scale);
 
-    final fillPaint = Paint()
-      ..color = color
+    // Transform: rotate 40 degrees around (16, 16)
+    canvas.translate(16, 16);
+    canvas.rotate(40 * 3.141592653589793 / 180.0);
+    canvas.translate(-16, -16);
+
+    // 1. Feather Skirt
+    final skirtPaint = Paint()
+      ..color = color ?? const Color(0xFF4ADE80)
       ..style = PaintingStyle.fill;
 
-    final cx = size.width * 0.5;
-    final w = size.width;
-    final h = size.height;
+    final skirtPath = Path()
+      ..moveTo(6, 8)
+      ..quadraticBezierTo(16, 2, 26, 8)
+      ..lineTo(19.5, 20)
+      ..lineTo(12.5, 20)
+      ..close();
 
-    // 1. Rounded cork base at bottom
-    final corkRect = Rect.fromCircle(center: Offset(cx, h * 0.80), radius: w * 0.12);
-    canvas.drawArc(corkRect, 0, 3.14159, false, fillPaint);
+    canvas.drawPath(skirtPath, skirtPaint);
 
-    // 2. Flared feather cone outline
-    final conePath = Path()
-      ..moveTo(cx - w * 0.12, h * 0.80)
-      ..lineTo(w * 0.15, h * 0.20)
-      ..quadraticBezierTo(cx, h * 0.14, w * 0.85, h * 0.20)
-      ..lineTo(cx + w * 0.12, h * 0.80);
-    canvas.drawPath(conePath, strokePaint);
+    // Rib lines (veins/cutouts)
+    final ribPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
 
-    // 3. Vertical feather veins
-    canvas.drawLine(Offset(cx - w * 0.04, h * 0.80), Offset(w * 0.38, h * 0.18), strokePaint);
-    canvas.drawLine(Offset(cx, h * 0.80), Offset(cx, h * 0.16), strokePaint);
-    canvas.drawLine(Offset(cx + w * 0.04, h * 0.80), Offset(w * 0.62, h * 0.18), strokePaint);
+    canvas.drawLine(const Offset(12, 5.5), const Offset(14, 20), ribPaint);
+    canvas.drawLine(const Offset(16, 4), const Offset(16, 20), ribPaint);
+    canvas.drawLine(const Offset(20, 5.5), const Offset(18, 20), ribPaint);
 
-    // 4. Horizontal feather band
-    final band1 = Path()
-      ..moveTo(w * 0.24, h * 0.45)
-      ..quadraticBezierTo(cx, h * 0.40, w * 0.76, h * 0.45);
-    canvas.drawPath(band1, strokePaint);
+    // 2. Cork Base
+    final corkPaint = Paint()
+      ..color = color != null ? color!.withValues(alpha: 0.85) : const Color(0xFFBBF7D0)
+      ..style = PaintingStyle.fill;
+
+    final corkPath = Path()
+      ..moveTo(12.5, 22)
+      ..lineTo(19.5, 22)
+      ..lineTo(19.5, 23.5)
+      ..arcToPoint(
+        const Offset(12.5, 23.5),
+        radius: const Radius.circular(3.5),
+        clockwise: true,
+      )
+      ..close();
+    canvas.drawPath(corkPath, corkPaint);
+
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant BadmintonBirdiePainter oldDelegate) => oldDelegate.color != color;
 }
 
-/// Custom Pickleball Paddle & Perforated Ball Icon
+/// Custom Pickleball Paddle & Perforated Ball Icon matching user SVG
 class PickleballIcon extends StatelessWidget {
   final double size;
-  final Color color;
+  final Color? color;
 
-  const PickleballIcon({super.key, this.size = 24.0, this.color = Colors.purple});
+  const PickleballIcon({super.key, this.size = 24.0, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -326,53 +341,68 @@ class PickleballIcon extends StatelessWidget {
 }
 
 class PickleballPainter extends CustomPainter {
-  final Color color;
+  final Color? color;
 
-  const PickleballPainter({required this.color});
+  const PickleballPainter({this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.075
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final scale = size.width / 32.0;
+    canvas.save();
+    canvas.scale(scale);
 
-    final fillPaint = Paint()
-      ..color = color
+    final holePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
-    final w = size.width;
-    final h = size.height;
+    // 1. Paddle (rotate 45deg, scale 0.95 around 16,16)
+    canvas.save();
+    canvas.translate(16, 16);
+    canvas.rotate(45 * 3.141592653589793 / 180.0);
+    canvas.scale(0.95);
+    canvas.translate(-16, -16);
 
-    // 1. Pickleball Paddle Face (rounded rectangle)
-    final paddleRect = RRect.fromRectAndRadius(
-      Rect.fromLTRB(w * 0.10, h * 0.15, w * 0.62, h * 0.65),
-      Radius.circular(w * 0.16),
+    final paddlePaint = Paint()
+      ..color = color ?? const Color(0xFFA855F7)
+      ..style = PaintingStyle.fill;
+
+    final handlePaint = Paint()
+      ..color = color != null ? color!.withValues(alpha: 0.8) : const Color(0xFFC084FC)
+      ..style = PaintingStyle.fill;
+
+    // Paddle Head
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTWH(7, 3, 16, 17), const Radius.circular(7)),
+      paddlePaint,
     );
-    canvas.drawRRect(paddleRect, strokePaint);
+
+    // Paddle Holes
+    canvas.drawCircle(const Offset(12, 8.5), 1.2, holePaint);
+    canvas.drawCircle(const Offset(18, 8.5), 1.2, holePaint);
+    canvas.drawCircle(const Offset(15, 12), 1.2, holePaint);
+    canvas.drawCircle(const Offset(11.5, 14.5), 1.2, holePaint);
+    canvas.drawCircle(const Offset(18.5, 14.5), 1.2, holePaint);
 
     // Paddle Handle
-    final handlePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.11
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(w * 0.36, h * 0.65), Offset(w * 0.24, h * 0.90), handlePaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTWH(13, 20.5, 4, 7), const Radius.circular(2)),
+      handlePaint,
+    );
+    canvas.restore();
 
-    // 2. Perforated Pickleball
-    final ballCenter = Offset(w * 0.76, h * 0.38);
-    final ballRadius = w * 0.20;
-    canvas.drawCircle(ballCenter, ballRadius, strokePaint);
+    // 2. Perforated Ball
+    final ballPaint = Paint()
+      ..color = color != null ? color!.withValues(alpha: 0.9) : const Color(0xFFE9D5FF)
+      ..style = PaintingStyle.fill;
 
-    // Holes inside the pickleball
-    final holeRadius = w * 0.035;
-    canvas.drawCircle(ballCenter, holeRadius, fillPaint);
-    canvas.drawCircle(Offset(w * 0.76 - w * 0.09, h * 0.38 - w * 0.07), holeRadius * 0.8, fillPaint);
-    canvas.drawCircle(Offset(w * 0.76 + w * 0.09, h * 0.38 - w * 0.07), holeRadius * 0.8, fillPaint);
-    canvas.drawCircle(Offset(w * 0.76 - w * 0.09, h * 0.38 + w * 0.07), holeRadius * 0.8, fillPaint);
-    canvas.drawCircle(Offset(w * 0.76 + w * 0.09, h * 0.38 + w * 0.07), holeRadius * 0.8, fillPaint);
+    canvas.drawCircle(const Offset(25, 25.5), 4.6, ballPaint);
+
+    // Ball Holes
+    canvas.drawCircle(const Offset(23.8, 24.2), 0.9, holePaint);
+    canvas.drawCircle(const Offset(26.2, 24.8), 0.9, holePaint);
+    canvas.drawCircle(const Offset(24.8, 27), 0.9, holePaint);
+
+    canvas.restore();
   }
 
   @override
