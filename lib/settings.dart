@@ -280,17 +280,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       );
                     },
                   ),
-                  ValueListenableBuilder<bool>(
-                    valueListenable: _themeService.useTrueDark,
-                    builder: (context, trueDark, child) {
-                      return SwitchListTile(
-                        title: Text('True Black (AMOLED)'.tr),
-                        subtitle: Text('Pure black backgrounds for OLED screens'.tr),
-                        value: trueDark,
-                        onChanged: (val) => _themeService.setTrueDark(val),
-                      );
-                    },
-                  ),
                   const Divider(),
 
                   // Accent Color Section
@@ -299,12 +288,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     valueListenable: _themeService.seedColor,
                     builder: (context, currentSeed, child) {
                       final List<Color> availableColors = [
-                        const Color(0xFFD4AF37), // Aurum Gold
-                        const Color(0xFF10B981), // Emerald
-                        const Color(0xFF06B6D4), // Cyber Cyan
-                        const Color(0xFF8B5CF6), // Royal Purple
-                        const Color(0xFFF43F5E), // Rose Pink
-                        const Color(0xFFF97316), // Sunset Orange
                         Colors.blue,
                         Colors.indigo,
                         Colors.deepPurple,

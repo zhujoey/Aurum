@@ -11,7 +11,7 @@ class ThemeService {
   static const MethodChannel _themeChannel = MethodChannel('com.example.aurum/theme');
 
   final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.dark);
-  final ValueNotifier<Color> seedColor = ValueNotifier(const Color(0xFFD4AF37));
+  final ValueNotifier<Color> seedColor = ValueNotifier(Colors.blue);
   final ValueNotifier<bool> useTrueDark = ValueNotifier(true);
 
   Future<void> init([SharedPreferences? prefs]) async {
@@ -33,8 +33,8 @@ class ThemeService {
       seedColor.value = Color(savedColor);
     }
 
-    // True Dark (AMOLED Always On / Slate Toggle)
-    useTrueDark.value = p.getBool('useTrueDark') ?? true;
+    // True Dark (AMOLED Always On)
+    useTrueDark.value = true;
 
     // Sync app icon and native night mode with current theme
     await updateAppIcon(themeMode.value);
