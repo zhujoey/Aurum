@@ -356,7 +356,7 @@ class _HomeState extends State<Home> {
                           categoryTitle: 'Quick Match',
                           accentColor: Colors.green,
                           title: hasActiveMatch ? 'Active Match' : 'Instant Match',
-                          subtitle: hasActiveMatch ? 'Match in progress' : 'GPS Ready • Finding opponent',
+                          subtitle: hasActiveMatch ? 'Match in progress' : 'Start a match',
                           icon: Icons.sports_tennis,
                           onTap: () => UIHelpers.smoothPush(context, const NewMatch()),
                           previewContent: Row(
