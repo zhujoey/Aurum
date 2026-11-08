@@ -362,10 +362,15 @@ class _HomeState extends State<Home> {
                           previewContent: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                hasActiveMatch ? 'Tap to Resume Match' : 'Ready to Play',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                              Expanded(
+                                child: Text(
+                                  hasActiveMatch ? 'Tap to Resume Match' : 'Ready to Play',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 4),
                               Icon(hasActiveMatch ? Icons.play_arrow : Icons.explore, color: Colors.greenAccent, size: 22),
                             ],
                           ),
@@ -450,10 +455,15 @@ class _HomeState extends State<Home> {
                               previewContent: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    previewText,
-                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                  Expanded(
+                                    child: Text(
+                                      previewText,
+                                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
+                                  const SizedBox(width: 4),
                                   const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
                                 ],
                               ),
@@ -563,6 +573,8 @@ class _HomeState extends State<Home> {
                                           fontWeight: FontWeight.w900,
                                           color: Colors.white,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
@@ -603,12 +615,21 @@ class _HomeState extends State<Home> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Text(pos, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
-              const SizedBox(width: 8),
-              Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
-            ],
+          Expanded(
+            child: Row(
+              children: [
+                Text(pos, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
           Text(rank, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.greenAccent)),
         ],
