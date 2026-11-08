@@ -200,131 +200,141 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (!_isGoogleSigningIn) ...[
-                  Image.asset(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? 'assets/logo_dark.png'
-                        : 'assets/logo_light.png',
-                    height: 220,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Image.asset('assets/logo_light.png', height: 220);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Aurum',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email'.tr,
-                    prefixIcon: const Icon(Icons.email),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => value!.isEmpty ? 'Please enter your email'.tr : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Password'.tr,
-                    prefixIcon: const Icon(Icons.lock),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => value!.isEmpty ? 'Please enter your password'.tr : null,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Checkbox(
-                          value: _rememberMe,
-                          onChanged: (value) => setState(() => _rememberMe = value ?? false),
+                        if (!_isGoogleSigningIn) ...[
+                          Image.asset(
+                            Theme.of(context).brightness == Brightness.dark
+                                ? 'assets/logo_dark.png'
+                                : 'assets/logo_light.png',
+                            height: 220,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset('assets/logo_light.png', height: 220);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Aurum',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email'.tr,
+                            prefixIcon: const Icon(Icons.email),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Please enter your email'.tr : null,
                         ),
-                        Text('Remember Me'.tr),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Password'.tr,
+                            prefixIcon: const Icon(Icons.lock),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Please enter your password'.tr : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: _rememberMe,
+                                  onChanged: (value) => setState(() => _rememberMe = value ?? false),
+                                ),
+                                Text('Remember Me'.tr),
+                              ],
+                            ),
+                            TextButton(
+                              onPressed: _showForgotPasswordDialog,
+                              child: Text('Forgot Password?'.tr),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _isLoading 
+                          ? const Center(child: SmoothSpinner())
+                          : ElevatedButton(
+                              onPressed: _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text('Login'.tr, style: const TextStyle(fontSize: 18)),
+                            ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('OR'.tr, style: const TextStyle(color: Colors.grey)),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _handleGoogleSignIn,
+                          icon: const Icon(Icons.login, color: Colors.red), // Placeholder icon
+                          label: Text('Sign in with Google'.tr),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Colors.grey),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("Don't have an account?".tr),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const SignUp()),
+                                );
+                              },
+                              child: Text('Sign Up'.tr),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                    TextButton(
-                      onPressed: _showForgotPasswordDialog,
-                      child: Text('Forgot Password?'.tr),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _isLoading 
-                  ? const Center(child: SmoothSpinner())
-                  : ElevatedButton(
-                      onPressed: _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: Text('Login'.tr, style: const TextStyle(fontSize: 18)),
-                    ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR'.tr, style: const TextStyle(color: Colors.grey)),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  icon: const Icon(Icons.login, color: Colors.red), // Placeholder icon
-                  label: Text('Sign in with Google'.tr),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: Colors.grey),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text("Don't have an account?".tr),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SignUp()),
-                        );
-                      },
-                      child: Text('Sign Up'.tr),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

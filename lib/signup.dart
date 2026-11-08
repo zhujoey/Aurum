@@ -139,118 +139,128 @@ class _SignUpState extends State<SignUp> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Create Account'.tr)),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Join Us'.tr,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: InputDecoration(
-                    labelText: 'Username'.tr,
-                    prefixIcon: const Icon(Icons.person_outline),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => value!.isEmpty ? 'Enter a username'.tr : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email'.tr,
-                    prefixIcon: const Icon(Icons.email),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => value!.isEmpty ? 'Enter email'.tr : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Password'.tr,
-                    prefixIcon: const Icon(Icons.lock),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => value!.length < 6 ? 'Password must be 6+ chars'.tr : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password'.tr,
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => value!.isEmpty ? 'Confirm your password'.tr : null,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _selectedGender,
-                  decoration: InputDecoration(
-                    labelText: 'Gender'.tr,
-                    prefixIcon: const Icon(Icons.wc),
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: [
-                    DropdownMenuItem(value: 'Male', child: Text('Male'.tr)),
-                    DropdownMenuItem(value: 'Female', child: Text('Female'.tr)),
-                  ],
-                  onChanged: (val) => setState(() => _selectedGender = val!),
-                ),
-                const SizedBox(height: 24),
-                _isLoading 
-                  ? const Center(child: SmoothSpinner())
-                  : ElevatedButton(
-                      onPressed: _handleSignUp,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text('Sign Up'.tr, style: const TextStyle(fontSize: 18)),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Join Us'.tr,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        TextFormField(
+                          controller: _usernameController,
+                          decoration: InputDecoration(
+                            labelText: 'Username'.tr,
+                            prefixIcon: const Icon(Icons.person_outline),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Enter a username'.tr : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email'.tr,
+                            prefixIcon: const Icon(Icons.email),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Enter email'.tr : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Password'.tr,
+                            prefixIcon: const Icon(Icons.lock),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.length < 6 ? 'Password must be 6+ chars'.tr : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Confirm Password'.tr,
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Confirm your password'.tr : null,
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: _selectedGender,
+                          decoration: InputDecoration(
+                            labelText: 'Gender'.tr,
+                            prefixIcon: const Icon(Icons.wc),
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: 'Male', child: Text('Male'.tr)),
+                            DropdownMenuItem(value: 'Female', child: Text('Female'.tr)),
+                          ],
+                          onChanged: (val) => setState(() => _selectedGender = val!),
+                        ),
+                        const SizedBox(height: 24),
+                        _isLoading 
+                          ? const Center(child: SmoothSpinner())
+                          : ElevatedButton(
+                              onPressed: _handleSignUp,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text('Sign Up'.tr, style: const TextStyle(fontSize: 18)),
+                            ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('OR'.tr, style: const TextStyle(color: Colors.grey)),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _handleGoogleSignIn,
+                          icon: const Icon(Icons.login, color: Colors.red),
+                          label: Text('Sign in with Google'.tr),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Colors.grey),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
                     ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR'.tr, style: const TextStyle(color: Colors.grey)),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  icon: const Icon(Icons.login, color: Colors.red),
-                  label: Text('Sign in with Google'.tr),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: Colors.grey),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
