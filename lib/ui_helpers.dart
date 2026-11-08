@@ -165,7 +165,6 @@ class MagnifyingGlassSvgPainter extends CustomPainter {
 
     final rect = Rect.fromCircle(center: const Offset(50, 50), radius: 35);
     canvas.drawArc(rect, 0.4, 5.0, false, paint);
-    canvas.drawLine(const Offset(75, 75), const Offset(95, 95), paint);
   }
 
   @override
