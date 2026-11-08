@@ -6,6 +6,7 @@ import 'package:aurum/club_requests.dart';
 import 'package:aurum/language_service.dart';
 import 'package:aurum/widgets/user_avatar.dart';
 import 'package:aurum/widgets/user_profile_sheet.dart';
+import 'package:aurum/ui_helpers.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
