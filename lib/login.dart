@@ -4,6 +4,7 @@ import 'package:aurum/home.dart';
 import 'package:aurum/signup.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/language_service.dart';
+import 'package:aurum/ui_helpers.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
   final messenger = ScaffoldMessenger.of(context);
@@ -272,7 +273,7 @@ class _LoginState extends State<Login> {
                 ),
                 const SizedBox(height: 16),
                 _isLoading 
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: SmoothSpinner())
                   : ElevatedButton(
                       onPressed: _handleLogin,
                       style: ElevatedButton.styleFrom(

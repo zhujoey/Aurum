@@ -146,3 +146,54 @@ class _PressableCardState extends State<PressableCard> with SingleTickerProvider
     );
   }
 }
+
+/// A buttery smooth spinning loading indicator wheel
+class SmoothSpinner extends StatefulWidget {
+  final double size;
+  final Color? color;
+  final double strokeWidth;
+
+  const SmoothSpinner({super.key, this.size = 36.0, this.color, this.strokeWidth = 3.5});
+
+  @override
+  State<SmoothSpinner> createState() => _SmoothSpinnerState();
+}
+
+class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.rotate(
+            angle: _controller.value * 2.0 * 3.141592653589793,
+            child: CircularProgressIndicator(
+              strokeWidth: widget.strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(widget.color ?? Theme.of(context).colorScheme.primary),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

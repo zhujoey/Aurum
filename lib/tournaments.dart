@@ -11,6 +11,7 @@ import 'package:aurum/pickleball/pickleball_scoreboard.dart';
 import 'package:aurum/language_service.dart';
 import 'package:aurum/widgets/user_avatar.dart';
 import 'package:aurum/widgets/user_profile_sheet.dart';
+import 'package:aurum/ui_helpers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void _showAppSnackBar(BuildContext context, SnackBar snackBar) {
@@ -195,13 +196,13 @@ class TournamentsPage extends StatelessWidget {
     return StreamBuilder<User?>(
         stream: authService.userStream,
         builder: (context, userSnapshot) {
-          if (!userSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          if (!userSnapshot.hasData) return const Scaffold(body: Center(child: SmoothSpinner()));
           final user = userSnapshot.data!;
 
           return StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
             builder: (context, profileSnapshot) {
-              if (!profileSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              if (!profileSnapshot.hasData) return const Scaffold(body: Center(child: SmoothSpinner()));
 
               final profileData = profileSnapshot.data!.data() as Map<String, dynamic>?;
               final String? ownedClubId = profileData?['ownedClubId'];
@@ -267,7 +268,7 @@ class _ClubTournamentsView extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('clubs').doc(clubId).snapshots(),
       builder: (context, clubSnapshot) {
-        if (!clubSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        if (!clubSnapshot.hasData) return const Scaffold(body: Center(child: SmoothSpinner()));
 
         final clubData = clubSnapshot.data!.data() as Map<String, dynamic>?;
         final String clubSport = clubData?['sport'] ?? 'Multiple';
