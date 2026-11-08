@@ -52,35 +52,32 @@
     html, body {
       height: 100%;
       margin: 0;
-      background-color: #ffffff;
+      background-color: #000000;
     }
 
     #splash {
       position: fixed;
       inset: 0;
       z-index: 9999;
-      background-color: #ffffff;
+      background: #000000;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    #splash img {
+    #splash svg {
       width: 128px;
       height: 128px;
-      object-fit: contain;
+    }
+
+    #ring {
+      transform-origin: 50px 50px;
       animation: spin 2s linear infinite;
     }
 
     @keyframes spin {
       to {
         transform: rotate(360deg);
-      }
-    }
-
-    @media (prefers-color-scheme: dark) {
-      body, #splash {
-        background-color: #000000;
       }
     }
   </style>
@@ -97,11 +94,24 @@
   </script>
 </head>
 <body>
-  <picture id="splash">
-      <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
-      <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
-      <img aria-hidden="true" src="splash/img/light-1x.png" alt="Aurum">
-  </picture>
+  <div id="splash">
+    <svg viewBox="0 0 100 100" fill="none" stroke-width="12">
+      <g id="ring">
+        <!-- green, upper right -->
+        <circle cx="50" cy="50" r="40" stroke="#10C98A"
+                stroke-dasharray="55.8 195.5" transform="rotate(275 50 50)"/>
+        <!-- green, lower right -->
+        <circle cx="50" cy="50" r="40" stroke="#10C98A"
+                stroke-dasharray="87.3 164" transform="rotate(5 50 50)"/>
+        <!-- white, left -->
+        <circle cx="50" cy="50" r="40" stroke="#FFFFFF"
+                stroke-dasharray="87.3 164" transform="rotate(140 50 50)"/>
+      </g>
+      <!-- star stays still -->
+      <polygon fill="#10C98A" stroke="none"
+        points="50,36 53.3,45.5 63.3,45.7 55.3,51.7 58.2,61.3 50,55.6 41.8,61.3 44.7,51.7 36.7,45.7 46.7,45.5"/>
+    </svg>
+  </div>
   
   
   
