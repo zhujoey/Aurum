@@ -802,7 +802,7 @@ class _ClubTournamentsView extends StatelessWidget {
                 ],
                 const SizedBox(height: 16),
                 ListTile(
-                  leading: const Icon(Icons.sports, color: Colors.blue),
+                  leading: UIHelpers.getSportIconWidget(clubSport, size: 24, color: Colors.blue),
                   title: Text('Sport'.tr),
                   subtitle: Text(clubSport.tr),
                   contentPadding: EdgeInsets.zero,
@@ -1051,7 +1051,7 @@ class TournamentDetailsPage extends StatelessWidget {
                               ),
                             ),
                             Chip(
-                              avatar: const Icon(Icons.sports, size: 16),
+                              avatar: UIHelpers.getSportIconWidget(sport, size: 16),
                               label: Text(sport.tr),
                             ),
                             Chip(

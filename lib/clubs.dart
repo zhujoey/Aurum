@@ -377,7 +377,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 children: [
                   Chip(
                     label: Text(sport.tr),
-                    avatar: const Icon(Icons.sports, size: 16),
+                    avatar: UIHelpers.getSportIconWidget(sport, size: 16),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(

@@ -39,8 +39,7 @@ class NewMatch extends StatelessWidget {
                     _buildSportCard(
                       context,
                       'Table Tennis',
-                      Icons.sports_tennis,
-                      Colors.blue,
+                      UIHelpers.getSportIconWidget('Table Tennis', size: 40, color: hasActiveMatch ? Colors.grey : Colors.blue),
                       hasActiveMatch 
                         ? null 
                         : () {
@@ -53,8 +52,7 @@ class NewMatch extends StatelessWidget {
                     _buildSportCard(
                       context,
                       'Badminton',
-                      Icons.sports,
-                      Colors.green,
+                      UIHelpers.getSportIconWidget('Badminton', size: 40, color: hasActiveMatch ? Colors.grey : Colors.green),
                       hasActiveMatch 
                         ? null 
                         : () {
@@ -67,8 +65,7 @@ class NewMatch extends StatelessWidget {
                     _buildSportCard(
                       context,
                       'Tennis',
-                      Icons.sports_tennis,
-                      Colors.orange,
+                      UIHelpers.getSportIconWidget('Tennis', size: 40, color: hasActiveMatch ? Colors.grey : Colors.orange),
                       hasActiveMatch 
                         ? null 
                         : () {
@@ -81,8 +78,7 @@ class NewMatch extends StatelessWidget {
                     _buildSportCard(
                       context,
                       'Pickleball',
-                      Icons.sports_volleyball,
-                      Colors.purple,
+                      UIHelpers.getSportIconWidget('Pickleball', size: 40, color: hasActiveMatch ? Colors.grey : Colors.purple),
                       hasActiveMatch 
                         ? null 
                         : () {
@@ -102,7 +98,7 @@ class NewMatch extends StatelessWidget {
     );
   }
 
-  Widget _buildSportCard(BuildContext context, String title, IconData icon, Color color, VoidCallback? onTap) {
+  Widget _buildSportCard(BuildContext context, String title, Widget iconWidget, VoidCallback? onTap) {
     final bool isDisabled = onTap == null;
     final cardWidget = Card(
       elevation: isDisabled ? 1 : 4,
@@ -110,7 +106,7 @@ class NewMatch extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        leading: Icon(icon, size: 40, color: isDisabled ? Colors.grey : color),
+        leading: iconWidget,
         title: Text(
           title.tr,
           style: TextStyle(

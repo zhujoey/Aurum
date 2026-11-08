@@ -226,4 +226,155 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
       ),
     );
   }
+
+  /// Returns a dedicated custom or Material icon widget for any sport name.
+  static Widget getSportIconWidget(String sport, {double size = 24.0, Color? color}) {
+    final s = sport.toLowerCase();
+    if (s.contains('badminton')) {
+      return BadmintonIcon(size: size, color: color ?? Colors.green);
+    } else if (s.contains('pickleball')) {
+      return PickleballIcon(size: size, color: color ?? Colors.purple);
+    } else if (s.contains('tennis')) {
+      return Icon(Icons.sports_tennis, size: size, color: color ?? Colors.orange);
+    } else if (s.contains('table')) {
+      return Icon(Icons.sports_tennis, size: size, color: color ?? Colors.blue);
+    }
+    return Icon(Icons.sports, size: size, color: color);
+  }
+}
+
+/// Custom Badminton Birdie / Shuttlecock Icon
+class BadmintonIcon extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const BadmintonIcon({super.key, this.size = 24.0, this.color = Colors.green});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: BadmintonBirdiePainter(color: color),
+    );
+  }
+}
+
+class BadmintonBirdiePainter extends CustomPainter {
+  final Color color;
+
+  const BadmintonBirdiePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.08
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final cx = size.width * 0.5;
+    final w = size.width;
+    final h = size.height;
+
+    // 1. Rounded cork base at bottom
+    final corkRect = Rect.fromCircle(center: Offset(cx, h * 0.80), radius: w * 0.12);
+    canvas.drawArc(corkRect, 0, 3.14159, false, fillPaint);
+
+    // 2. Flared feather cone outline
+    final conePath = Path()
+      ..moveTo(cx - w * 0.12, h * 0.80)
+      ..lineTo(w * 0.15, h * 0.20)
+      ..quadraticBezierTo(cx, h * 0.14, w * 0.85, h * 0.20)
+      ..lineTo(cx + w * 0.12, h * 0.80);
+    canvas.drawPath(conePath, strokePaint);
+
+    // 3. Vertical feather veins
+    canvas.drawLine(Offset(cx - w * 0.04, h * 0.80), Offset(w * 0.38, h * 0.18), strokePaint);
+    canvas.drawLine(Offset(cx, h * 0.80), Offset(cx, h * 0.16), strokePaint);
+    canvas.drawLine(Offset(cx + w * 0.04, h * 0.80), Offset(w * 0.62, h * 0.18), strokePaint);
+
+    // 4. Horizontal feather band
+    final band1 = Path()
+      ..moveTo(w * 0.24, h * 0.45)
+      ..quadraticBezierTo(cx, h * 0.40, w * 0.76, h * 0.45);
+    canvas.drawPath(band1, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant BadmintonBirdiePainter oldDelegate) => oldDelegate.color != color;
+}
+
+/// Custom Pickleball Paddle & Perforated Ball Icon
+class PickleballIcon extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const PickleballIcon({super.key, this.size = 24.0, this.color = Colors.purple});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: PickleballPainter(color: color),
+    );
+  }
+}
+
+class PickleballPainter extends CustomPainter {
+  final Color color;
+
+  const PickleballPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.075
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final w = size.width;
+    final h = size.height;
+
+    // 1. Pickleball Paddle Face (rounded rectangle)
+    final paddleRect = RRect.fromRectAndRadius(
+      Rect.fromLTRB(w * 0.10, h * 0.15, w * 0.62, h * 0.65),
+      Radius.circular(w * 0.16),
+    );
+    canvas.drawRRect(paddleRect, strokePaint);
+
+    // Paddle Handle
+    final handlePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.11
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(w * 0.36, h * 0.65), Offset(w * 0.24, h * 0.90), handlePaint);
+
+    // 2. Perforated Pickleball
+    final ballCenter = Offset(w * 0.76, h * 0.38);
+    final ballRadius = w * 0.20;
+    canvas.drawCircle(ballCenter, ballRadius, strokePaint);
+
+    // Holes inside the pickleball
+    final holeRadius = w * 0.035;
+    canvas.drawCircle(ballCenter, holeRadius, fillPaint);
+    canvas.drawCircle(Offset(w * 0.76 - w * 0.09, h * 0.38 - w * 0.07), holeRadius * 0.8, fillPaint);
+    canvas.drawCircle(Offset(w * 0.76 + w * 0.09, h * 0.38 - w * 0.07), holeRadius * 0.8, fillPaint);
+    canvas.drawCircle(Offset(w * 0.76 - w * 0.09, h * 0.38 + w * 0.07), holeRadius * 0.8, fillPaint);
+    canvas.drawCircle(Offset(w * 0.76 + w * 0.09, h * 0.38 + w * 0.07), holeRadius * 0.8, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant PickleballPainter oldDelegate) => oldDelegate.color != color;
 }
