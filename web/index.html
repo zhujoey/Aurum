@@ -49,67 +49,39 @@
   
   
   <style id="splash-screen-style">
-    html {
-      height: 100%
-    }
-
-    body {
+    html, body {
+      height: 100%;
       margin: 0;
-      min-height: 100%;
       background-color: #ffffff;
-          background-size: 100% 100%;
     }
 
-    .center {
-      margin: 0;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      -ms-transform: translate(-50%, -50%);
-      transform: translate(-50%, -50%);
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background-color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .contain {
-      display:block;
-      width:100%; height:100%;
+    #splash img {
+      width: 128px;
+      height: 128px;
       object-fit: contain;
+      animation: spin 2s linear infinite;
     }
 
-    .stretch {
-      display:block;
-      width:100%; height:100%;
-    }
-
-    .cover {
-      display:block;
-      width:100%; height:100%;
-      object-fit: cover;
-    }
-
-    .bottom {
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      -ms-transform: translate(-50%, 0);
-      transform: translate(-50%, 0);
-    }
-
-    .bottomLeft {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-    }
-
-    .bottomRight {
-      position: absolute;
-      bottom: 0;
-      right: 0;
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     @media (prefers-color-scheme: dark) {
-      body {
+      body, #splash {
         background-color: #000000;
-          }
+      }
     }
   </style>
   <script id="splash-screen-script">
@@ -118,13 +90,17 @@
       document.getElementById("splash-branding")?.remove();
       document.body.style.background = "transparent";
     }
+
+    window.addEventListener('flutter-first-frame', () => {
+      removeSplashFromWeb();
+    });
   </script>
 </head>
 <body>
   <picture id="splash">
       <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
       <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
-      <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
+      <img aria-hidden="true" src="splash/img/light-1x.png" alt="Aurum">
   </picture>
   
   

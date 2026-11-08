@@ -147,11 +147,38 @@ class _PressableCardState extends State<PressableCard> with SingleTickerProvider
   }
 }
 
-/// A buttery smooth spinning logo loader (matches the HTML/CSS 2s linear infinite spin on black background)
+class MagnifyingGlassSvgPainter extends CustomPainter {
+  final Color color;
+
+  const MagnifyingGlassSvgPainter({this.color = const Color(0xFF10B981)});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 100.0;
+    canvas.scale(scale);
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10.0
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromCircle(center: const Offset(50, 50), radius: 35);
+    canvas.drawArc(rect, 0.4, 5.0, false, paint);
+    canvas.drawLine(const Offset(75, 75), const Offset(95, 95), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant MagnifyingGlassSvgPainter oldDelegate) => oldDelegate.color != color;
+}
+
+/// A buttery smooth spinning loader wheel matching the SVG/CSS animation
 class SmoothSpinner extends StatefulWidget {
   final double size;
+  final Color? color;
+  final bool useLogo;
 
-  const SmoothSpinner({super.key, this.size = 100.0});
+  const SmoothSpinner({super.key, this.size = 64.0, this.color, this.useLogo = false});
 
   @override
   State<SmoothSpinner> createState() => _SmoothSpinnerState();
@@ -177,28 +204,26 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final spinnerColor = widget.color ?? const Color(0xFF10B981);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform.rotate(
-              angle: _controller.value * 2.0 * 3.141592653589793,
-              child: Image.asset(
-                isDark ? 'assets/logo_dark.png' : 'assets/logo_light.png',
-                width: widget.size,
-                height: widget.size,
-                errorBuilder: (context, error, stackTrace) => Image.asset(
-                  'assets/logo_light.png',
-                  width: widget.size,
-                  height: widget.size,
-                ),
-              ),
-            );
-          },
-        ),
+
+    final Widget spinnerChild = widget.useLogo
+        ? Image.asset(
+            isDark ? 'assets/logo_dark.png' : 'assets/logo_light.png',
+            width: widget.size,
+            height: widget.size,
+          )
+        : CustomPaint(
+            size: Size(widget.size, widget.size),
+            painter: MagnifyingGlassSvgPainter(color: spinnerColor),
+          );
+
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: RotationTransition(
+        turns: _controller,
+        child: spinnerChild,
       ),
     );
   }
