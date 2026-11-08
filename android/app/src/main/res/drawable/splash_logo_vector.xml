@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp" android:height="160dp"
+    android:viewportWidth="160" android:viewportHeight="160">
+
+    <group android:translateX="30" android:translateY="30">
+        <group android:name="ring" android:pivotX="50" android:pivotY="50">
+            <path android:strokeColor="@color/splash_green" android:strokeWidth="12"
+                android:pathData="M53.49,10.15 A40,40 0 0,1 89.85,46.51"/>
+            <path android:strokeColor="@color/splash_green" android:strokeWidth="12"
+                android:pathData="M89.85,53.49 A40,40 0 0,1 24.29,80.64"/>
+            <path android:strokeColor="@color/splash_white" android:strokeWidth="12"
+                android:pathData="M19.36,75.71 A40,40 0 0,1 46.51,10.15"/>
+        </group>
+        <path android:fillColor="@color/splash_green"
+            android:pathData="M50,36 L53.3,45.5 L63.3,45.7 L55.3,51.7 L58.2,61.3 L50,55.6 L41.8,61.3 L44.7,51.7 L36.7,45.7 L46.7,45.5 Z"/>
+    </group>
+</vector>
