@@ -82,6 +82,21 @@ class UIHelpers {
     await Future.delayed(const Duration(milliseconds: 60));
     HapticFeedback.mediumImpact();
   }
+
+  /// Returns a dedicated custom or Material icon widget for any sport name.
+  static Widget getSportIconWidget(String sport, {double size = 24.0, Color? color}) {
+    final s = sport.toLowerCase();
+    if (s.contains('badminton')) {
+      return BadmintonIcon(size: size, color: color ?? Colors.green);
+    } else if (s.contains('pickleball')) {
+      return PickleballIcon(size: size, color: color ?? Colors.purple);
+    } else if (s.contains('tennis')) {
+      return Icon(Icons.sports_tennis, size: size, color: color ?? Colors.orange);
+    } else if (s.contains('table')) {
+      return Icon(Icons.sports_tennis, size: size, color: color ?? Colors.blue);
+    }
+    return Icon(Icons.sports, size: size, color: color);
+  }
 }
 
 /// A card with spring physics scale animation (Stiffness: 300, Damping: 24, Mass: 0.8)
@@ -225,21 +240,6 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
         child: spinnerChild,
       ),
     );
-  }
-
-  /// Returns a dedicated custom or Material icon widget for any sport name.
-  static Widget getSportIconWidget(String sport, {double size = 24.0, Color? color}) {
-    final s = sport.toLowerCase();
-    if (s.contains('badminton')) {
-      return BadmintonIcon(size: size, color: color ?? Colors.green);
-    } else if (s.contains('pickleball')) {
-      return PickleballIcon(size: size, color: color ?? Colors.purple);
-    } else if (s.contains('tennis')) {
-      return Icon(Icons.sports_tennis, size: size, color: color ?? Colors.orange);
-    } else if (s.contains('table')) {
-      return Icon(Icons.sports_tennis, size: size, color: color ?? Colors.blue);
-    }
-    return Icon(Icons.sports, size: size, color: color);
   }
 }
 
