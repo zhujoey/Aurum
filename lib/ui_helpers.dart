@@ -147,13 +147,13 @@ class _PressableCardState extends State<PressableCard> with SingleTickerProvider
   }
 }
 
-/// A buttery smooth spinning loading indicator wheel
+/// A buttery smooth spinning loading indicator with a magnifying glass and star
 class SmoothSpinner extends StatefulWidget {
   final double size;
   final Color? color;
   final double strokeWidth;
 
-  const SmoothSpinner({super.key, this.size = 36.0, this.color, this.strokeWidth = 3.5});
+  const SmoothSpinner({super.key, this.size = 48.0, this.color, this.strokeWidth = 4.0});
 
   @override
   State<SmoothSpinner> createState() => _SmoothSpinnerState();
@@ -167,7 +167,7 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
 
@@ -179,20 +179,35 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = widget.color ?? Theme.of(context).colorScheme.primary;
     return SizedBox(
       width: widget.size,
       height: widget.size,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Transform.rotate(
-            angle: _controller.value * 2.0 * 3.141592653589793,
-            child: CircularProgressIndicator(
-              strokeWidth: widget.strokeWidth,
-              valueColor: AlwaysStoppedAnimation<Color>(widget.color ?? Theme.of(context).colorScheme.primary),
-            ),
-          );
-        },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Rotating outer ring
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.rotate(
+                angle: _controller.value * 2.0 * 3.141592653589793,
+                child: CircularProgressIndicator(
+                  strokeWidth: widget.strokeWidth,
+                  valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+                ),
+              );
+            },
+          ),
+          // Magnifying glass with star inside
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(Icons.search, size: widget.size * 0.65, color: activeColor),
+              Icon(Icons.star, size: widget.size * 0.32, color: Colors.white),
+            ],
+          ),
+        ],
       ),
     );
   }
