@@ -147,13 +147,11 @@ class _PressableCardState extends State<PressableCard> with SingleTickerProvider
   }
 }
 
-/// A buttery smooth spinning loading indicator with a magnifying glass and star
+/// A buttery smooth spinning logo loader (matches the HTML/CSS 2s linear infinite spin on black background)
 class SmoothSpinner extends StatefulWidget {
   final double size;
-  final Color? color;
-  final double strokeWidth;
 
-  const SmoothSpinner({super.key, this.size = 48.0, this.color, this.strokeWidth = 4.0});
+  const SmoothSpinner({super.key, this.size = 100.0});
 
   @override
   State<SmoothSpinner> createState() => _SmoothSpinnerState();
@@ -167,7 +165,7 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(seconds: 2),
     )..repeat();
   }
 
@@ -179,35 +177,28 @@ class _SmoothSpinnerState extends State<SmoothSpinner> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = widget.color ?? Theme.of(context).colorScheme.primary;
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Rotating outer ring
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return Transform.rotate(
-                angle: _controller.value * 2.0 * 3.141592653589793,
-                child: CircularProgressIndicator(
-                  strokeWidth: widget.strokeWidth,
-                  valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Transform.rotate(
+              angle: _controller.value * 2.0 * 3.141592653589793,
+              child: Image.asset(
+                isDark ? 'assets/logo_dark.png' : 'assets/logo_light.png',
+                width: widget.size,
+                height: widget.size,
+                errorBuilder: (context, error, stackTrace) => Image.asset(
+                  'assets/logo_light.png',
+                  width: widget.size,
+                  height: widget.size,
                 ),
-              );
-            },
-          ),
-          // Magnifying glass with star inside
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(Icons.search, size: widget.size * 0.65, color: activeColor),
-              Icon(Icons.star, size: widget.size * 0.32, color: Colors.white),
-            ],
-          ),
-        ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
