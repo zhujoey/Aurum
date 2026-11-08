@@ -1951,7 +1951,11 @@ class TournamentDetailsPage extends StatelessWidget {
                         stream: authService.getClubMembers(clubId),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                          final members = snapshot.data!.docs;
+                          final members = snapshot.data!.docs.where((doc) {
+                            final m = doc.data() as Map<String, dynamic>;
+                            final role = m['role'] ?? 'member';
+                            return role != 'owner';
+                          }).toList();
 
                           if (members.isEmpty) {
                             return const Center(child: Text('No members in club.', style: TextStyle(color: Colors.grey)));

@@ -9,7 +9,6 @@ import 'package:aurum/clubs.dart';
 import 'package:aurum/tournaments.dart';
 import 'package:aurum/rankings.dart';
 import 'package:aurum/language_service.dart';
-import 'package:aurum/widgets/active_match_banner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/ui_helpers.dart';
@@ -127,12 +126,9 @@ class _HomeState extends State<Home> {
     super.dispose();
   }
 
-  Widget _buildActiveMatchBanner(DocumentSnapshot matchDoc) {
-    return ActiveMatchBanner(matchDoc: matchDoc);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final currentUid = _authService.currentUser?.uid;
     return ValueListenableBuilder<int>(
       valueListenable: LanguageService().appLanguageVersion,
       builder: (context, version, child) {
@@ -150,10 +146,33 @@ class _HomeState extends State<Home> {
               appBar: AppBar(
             title: const Icon(Icons.home),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () {
-                  UIHelpers.smoothPush(context, const SettingsPage());
+              StreamBuilder<QuerySnapshot>(
+                stream: _authService.incomingFriendRequests,
+                builder: (context, snapshot) {
+                  final bool hasRequests = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.settings),
+                        onPressed: () {
+                          UIHelpers.smoothPush(context, const SettingsPage());
+                        },
+                      ),
+                      if (hasRequests)
+                        Positioned(
+                          right: 11,
+                          top: 11,
+                          child: Container(
+                            width: 9,
+                            height: 9,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
             ],
@@ -163,15 +182,6 @@ class _HomeState extends State<Home> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                StreamBuilder<QuerySnapshot>(
-                  stream: _authService.myActiveMatches,
-                  builder: (context, matchSnapshot) {
-                    if (matchSnapshot.hasData && matchSnapshot.data!.docs.isNotEmpty) {
-                      return _buildActiveMatchBanner(matchSnapshot.data!.docs.first);
-                    }
-                    return const SizedBox.shrink();
-                  }
-                ),
                 Text(
                   quote,
                   style: const TextStyle(
@@ -188,81 +198,269 @@ class _HomeState extends State<Home> {
                   mainAxisSpacing: 18,
                   childAspectRatio: 0.78,
                   children: [
-                    _buildHubCard(
-                      context: context,
-                      categoryTitle: 'Rankings',
-                      accentColor: Colors.orange,
-                      title: 'Leaderboard',
-                      subtitle: 'Global Rank: #42 • Local: #3',
-                      icon: Icons.leaderboard,
-                      onTap: () => UIHelpers.smoothPush(context, const RankingsPage()),
-                      previewContent: Column(
-                        children: [
-                          _buildRankRow('1', 'Sarah J.', '#2'),
-                          _buildRankRow('2', 'Mike L.', '#3'),
-                          _buildRankRow('3', 'You #42', '#42'),
-                        ],
-                      ),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: currentUid != null
+                          ? FirebaseFirestore.instance.collection('users').doc(currentUid).snapshots()
+                          : const Stream.empty(),
+                      builder: (context, userSnap) {
+                        final userData = userSnap.hasData ? userSnap.data!.data() as Map<String, dynamic>? ?? {} : {};
+                        final String? clubId = userData['ownedClubId'] ?? userData['joinedClubId'] ?? userData['selectedClubId'];
+
+                        if (clubId == null || clubId.isEmpty) {
+                          return _buildHubCard(
+                            context: context,
+                            categoryTitle: 'Rankings',
+                            accentColor: Colors.orange,
+                            title: 'Leaderboard',
+                            subtitle: 'Join a club to view rankings',
+                            icon: Icons.leaderboard,
+                            onTap: () => UIHelpers.smoothPush(context, const RankingsPage()),
+                            previewContent: const Text('No club joined', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                          );
+                        }
+
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('clubs')
+                              .doc(clubId)
+                              .collection('members')
+                              .orderBy('points_open_singles', descending: true)
+                              .snapshots(),
+                          builder: (context, membersSnap) {
+                            if (!membersSnap.hasData || membersSnap.data!.docs.isEmpty) {
+                              return _buildHubCard(
+                                context: context,
+                                categoryTitle: 'Rankings',
+                                accentColor: Colors.orange,
+                                title: 'Leaderboard',
+                                subtitle: 'No ranked members yet',
+                                icon: Icons.leaderboard,
+                                onTap: () => UIHelpers.smoothPush(context, const RankingsPage()),
+                                previewContent: const Text('No rankings available', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                              );
+                            }
+
+                            final docs = membersSnap.data!.docs;
+                            int myRank = 1;
+                            int myPoints = 0;
+                            for (int i = 0; i < docs.length; i++) {
+                              final data = docs[i].data() as Map<String, dynamic>;
+                              final uId = data['uid'] ?? docs[i].id;
+                              if (uId == currentUid || docs[i].id == currentUid) {
+                                myRank = i + 1;
+                                myPoints = data['points_open_singles'] ?? 0;
+                                break;
+                              }
+                            }
+
+                            final top3 = docs.take(3).toList();
+
+                            return _buildHubCard(
+                              context: context,
+                              categoryTitle: 'Rankings',
+                              accentColor: Colors.orange,
+                              title: 'Leaderboard',
+                              subtitle: 'Rank: #$myRank • $myPoints pts',
+                              icon: Icons.leaderboard,
+                              onTap: () => UIHelpers.smoothPush(context, const RankingsPage()),
+                              previewContent: Column(
+                                children: top3.asMap().entries.map((entry) {
+                                  int idx = entry.key;
+                                  var doc = entry.value;
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  final name = data['username'] ?? data['displayName'] ?? 'Player';
+                                  final pts = data['points_open_singles'] ?? 0;
+                                  final uId = data['uid'] ?? doc.id;
+                                  final bool isMe = uId == currentUid || doc.id == currentUid;
+                                  return _buildRankRow(
+                                    '${idx + 1}',
+                                    isMe ? '$name (You)' : name,
+                                    '$pts pts',
+                                  );
+                                }).toList(),
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
-                    _buildHubCard(
-                      context: context,
-                      categoryTitle: 'Clubs',
-                      accentColor: Colors.blue,
-                      title: 'Squad Hub',
-                      subtitle: 'Alpha Runners • 50 Active',
-                      icon: Icons.groups,
-                      onTap: () => UIHelpers.smoothPush(context, const ClubsPage()),
-                      previewContent: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'Mike L: Running session at 6pm!\nSarah J: New route unlocked!',
-                          style: TextStyle(fontSize: 11, color: Colors.white70),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: currentUid != null
+                          ? FirebaseFirestore.instance.collection('users').doc(currentUid).snapshots()
+                          : const Stream.empty(),
+                      builder: (context, userSnap) {
+                        final userData = userSnap.hasData ? userSnap.data!.data() as Map<String, dynamic>? ?? {} : {};
+                        final String? clubId = userData['ownedClubId'] ?? userData['joinedClubId'] ?? userData['selectedClubId'];
+
+                        if (clubId == null || clubId.isEmpty) {
+                          return _buildHubCard(
+                            context: context,
+                            categoryTitle: 'Clubs',
+                            accentColor: Colors.blue,
+                            title: 'Clubs',
+                            subtitle: 'No club joined',
+                            icon: Icons.groups,
+                            onTap: () => UIHelpers.smoothPush(context, const ClubsPage()),
+                            previewContent: const Text('Join or create a club', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                          );
+                        }
+
+                        return StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance.collection('clubs').doc(clubId).snapshots(),
+                          builder: (context, clubSnap) {
+                            final clubData = clubSnap.hasData ? clubSnap.data!.data() as Map<String, dynamic>? ?? {} : {};
+                            final clubName = clubData['name'] ?? 'Club';
+                            final clubSport = clubData['sport'] ?? 'Multi-sport';
+
+                            return StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('clubs')
+                                  .doc(clubId)
+                                  .collection('members')
+                                  .snapshots(),
+                              builder: (context, membersSnap) {
+                                final memberCount = membersSnap.hasData ? membersSnap.data!.docs.length : 0;
+
+                                return _buildHubCard(
+                                  context: context,
+                                  categoryTitle: 'Clubs',
+                                  accentColor: Colors.blue,
+                                  title: clubName,
+                                  subtitle: '$memberCount Member(s) • $clubSport',
+                                  icon: Icons.groups,
+                                  onTap: () => UIHelpers.smoothPush(context, const ClubsPage()),
+                                  previewContent: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Text(
+                                      'Tap to manage club & members',
+                                      style: TextStyle(fontSize: 11, color: Colors.white70),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
                     ),
-                    _buildHubCard(
-                      context: context,
-                      categoryTitle: 'Quick Match',
-                      accentColor: Colors.green,
-                      title: 'Instant Match',
-                      subtitle: 'GPS Ready • Finding opponent',
-                      icon: Icons.sports_tennis,
-                      onTap: () => UIHelpers.smoothPush(context, const NewMatch()),
-                      previewContent: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            '3 Nearby Games',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: _authService.myActiveMatches,
+                      builder: (context, matchSnap) {
+                        final bool hasActiveMatch = matchSnap.hasData && matchSnap.data!.docs.isNotEmpty;
+                        return _buildHubCard(
+                          context: context,
+                          categoryTitle: 'Quick Match',
+                          accentColor: Colors.green,
+                          title: hasActiveMatch ? 'Active Match' : 'Instant Match',
+                          subtitle: hasActiveMatch ? 'Match in progress' : 'GPS Ready • Finding opponent',
+                          icon: Icons.sports_tennis,
+                          onTap: () => UIHelpers.smoothPush(context, const NewMatch()),
+                          previewContent: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                hasActiveMatch ? 'Tap to Resume Match' : 'Ready to Play',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                              ),
+                              Icon(hasActiveMatch ? Icons.play_arrow : Icons.explore, color: Colors.greenAccent, size: 22),
+                            ],
                           ),
-                          Icon(Icons.explore, color: Colors.greenAccent, size: 22),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                    _buildHubCard(
-                      context: context,
-                      categoryTitle: 'Tournaments',
-                      accentColor: Colors.redAccent,
-                      title: 'City Cup Finals',
-                      subtitle: '01:14:32 remaining',
-                      icon: Icons.military_tech,
-                      onTap: () => UIHelpers.smoothPush(context, TournamentsPage()),
-                      previewContent: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'QF • SF • Finals',
-                            style: TextStyle(fontSize: 11, color: Colors.white70),
-                          ),
-                          const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
-                        ],
-                      ),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: currentUid != null
+                          ? FirebaseFirestore.instance.collection('users').doc(currentUid).snapshots()
+                          : const Stream.empty(),
+                      builder: (context, userSnap) {
+                        final userData = userSnap.hasData ? userSnap.data!.data() as Map<String, dynamic>? ?? {} : {};
+                        final String? clubId = userData['ownedClubId'] ?? userData['joinedClubId'] ?? userData['selectedClubId'];
+
+                        if (clubId == null || clubId.isEmpty) {
+                          return _buildHubCard(
+                            context: context,
+                            categoryTitle: 'Tournaments',
+                            accentColor: Colors.redAccent,
+                            title: 'Tournaments',
+                            subtitle: 'Join a club to view tournaments',
+                            icon: Icons.military_tech,
+                            onTap: () => UIHelpers.smoothPush(context, TournamentsPage()),
+                            previewContent: const Text('No active tournaments', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                          );
+                        }
+
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('clubs')
+                              .doc(clubId)
+                              .collection('tournaments')
+                              .snapshots(),
+                          builder: (context, tourSnap) {
+                            final tours = tourSnap.hasData ? tourSnap.data!.docs : [];
+                            
+                            var ongoing = <QueryDocumentSnapshot>[];
+                            var upcoming = <QueryDocumentSnapshot>[];
+                            var finished = <QueryDocumentSnapshot>[];
+
+                            for (var doc in tours) {
+                              final d = doc.data() as Map<String, dynamic>;
+                              final status = (d['status'] ?? 'upcoming').toString().toLowerCase();
+                              if (status == 'active' || status == 'playing' || status == 'in_progress') {
+                                ongoing.add(doc);
+                              } else if (status == 'completed' || status == 'finished') {
+                                finished.add(doc);
+                              } else {
+                                upcoming.add(doc);
+                              }
+                            }
+
+                            String title = 'Tournaments';
+                            String subtitle = 'No tournaments';
+                            String previewText = 'Tap to view tournaments';
+
+                            if (ongoing.isNotEmpty) {
+                              final d = ongoing.first.data() as Map<String, dynamic>;
+                              title = d['name'] ?? 'Tournament';
+                              subtitle = 'Live Now';
+                              previewText = '${ongoing.length} Ongoing Tourney(s)';
+                            } else if (upcoming.isNotEmpty) {
+                              final d = upcoming.first.data() as Map<String, dynamic>;
+                              title = d['name'] ?? 'Tournament';
+                              subtitle = 'Upcoming';
+                              previewText = '${upcoming.length} Upcoming Tourney(s)';
+                            } else if (finished.isNotEmpty) {
+                              final d = finished.first.data() as Map<String, dynamic>;
+                              title = d['name'] ?? 'Tournament';
+                              subtitle = 'Finished';
+                              previewText = '${finished.length} Finished Tourney(s)';
+                            }
+
+                            return _buildHubCard(
+                              context: context,
+                              categoryTitle: 'Tournaments',
+                              accentColor: Colors.redAccent,
+                              title: title,
+                              subtitle: subtitle,
+                              icon: Icons.military_tech,
+                              onTap: () => UIHelpers.smoothPush(context, TournamentsPage()),
+                              previewContent: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    previewText,
+                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                  ),
+                                  const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -289,37 +487,14 @@ class _HomeState extends State<Home> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              categoryTitle.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
-                color: accentColor,
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Colors.amber,
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.amber, blurRadius: 4, spreadRadius: 1)],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  'Live',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey),
-                ),
-              ],
-            ),
-          ],
+        Text(
+          categoryTitle.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: accentColor,
+          ),
         ),
         const SizedBox(height: 6),
         Expanded(

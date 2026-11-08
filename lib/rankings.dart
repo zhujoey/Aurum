@@ -208,30 +208,15 @@ class _RankingList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (clubIdFilter != null) {
-      return StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('clubs')
-            .doc(clubIdFilter)
-            .collection('members')
-            .snapshots(),
-        builder: (context, membersSnap) {
-          if (!membersSnap.hasData) return const Center(child: CircularProgressIndicator());
-          final memberUids = membersSnap.data!.docs.map((d) => d.id).toSet();
-
-          return _buildUsersList(context, memberUidsFilter: memberUids);
-        },
-      );
-    } else {
-      return _buildUsersList(context, memberUidsFilter: null);
+    if (clubIdFilter == null) {
+      return const Center(child: Text('Please select a club.', style: TextStyle(color: Colors.grey)));
     }
-  }
 
-  Widget _buildUsersList(BuildContext context, {Set<String>? memberUidsFilter}) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('users')
-          .limit(100)
+          .collection('clubs')
+          .doc(clubIdFilter)
+          .collection('members')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -239,24 +224,21 @@ class _RankingList extends StatelessWidget {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No ranked players found in this category.', style: TextStyle(color: Colors.grey)));
+          return const Center(child: Text('No ranked members found in this club.', style: TextStyle(color: Colors.grey)));
         }
 
-        var users = snapshot.data!.docs;
-
-        if (memberUidsFilter != null) {
-          users = users.where((doc) => memberUidsFilter.contains(doc.id)).toList();
-        }
+        var members = snapshot.data!.docs;
 
         if (filterGender != null) {
-          users = users.where((doc) {
+          members = members.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
-            return data['gender'] == filterGender;
+            final gender = data['gender'] ?? 'Not set';
+            return gender == filterGender;
           }).toList();
         }
 
         // Sort by score descending
-        users.sort((a, b) {
+        members.sort((a, b) {
           final dataA = a.data() as Map<String, dynamic>;
           final dataB = b.data() as Map<String, dynamic>;
           final scoreA = dataA[field] ?? (field.startsWith('glicko') ? (dataA['glickoRating'] ?? dataA['glicko']) : null) ?? defaultVal;
@@ -264,19 +246,19 @@ class _RankingList extends StatelessWidget {
           return scoreB.compareTo(scoreA);
         });
 
-        if (users.isEmpty) {
+        if (members.isEmpty) {
           return const Center(child: Text('No players match this category for this club.', style: TextStyle(color: Colors.grey)));
         }
 
-        // Calculate standard competition ranks (ties share same rank)
-        List<Map<String, dynamic>> rankedUsers = [];
+        List<Map<String, dynamic>> rankedMembers = [];
         int currentRank = 1;
-        for (int i = 0; i < users.length; i++) {
-          final data = users[i].data() as Map<String, dynamic>;
+        for (int i = 0; i < members.length; i++) {
+          final doc = members[i];
+          final data = doc.data() as Map<String, dynamic>;
           final score = data[field] ?? (field.startsWith('glicko') ? (data['glickoRating'] ?? data['glicko']) : null) ?? defaultVal;
 
           if (i > 0) {
-            final prevData = users[i - 1].data() as Map<String, dynamic>;
+            final prevData = members[i - 1].data() as Map<String, dynamic>;
             final prevScore = prevData[field] ?? (field.startsWith('glicko') ? (prevData['glickoRating'] ?? prevData['glicko']) : null) ?? defaultVal;
             if (score != prevScore) {
               currentRank = i + 1;
@@ -285,7 +267,8 @@ class _RankingList extends StatelessWidget {
             currentRank = 1;
           }
 
-          rankedUsers.add({
+          rankedMembers.add({
+            'id': doc.id,
             'data': data,
             'rank': currentRank,
             'score': score,
@@ -294,9 +277,9 @@ class _RankingList extends StatelessWidget {
 
         return ListView.builder(
           padding: const EdgeInsets.all(12.0),
-          itemCount: rankedUsers.length,
+          itemCount: rankedMembers.length,
           itemBuilder: (context, index) {
-            final item = rankedUsers[index];
+            final item = rankedMembers[index];
             final data = item['data'] as Map<String, dynamic>;
             final username = data['username'] ?? data['displayName'] ?? 'Player';
             final score = item['score'];
@@ -311,7 +294,7 @@ class _RankingList extends StatelessWidget {
               rankColor = Colors.brown.shade300;
             }
 
-            final String? uId = item['id'] as String?;
+            final String? uId = data['uid'] ?? item['id'] as String?;
             final photoUrl = data['photoUrl'] as String?;
 
             return Card(
@@ -360,7 +343,7 @@ class _RankingList extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
                 ),
                 onTap: () {
-                  if (uId != null && uId.isNotEmpty) {
+                  if (uId != null && uId.isNotEmpty && !uId.startsWith('member_')) {
                     showUserProfileSheet(
                       context,
                       uid: uId,

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:aurum/auth_service.dart';
 import 'package:aurum/club_requests.dart';
-import 'package:aurum/tournaments.dart';
 import 'package:aurum/language_service.dart';
 import 'package:aurum/widgets/user_avatar.dart';
 import 'package:aurum/widgets/user_profile_sheet.dart';
@@ -304,75 +303,6 @@ class _ClubsPageState extends State<ClubsPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Text(
-            'Tournaments'.tr,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        SizedBox(
-          height: 110,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _authService.getClubTournaments(clubDoc.id),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No active tournaments', style: TextStyle(color: Colors.grey)));
-              }
-              final tournaments = snapshot.data!.docs;
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: tournaments.length,
-                itemBuilder: (context, index) {
-                  final tDoc = tournaments[index];
-                  final t = tDoc.data() as Map<String, dynamic>;
-                  return Card(
-                    child: InkWell(
-                      onTap: () async {
-                        final user = _authService.currentUser;
-                        bool isManager = false;
-                        if (user != null) {
-                          final memberDoc = await FirebaseFirestore.instance
-                              .collection('clubs')
-                              .doc(clubDoc.id)
-                              .collection('members')
-                              .doc(user.uid)
-                              .get();
-                          final role = memberDoc.data()?['role'] ?? 'member';
-                          isManager = role == 'owner' || role == 'manager';
-                        }
-                        if (!context.mounted) return;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TournamentDetailsPage(
-                              clubId: clubDoc.id,
-                              tournamentId: tDoc.id,
-                              isOwnerOrManager: isManager,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 160,
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            const Spacer(),
-                            Text('${(t['sport'] as String? ?? "Sport").tr} • ${t['rankingPoints'] ?? 1000} ${"pts".tr}', style: const TextStyle(color: Colors.blue, fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text(
             'Members'.tr,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
@@ -459,75 +389,6 @@ class _ClubsPageState extends State<ClubsPage> {
                 ],
               ),
             ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text(
-            'Tournaments'.tr,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        SizedBox(
-          height: 110,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _authService.getClubTournaments(clubDoc.id),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No active tournaments', style: TextStyle(color: Colors.grey)));
-              }
-              final tournaments = snapshot.data!.docs;
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: tournaments.length,
-                itemBuilder: (context, index) {
-                  final tDoc = tournaments[index];
-                  final t = tDoc.data() as Map<String, dynamic>;
-                  return Card(
-                    child: InkWell(
-                      onTap: () async {
-                        final user = _authService.currentUser;
-                        bool isManager = false;
-                        if (user != null) {
-                          final memberDoc = await FirebaseFirestore.instance
-                              .collection('clubs')
-                              .doc(clubDoc.id)
-                              .collection('members')
-                              .doc(user.uid)
-                              .get();
-                          final role = memberDoc.data()?['role'] ?? 'member';
-                          isManager = role == 'owner' || role == 'manager';
-                        }
-                        if (!context.mounted) return;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TournamentDetailsPage(
-                              clubId: clubDoc.id,
-                              tournamentId: tDoc.id,
-                              isOwnerOrManager: isManager,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 160,
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(t['name'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            const Spacer(),
-                            Text('${(t['sport'] as String? ?? "Sport").tr} • ${t['rankingPoints'] ?? 1000} ${"pts".tr}', style: const TextStyle(color: Colors.blue, fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
           ),
         ),
         Padding(

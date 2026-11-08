@@ -47,6 +47,7 @@ class AuthService {
       await p.setString('currentSessionId', _currentSessionId!);
     }
     debugPrint("Session: Device ID initialized: $_currentSessionId");
+    Future.microtask(() => performDatabaseCleanupAndMigration());
   }
 
   // Clear session ID (only used for full logout)
@@ -427,7 +428,7 @@ class AuthService {
       batch.delete(_db.collection('users').doc(user.uid));
     } else {
       batch.update(_db.collection('users').doc(user.uid), {
-        'joinedClubId': FieldValue.delete(),
+        'joinedClubIds': FieldValue.arrayRemove([clubId]),
       });
     }
     await batch.commit();
@@ -444,12 +445,12 @@ class AuthService {
     
     for (var doc in membersSnap.docs) {
       final mUid = doc.id;
-      // Delete user doc if local club registered member, otherwise clear joinedClubId for real members
+      // Delete user doc if local club registered member, otherwise clear joinedClubIds for real members
       if (mUid.startsWith('member_')) {
         batch.delete(_db.collection('users').doc(mUid));
       } else if (doc.data()['role'] == 'member') {
         batch.update(_db.collection('users').doc(mUid), {
-          'joinedClubId': FieldValue.delete(),
+          'joinedClubIds': FieldValue.arrayRemove([clubId]),
         });
       }
       // Delete member doc
@@ -1224,27 +1225,36 @@ class AuthService {
     final user = currentUser;
     if (user == null) return;
 
-    // 1. Double check current user isn't in a club
     final userDoc = await _db.collection('users').doc(user.uid).get();
     final userData = userDoc.data();
-    if (userData?['ownedClubId'] != null || userData?['joinedClubId'] != null) {
-      throw 'You cannot join a club while you are an owner or member of another one.';
+    final ownedClubId = userData?['ownedClubId'];
+    final List joinedIds = List.from(userData?['joinedClubIds'] ?? []);
+    if (ownedClubId == clubId || joinedIds.contains(clubId)) {
+      throw 'You are already a member or owner of this club.';
     }
 
-    // 2. Add user to club members
+    String username = user.displayName ?? '';
+    if (username.isEmpty) {
+      username = userData?['username'] ?? 'Unknown';
+    }
+
     await _db.collection('clubs').doc(clubId).collection('members').doc(user.uid).set({
       'uid': user.uid,
-      'username': user.displayName ?? 'Unknown',
+      'username': username,
       'role': 'member',
+      'gender': userData?['gender'] ?? 'Not set',
+      'photoUrl': userData?['photoUrl'],
+      'points_open_singles': 0,
+      'elo_open_singles': 800,
+      'glicko_open_singles': 800,
+      'glicko1_open_singles': 800,
       'joinedAt': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
 
-    // 3. Update user record
     await _db.collection('users').doc(user.uid).update({
-      'joinedClubId': clubId,
+      'joinedClubIds': FieldValue.arrayUnion([clubId]),
     });
 
-    // 4. Update the request status
     await _db.collection('club_requests').doc(requestId).update({
       'status': 'accepted',
     });
@@ -1896,6 +1906,163 @@ class AuthService {
         await doc.reference.delete();
       }
     }
+    await cleanupUnnamedOrOrphanedClubs();
+    await performDatabaseCleanupAndMigration();
+  }
+
+  // Clean up any unnamed or orphaned clubs and their tournaments/subcollections
+  Future<void> cleanupUnnamedOrOrphanedClubs() async {
+    try {
+      final clubsSnap = await _db.collection('clubs').get();
+      for (var clubDoc in clubsSnap.docs) {
+        final data = clubDoc.data();
+        final name = data['name'] as String?;
+        if (name == null || name.trim().isEmpty) {
+          final tournamentsSnap = await clubDoc.reference.collection('tournaments').get();
+          for (var tDoc in tournamentsSnap.docs) {
+            await tDoc.reference.delete();
+          }
+          final membersSnap = await clubDoc.reference.collection('members').get();
+          for (var mDoc in membersSnap.docs) {
+            await mDoc.reference.delete();
+          }
+          await clubDoc.reference.delete();
+          debugPrint("Cleaned up unnamed club: ${clubDoc.id}");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error cleaning up unnamed clubs: $e");
+    }
+  }
+
+  Future<void> performDatabaseCleanupAndMigration() async {
+    try {
+      final clubsSnap = await _db.collection('clubs').get();
+      for (var clubDoc in clubsSnap.docs) {
+        final clubData = clubDoc.data();
+        final clubName = clubData['name'] as String?;
+        
+        if (clubName == null || clubName.trim().isEmpty) {
+          final tSnap = await clubDoc.reference.collection('tournaments').get();
+          for (var t in tSnap.docs) {
+            await t.reference.delete();
+          }
+          final mSnap = await clubDoc.reference.collection('members').get();
+          for (var m in mSnap.docs) {
+            await m.reference.delete();
+          }
+          await clubDoc.reference.delete();
+          debugPrint("Deleted unnamed club: ${clubDoc.id}");
+          continue;
+        }
+
+        final membersSnap = await clubDoc.reference.collection('members').get();
+        for (var mDoc in membersSnap.docs) {
+          final mData = mDoc.data();
+          final mUid = mDoc.id;
+          final username = (mData['username'] ?? '').toString().toLowerCase();
+
+          if (username.contains('jiayi') || username.contains('zhu')) {
+            final userDoc = await _db.collection('users').doc(mUid).get();
+            if (userDoc.exists) {
+              final userData = userDoc.data() ?? {};
+              final ownedId = userData['ownedClubId'];
+              final List joinedIds = List.from(userData['joinedClubIds'] ?? []);
+              final String? singleJoined = userData['joinedClubId'];
+              
+              if (ownedId != clubDoc.id && !joinedIds.contains(clubDoc.id) && singleJoined != clubDoc.id) {
+                await mDoc.reference.delete();
+                debugPrint("Removed stale member $mUid ($username) from club ${clubDoc.id} ($clubName)");
+                continue;
+              }
+            }
+          }
+
+          await mDoc.reference.set({
+            'points_open_singles': mData['points_open_singles'] ?? 0,
+            'elo_open_singles': mData['elo_open_singles'] ?? 800,
+            'glicko_open_singles': mData['glicko_open_singles'] ?? 800,
+            'glicko1_open_singles': mData['glicko1_open_singles'] ?? 800,
+            'wins': mData['wins'] ?? 0,
+            'losses': mData['losses'] ?? 0,
+          }, SetOptions(merge: true));
+        }
+      }
+
+      final usersSnap = await _db.collection('users').get();
+      for (var userDoc in usersSnap.docs) {
+        final userData = userDoc.data();
+        final userId = userDoc.id;
+
+        final Set<String> userClubIds = {};
+        final ownedId = userData['ownedClubId'] as String?;
+        if (ownedId != null && ownedId.isNotEmpty) userClubIds.add(ownedId);
+        final joinedIds = userData['joinedClubIds'] as List? ?? [];
+        for (var jId in joinedIds) {
+          if (jId != null && jId.toString().isNotEmpty) userClubIds.add(jId.toString());
+        }
+        final singleJoined = userData['joinedClubId'] as String?;
+        if (singleJoined != null && singleJoined.isNotEmpty) userClubIds.add(singleJoined);
+
+        final hasGlobalStats = userData.containsKey('points_open_singles') ||
+            userData.containsKey('elo_open_singles') ||
+            userData.containsKey('glicko_open_singles') ||
+            userData.containsKey('wins') ||
+            userData.containsKey('losses');
+
+        if (hasGlobalStats && userClubIds.isNotEmpty) {
+          for (String cId in userClubIds) {
+            final memberRef = _db.collection('clubs').doc(cId).collection('members').doc(userId);
+            final memberDoc = await memberRef.get();
+            
+            Map<String, dynamic> migrationData = {};
+            if (userData.containsKey('points_open_singles')) migrationData['points_open_singles'] = userData['points_open_singles'];
+            if (userData.containsKey('elo_open_singles')) migrationData['elo_open_singles'] = userData['elo_open_singles'];
+            if (userData.containsKey('eloRating')) migrationData['eloRating'] = userData['eloRating'];
+            if (userData.containsKey('glicko_open_singles')) migrationData['glicko_open_singles'] = userData['glicko_open_singles'];
+            if (userData.containsKey('glickoRating')) migrationData['glickoRating'] = userData['glickoRating'];
+            if (userData.containsKey('glicko_rd')) migrationData['glicko_rd'] = userData['glicko_rd'];
+            if (userData.containsKey('glicko_vol')) migrationData['glicko_vol'] = userData['glicko_vol'];
+            if (userData.containsKey('glicko1_open_singles')) migrationData['glicko1_open_singles'] = userData['glicko1_open_singles'];
+            if (userData.containsKey('glicko1_rd')) migrationData['glicko1_rd'] = userData['glicko1_rd'];
+            if (userData.containsKey('wins')) migrationData['wins'] = userData['wins'];
+            if (userData.containsKey('losses')) migrationData['losses'] = userData['losses'];
+
+            if (memberDoc.exists) {
+              await memberRef.set(migrationData, SetOptions(merge: true));
+            } else {
+              await memberRef.set({
+                'uid': userId,
+                'username': userData['username'] ?? userData['displayName'] ?? 'Player',
+                'gender': userData['gender'] ?? 'Not set',
+                'photoUrl': userData['photoUrl'],
+                'role': ownedId == cId ? 'owner' : 'member',
+                ...migrationData,
+              }, SetOptions(merge: true));
+            }
+          }
+        }
+
+        await userDoc.reference.update({
+          'points_open_singles': FieldValue.delete(),
+          'elo_open_singles': FieldValue.delete(),
+          'eloRating': FieldValue.delete(),
+          'glicko_open_singles': FieldValue.delete(),
+          'glickoRating': FieldValue.delete(),
+          'glicko_rd': FieldValue.delete(),
+          'glicko_vol': FieldValue.delete(),
+          'glicko1_open_singles': FieldValue.delete(),
+          'glicko1_rd': FieldValue.delete(),
+          'wins': FieldValue.delete(),
+          'losses': FieldValue.delete(),
+          'joinedClubId': FieldValue.delete(),
+        });
+      }
+
+      debugPrint("Database migration to club-specific stats completed successfully.");
+    } catch (e) {
+      debugPrint("Error in performDatabaseCleanupAndMigration: $e");
+    }
   }
 
   // --- Active Match Tracking ---
@@ -1988,8 +2155,8 @@ class AuthService {
         .collection('matches')
         .doc(matchId);
 
-    final winnerRef = _db.collection('users').doc(winnerUid);
-    final loserRef = _db.collection('users').doc(loserUid);
+    final winnerRef = _db.collection('clubs').doc(clubId).collection('members').doc(winnerUid);
+    final loserRef = _db.collection('clubs').doc(clubId).collection('members').doc(loserUid);
     final tourRef = _db.collection('clubs').doc(clubId).collection('tournaments').doc(tournamentId);
 
     // 1. Parallelize ALL network reads simultaneously
@@ -2349,8 +2516,8 @@ class AuthService {
         }
       }
 
-      final userRef = _db.collection('users').doc(uid);
-      batch.set(userRef, {
+      final memberRef = _db.collection('clubs').doc(clubId).collection('members').doc(uid);
+      batch.set(memberRef, {
         category: FieldValue.increment(pointsToAward),
       }, SetOptions(merge: true));
     }

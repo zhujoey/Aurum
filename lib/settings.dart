@@ -177,15 +177,39 @@ class _SettingsPageState extends State<SettingsPage> {
                   const Divider(),
 
                   // Friends Section
-                  ListTile(
-                    leading: const Icon(Icons.people, color: Colors.blue),
-                    title: Text('Friends'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Manage friends & send requests'.tr),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const FriendsPage()),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: _authService.incomingFriendRequests,
+                    builder: (context, snapshot) {
+                      final bool hasRequests = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+                      return ListTile(
+                        leading: const Icon(Icons.people, color: Colors.blue),
+                        title: Text('Friends'.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Manage friends & send requests'.tr),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (hasRequests)
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${snapshot.data!.docs.length}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const FriendsPage()),
+                          );
+                        },
                       );
                     },
                   ),
