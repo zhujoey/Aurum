@@ -48,6 +48,8 @@
   
   
   
+  <meta name="color-scheme" content="light dark">
+
   <script>
     (function() {
       const saved = localStorage.getItem('flutter.themeMode') || localStorage.getItem('themeMode') || localStorage.getItem('theme');
@@ -86,9 +88,9 @@
     }
 
     html, body {
-      height: 100%;
       margin: 0;
-      background-color: var(--splash-bg);
+      height: 100%;
+      background: var(--splash-bg);
     }
 
     #splash {
@@ -107,11 +109,15 @@
     }
 
     #ring {
+      transform-box: view-box;
       transform-origin: 50px 50px;
       animation: spin 2s linear infinite;
     }
 
     @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
       to {
         transform: rotate(360deg);
       }
