@@ -429,7 +429,7 @@ class _HomeState extends State<Home> {
                               final d = upcoming.first.data() as Map<String, dynamic>;
                               title = d['name'] ?? 'Tournament';
                               subtitle = 'Upcoming';
-                              previewText = '${upcoming.length} Upcoming Tourney(s)';
+                              previewText = '${upcoming.length} Tourney(s)';
                             } else if (finished.isNotEmpty) {
                               final d = finished.first.data() as Map<String, dynamic>;
                               title = d['name'] ?? 'Tournament';
