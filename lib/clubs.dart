@@ -830,95 +830,194 @@ class _ClubsPageState extends State<ClubsPage> {
 
   void _showAddMemberDialog(String clubId, String clubName) {
     final searchController = TextEditingController();
-    List<Map<String, dynamic>> results = [];
-    bool isSearching = false;
+    List<Map<String, dynamic>> allFriends = [];
+    List<Map<String, dynamic>> displayedResults = [];
+    Set<String> existingMemberUids = {};
+    Set<String> invitedUids = {};
+    bool isLoadingFriends = true;
+    bool isSearchingGlobal = false;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          Future<void> search(String query) async {
-            if (query.trim().isEmpty) return;
-            setDialogState(() => isSearching = true);
-            
-            // 1. Search Friends first (Priority)
-            final friendsSnap = await _db
-                .collection('users')
-                .doc(_authService.currentUser?.uid)
-                .collection('friends')
-                .where('username', isEqualTo: query.trim())
-                .get();
-            
-            List<Map<String, dynamic>> combined = [];
-            for (var d in friendsSnap.docs) {
-              final data = d.data();
-              data['isFriend'] = true;
-              data['uid'] = d.id;
-              combined.add(data);
+        builder: (dialogContext, setDialogState) {
+          void loadInitialData() async {
+            final currentUid = _authService.currentUser?.uid;
+            if (currentUid == null) return;
+
+            try {
+              final results = await Future.wait([
+                _db.collection('clubs').doc(clubId).collection('members').get(),
+                _db.collection('users').doc(currentUid).collection('friends').get(),
+              ]);
+
+              final memberDocs = (results[0] as QuerySnapshot).docs;
+              final friendDocs = (results[1] as QuerySnapshot).docs;
+
+              existingMemberUids = memberDocs.map((d) => d.id).toSet();
+
+              List<Map<String, dynamic>> loadedFriends = [];
+              for (var d in friendDocs) {
+                final data = d.data() as Map<String, dynamic>;
+                final uid = d.id;
+                loadedFriends.add({
+                  'uid': uid,
+                  'username': data['username'] ?? 'User',
+                  'photoUrl': data['photoUrl'],
+                  'isFriend': true,
+                  'isAlreadyMember': existingMemberUids.contains(uid),
+                });
+              }
+
+              loadedFriends.sort((a, b) {
+                final aMember = a['isAlreadyMember'] == true ? 1 : 0;
+                final bMember = b['isAlreadyMember'] == true ? 1 : 0;
+                if (aMember != bMember) return aMember.compareTo(bMember);
+                return (a['username'] as String).toLowerCase().compareTo((b['username'] as String).toLowerCase());
+              });
+
+              if (dialogContext.mounted) {
+                setDialogState(() {
+                  allFriends = loadedFriends;
+                  displayedResults = loadedFriends;
+                  isLoadingFriends = false;
+                });
+              }
+            } catch (e) {
+              if (dialogContext.mounted) {
+                setDialogState(() => isLoadingFriends = false);
+              }
+            }
+          }
+
+          if (isLoadingFriends && allFriends.isEmpty) {
+            loadInitialData();
+          }
+
+          Future<void> filterOrSearch(String query) async {
+            final trimmed = query.trim();
+            if (trimmed.isEmpty) {
+              setDialogState(() {
+                displayedResults = allFriends;
+                isSearchingGlobal = false;
+              });
+              return;
             }
 
-            // 2. Search Global if no friend found
-            if (combined.isEmpty) {
-              final globalSnap = await _db
-                  .collection('users')
-                  .where('username_search', isEqualTo: query.trim().toLowerCase())
-                  .limit(1)
-                  .get();
-              
-              for (var d in globalSnap.docs) {
-                if (d.id != _authService.currentUser?.uid) {
-                  final data = d.data();
-                  data['isFriend'] = false;
-                  data['uid'] = d.id;
-                  combined.add(data);
-                }
+            setDialogState(() => isSearchingGlobal = true);
+
+            final matchedFriends = allFriends.where((f) {
+              final uname = (f['username'] as String? ?? '').toLowerCase();
+              return uname.contains(trimmed.toLowerCase());
+            }).toList();
+
+            final globalSnap = await _db
+                .collection('users')
+                .where('username_search', isEqualTo: trimmed.toLowerCase())
+                .limit(5)
+                .get();
+
+            List<Map<String, dynamic>> combined = List.from(matchedFriends);
+            final friendUids = allFriends.map((f) => f['uid']).toSet();
+
+            for (var d in globalSnap.docs) {
+              if (d.id != _authService.currentUser?.uid && !friendUids.contains(d.id)) {
+                final data = d.data();
+                combined.add({
+                  'uid': d.id,
+                  'username': data['username'] ?? 'User',
+                  'photoUrl': data['photoUrl'],
+                  'isFriend': false,
+                  'isAlreadyMember': existingMemberUids.contains(d.id),
+                });
               }
             }
 
-            setDialogState(() {
-              results = combined;
-              isSearching = false;
-            });
+            if (dialogContext.mounted) {
+              setDialogState(() {
+                displayedResults = combined;
+                isSearchingGlobal = false;
+              });
+            }
           }
 
           return AlertDialog(
             insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            title: Text('Invite Member'.tr),
+            title: Row(
+              children: [
+                const Icon(Icons.person_add_alt_1, color: Color(0xFF10B981)),
+                const SizedBox(width: 8),
+                Text('Invite Member'.tr),
+              ],
+            ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: 380,
+              width: MediaQuery.of(dialogContext).size.width * 0.9,
+              height: 420,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: searchController,
                     decoration: InputDecoration(
-                      labelText: 'Search Username'.tr,
-                      hintText: 'Enter exact username'.tr,
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: () => search(searchController.text),
+                      labelText: 'Search Friends or Username'.tr,
+                      hintText: 'Type to filter or find user'.tr,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                searchController.clear();
+                                filterOrSearch('');
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (q) => filterOrSearch(q),
+                    onSubmitted: (q) => filterOrSearch(q),
+                  ),
+                  const SizedBox(height: 12),
+                  if (searchController.text.trim().isEmpty && !isLoadingFriends)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        'Your Friends (${allFriends.length})'.tr,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(dialogContext).colorScheme.primary,
+                        ),
                       ),
                     ),
-                    onSubmitted: (query) => search(query),
-                  ),
-                  const SizedBox(height: 16),
-                  if (isSearching)
-                    const Center(child: CircularProgressIndicator())
-                  else if (results.isEmpty)
-                    Center(child: Text('Search by exact username above.'.tr))
+                  if (isLoadingFriends || isSearchingGlobal)
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (displayedResults.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          searchController.text.isEmpty
+                              ? 'No friends found. Search username above to find users.'.tr
+                              : 'No users found matching "${searchController.text.trim()}".'.tr,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
                   else
                     Expanded(
                       child: ListView.builder(
-                        itemCount: results.length,
+                        itemCount: displayedResults.length,
                         itemBuilder: (context, index) {
-                          final item = results[index];
-                          final targetUid = item['uid'];
+                          final item = displayedResults[index];
+                          final targetUid = item['uid'] as String?;
                           final targetUsername = item['username'] ?? 'User';
                           final isFriend = item['isFriend'] ?? false;
+                          final isAlreadyMember = item['isAlreadyMember'] ?? false;
+                          final isInvited = invitedUids.contains(targetUid);
 
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                             leading: UserAvatar(
                               photoUrl: item['photoUrl'],
                               uid: targetUid,
@@ -927,47 +1026,76 @@ class _ClubsPageState extends State<ClubsPage> {
                             title: Text(
                               targetUsername,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            subtitle: Text(isFriend ? 'Friend'.tr : 'User'.tr),
+                            subtitle: Text(
+                              isAlreadyMember
+                                  ? 'Already a member'.tr
+                                  : (isFriend ? 'Friend'.tr : 'User'.tr),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isAlreadyMember ? Colors.grey : null,
+                              ),
+                            ),
                             onTap: () {
                               if (targetUid != null) {
                                 showUserProfileSheet(
-                                  context,
+                                  dialogContext,
                                   uid: targetUid,
                                   username: targetUsername,
                                   photoUrl: item['photoUrl'],
                                 );
                               }
                             },
-                            trailing: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              onPressed: () async {
-                                try {
-                                  await _authService.sendClubJoinRequest(
-                                    clubId,
-                                    clubName,
-                                    targetUid,
-                                    targetUsername,
-                                  );
-                                  if (context.mounted) {
-                                    Navigator.pop(context);
-                                    _showAppSnackBar(context, 
-                                      SnackBar(content: Text('${"Invitation sent to".tr} $targetUsername!')),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    _showAppSnackBar(context, SnackBar(content: Text('$e')));
-                                  }
-                                }
-                              },
-                              child: Text('Invite'.tr),
-                            ),
+                            trailing: isAlreadyMember
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Member'.tr,
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                  )
+                                : ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      visualDensity: VisualDensity.compact,
+                                      backgroundColor: isInvited ? Colors.grey : null,
+                                    ),
+                                    onPressed: isInvited || targetUid == null
+                                        ? null
+                                        : () async {
+                                            try {
+                                              await _authService.sendClubJoinRequest(
+                                                clubId,
+                                                clubName,
+                                                targetUid,
+                                                targetUsername,
+                                              );
+                                              setDialogState(() {
+                                                invitedUids.add(targetUid);
+                                              });
+                                              if (dialogContext.mounted) {
+                                                _showAppSnackBar(
+                                                  dialogContext,
+                                                  SnackBar(content: Text('${"Invitation sent to".tr} $targetUsername!')),
+                                                );
+                                              }
+                                            } catch (e) {
+                                              if (dialogContext.mounted) {
+                                                _showAppSnackBar(
+                                                  dialogContext,
+                                                  SnackBar(content: Text('$e')),
+                                                );
+                                              }
+                                            }
+                                          },
+                                    child: Text(isInvited ? 'Invited'.tr : 'Invite'.tr),
+                                  ),
                           );
                         },
                       ),
@@ -977,8 +1105,8 @@ class _ClubsPageState extends State<ClubsPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'.tr),
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text('Close'.tr),
               ),
             ],
           );

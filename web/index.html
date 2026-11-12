@@ -125,14 +125,34 @@
   </style>
   <script id="splash-screen-script">
     function removeSplashFromWeb() {
-      document.getElementById("splash")?.remove();
+      const splash = document.getElementById("splash");
+      if (splash) {
+        splash.remove();
+      }
       document.getElementById("splash-branding")?.remove();
       document.body.style.background = "transparent";
     }
 
-    window.addEventListener('flutter-first-frame', () => {
-      removeSplashFromWeb();
-    });
+    window.addEventListener('flutter-first-frame', removeSplashFromWeb);
+
+    // Automatically remove splash screen when Flutter UI mounts in the DOM
+    if (typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver((mutations, obs) => {
+        if (document.querySelector('flutter-view, flt-glass-pane, flt-scene-host')) {
+          removeSplashFromWeb();
+          obs.disconnect();
+        }
+      });
+      document.addEventListener('DOMContentLoaded', () => {
+        observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+      });
+      if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+    }
+
+    // Safety fallback timer so splash screen never blocks the app
+    setTimeout(removeSplashFromWeb, 2500);
   </script>
 </head>
 <body>
