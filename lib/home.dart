@@ -424,17 +424,20 @@ class _HomeState extends State<Home> {
                               final d = ongoing.first.data() as Map<String, dynamic>;
                               title = d['name'] ?? 'Tournament';
                               subtitle = 'Live Now';
-                              previewText = '${ongoing.length} Ongoing Tourney(s)';
+                              final count = ongoing.length;
+                              previewText = '$count ${count == 1 ? 'Tournament' : 'Tournaments'}';
                             } else if (upcoming.isNotEmpty) {
                               final d = upcoming.first.data() as Map<String, dynamic>;
                               title = d['name'] ?? 'Tournament';
                               subtitle = 'Upcoming';
-                              previewText = '${upcoming.length} Tourney(s)';
+                              final count = upcoming.length;
+                              previewText = '$count ${count == 1 ? 'Tournament' : 'Tournaments'}';
                             } else if (finished.isNotEmpty) {
                               final d = finished.first.data() as Map<String, dynamic>;
                               title = d['name'] ?? 'Tournament';
                               subtitle = 'Finished';
-                              previewText = '${finished.length} Finished Tourney(s)';
+                              final count = finished.length;
+                              previewText = '$count ${count == 1 ? 'Tournament' : 'Tournaments'}';
                             }
 
                             return _buildHubCard(
