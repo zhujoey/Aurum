@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:aurum/firebase_options.dart';
@@ -93,16 +92,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         LanguageService().appLanguageVersion,
         ThemeService().themeMode,
         ThemeService().seedColor,
-        ThemeService().useTrueDark,
       ]),
       builder: (context, child) {
         final locale = LanguageService().currentLocale.value;
         final mode = ThemeService().themeMode.value;
         final color = ThemeService().seedColor.value;
-        final trueDark = ThemeService().useTrueDark.value;
-
-        final darkBg = trueDark ? Colors.black : const Color(0xFF0F172A);
-        final darkSurface = trueDark ? const Color(0xFF121212) : const Color(0xFF1E293B);
 
         return MaterialApp(
           title: 'Aurum'.tr,
@@ -114,15 +108,34 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               seedColor: color,
               brightness: Brightness.light,
               surface: Colors.white,
+              surfaceContainer: Colors.white,
+              surfaceContainerLow: Colors.white,
+              surfaceContainerHigh: Colors.white,
+              surfaceContainerHighest: Colors.white,
             ),
             scaffoldBackgroundColor: Colors.white,
             cardColor: Colors.white,
+            cardTheme: const CardThemeData(
+              color: Colors.white,
+              surfaceTintColor: Colors.transparent,
+            ),
             appBarTheme: const AppBarTheme(
               backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
             ),
-            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
-            pageTransitionsTheme: PageTransitionsTheme(
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+            ),
+            bottomSheetTheme: const BottomSheetThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+            ),
+            drawerTheme: const DrawerThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
               builders: {
                 TargetPlatform.android: CupertinoPageTransitionsBuilder(),
                 TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
@@ -137,16 +150,35 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             colorScheme: ColorScheme.fromSeed(
               seedColor: color,
               brightness: Brightness.dark,
-              surface: darkSurface,
+              surface: Colors.black,
+              surfaceContainer: Colors.black,
+              surfaceContainerLow: Colors.black,
+              surfaceContainerHigh: Colors.black,
+              surfaceContainerHighest: Colors.black,
             ),
-            scaffoldBackgroundColor: darkBg,
-            cardColor: darkSurface,
-            appBarTheme: AppBarTheme(
-              backgroundColor: darkBg,
-              surfaceTintColor: darkBg,
+            scaffoldBackgroundColor: Colors.black,
+            cardColor: Colors.black,
+            cardTheme: const CardThemeData(
+              color: Colors.black,
+              surfaceTintColor: Colors.transparent,
             ),
-            dialogTheme: DialogThemeData(backgroundColor: darkSurface),
-            pageTransitionsTheme: PageTransitionsTheme(
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.black,
+              surfaceTintColor: Colors.transparent,
+            ),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.black,
+              surfaceTintColor: Colors.transparent,
+            ),
+            bottomSheetTheme: const BottomSheetThemeData(
+              backgroundColor: Colors.black,
+              surfaceTintColor: Colors.transparent,
+            ),
+            drawerTheme: const DrawerThemeData(
+              backgroundColor: Colors.black,
+              surfaceTintColor: Colors.transparent,
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
               builders: {
                 TargetPlatform.android: CupertinoPageTransitionsBuilder(),
                 TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
